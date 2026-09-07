@@ -72,6 +72,8 @@ export interface Config {
     media: Media;
     categories: Category;
     users: User;
+    'offer-requests': OfferRequest;
+    'offer-events': OfferEvent;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -94,6 +96,8 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'offer-requests': OfferRequestsSelect<false> | OfferRequestsSelect<true>;
+    'offer-events': OfferEventsSelect<false> | OfferEventsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -203,18 +207,7 @@ export interface Page {
       | null;
     media?: (string | null) | Media;
   };
-  layout: (
-    | CallToActionBlock
-    | ContentBlock
-    | {
-        media: string | Media;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'mediaBlock';
-      }
-    | ArchiveBlock
-    | FormBlock
-  )[];
+  layout: (CallToActionBlock | ContentBlock | MediaBlock | ArchiveBlock | FormBlock)[];
   meta?: {
     title?: string | null;
     /**
@@ -482,6 +475,11 @@ export interface Category {
 export interface User {
   id: string;
   name?: string | null;
+  roles: ('dev' | 'admin' | 'user')[];
+  /**
+   * Prevent dev "view as" from emulating this account.
+   */
+  emulationBlocked?: boolean | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -598,6 +596,16 @@ export interface ContentBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'content';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MediaBlock".
+ */
+export interface MediaBlock {
+  media: string | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'mediaBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -776,9 +784,6 @@ export interface Form {
       )[]
     | null;
   submitButtonLabel?: string | null;
-  /**
-   * Choose whether to display an on-page message or redirect to a different page after they submit the form.
-   */
   confirmationType?: ('message' | 'redirect') | null;
   confirmationMessage?: {
     root: {
@@ -798,9 +803,6 @@ export interface Form {
   redirect?: {
     url: string;
   };
-  /**
-   * Send custom emails when the form submits. Use comma separated lists to send the same email to multiple recipients. To reference a value from this form, wrap that field's name with double curly brackets, i.e. {{firstName}}. You can use a wildcard {{*}} to output all data and {{*:table}} to format it as an HTML table in the email.
-   */
   emails?:
     | {
         emailTo?: string | null;
@@ -809,9 +811,6 @@ export interface Form {
         replyTo?: string | null;
         emailFrom?: string | null;
         subject: string;
-        /**
-         * Enter the message that should be sent in this email.
-         */
         message?: {
           root: {
             type: string;
@@ -830,6 +829,96 @@ export interface Form {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Owned by the Offer Manager app at "/" — edit there, not here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "offer-requests".
+ */
+export interface OfferRequest {
+  id: string;
+  /**
+   * Denormalized from data.employeeName.
+   */
+  employeeName?: string | null;
+  status: 'complete' | 'draft';
+  /**
+   * Absent = pipeline (frozen record shape).
+   */
+  stage?: ('pipeline' | 'hired' | 'archived') | null;
+  created: string;
+  updated: string;
+  data: {
+    [k: string]: string;
+  };
+  letter?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  letterHtml?: string | null;
+  letterStale?: boolean | null;
+  pos?: number | null;
+  assignments?:
+    | {
+        user: string | User;
+        role?: ('recruiter' | 'hiring-manager' | 'hr' | 'approver' | 'observer') | null;
+        /**
+         * Free-text role when none of the presets fit.
+         */
+        roleOther?: string | null;
+        assignedAt?: string | null;
+        assignedBy?: (string | null) | User;
+        id?: string | null;
+      }[]
+    | null;
+  assignedUsers?: (string | User)[] | null;
+  createdBy?: (string | null) | User;
+  updatedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Change history — written automatically, never by hand.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "offer-events".
+ */
+export interface OfferEvent {
+  id: string;
+  offerId: string;
+  offerTitle?: string | null;
+  kind:
+    | 'created'
+    | 'field-edit'
+    | 'stage-change'
+    | 'letter-updated'
+    | 'assigned'
+    | 'unassigned'
+    | 'assignment-role-change'
+    | 'deleted';
+  actor?: (string | null) | User;
+  summary?: string | null;
+  changes?:
+    | {
+        field: string;
+        label?: string | null;
+        from?: string | null;
+        to?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  targetUser?: (string | null) | User;
+  targetRole?: string | null;
+  windowEndsAt?: string | null;
+  editCount?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1042,6 +1131,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: string | User;
+      } | null)
+    | ({
+        relationTo: 'offer-requests';
+        value: string | OfferRequest;
+      } | null)
+    | ({
+        relationTo: 'offer-events';
+        value: string | OfferEvent;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -1389,6 +1486,8 @@ export interface CategoriesSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  roles?: T;
+  emulationBlocked?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -1405,6 +1504,64 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "offer-requests_select".
+ */
+export interface OfferRequestsSelect<T extends boolean = true> {
+  id?: T;
+  employeeName?: T;
+  status?: T;
+  stage?: T;
+  created?: T;
+  updated?: T;
+  data?: T;
+  letter?: T;
+  letterHtml?: T;
+  letterStale?: T;
+  pos?: T;
+  assignments?:
+    | T
+    | {
+        user?: T;
+        role?: T;
+        roleOther?: T;
+        assignedAt?: T;
+        assignedBy?: T;
+        id?: T;
+      };
+  assignedUsers?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "offer-events_select".
+ */
+export interface OfferEventsSelect<T extends boolean = true> {
+  offerId?: T;
+  offerTitle?: T;
+  kind?: T;
+  actor?: T;
+  summary?: T;
+  changes?:
+    | T
+    | {
+        field?: T;
+        label?: T;
+        from?: T;
+        to?: T;
+        id?: T;
+      };
+  targetUser?: T;
+  targetRole?: T;
+  windowEndsAt?: T;
+  editCount?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1875,16 +2032,6 @@ export interface TaskSchedulePublish {
     user?: (string | null) | User;
   };
   output?: unknown;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "MediaBlock".
- */
-export interface MediaBlock {
-  media: string | Media;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'mediaBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

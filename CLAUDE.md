@@ -67,10 +67,10 @@ once via `dangerouslySetInnerHTML`; never re-render it while the user types).
 
 ## Data & persistence
 
-**Draft-1 storage is browser localStorage** — per-device, no server. Keys are
-FROZEN for backward compat with the original app's backups:
-`onhr_records_v121` (records), `onhr_email_client`, `onhr_imported_sids`,
-`onhr_inbox`. Record shape (also frozen):
+**Records live in Payload (Mongo/Atlas) in the `offer-requests` collection**
+behind ONE route handler, `/api/offer-records` (the collection sets
+`endpoints: false`, so Payload's generated REST for it is closed). The frozen
+record shape (unchanged):
 
 ```ts
 { id, data: Record<fieldId, string>, status: 'complete'|'draft',
@@ -78,11 +78,40 @@ FROZEN for backward compat with the original app's backups:
   letter?, letterHtml?, letterStale? }
 ```
 
-**To move to the database later:** replace the internals of
-`src/lib/offers/storage.ts` (`loadRecords`/`persistRecords`) with Payload
-Local API calls against an `offer-requests` collection. Nothing else should
-need to change. Mongo (Atlas) is already wired for the CMS via
-`DATABASE_URL`.
+- The client's `r…` `uid()` is the literal Mongo `_id` (custom text id field).
+- `data` is an untyped `json` field ON PURPOSE — `src/lib/offers/schema.ts`
+  stays the single source of truth; adding a question needs NO Payload change.
+- The seam is still `loadRecords()`/`persistRecords(all)` in
+  `src/lib/offers/storage.ts`, now async: it diffs against a client-side
+  snapshot and POSTs only `{upsert, reorder, remove}`. `pos` preserves the
+  frozen "array order = display order" behavior. Deletes are computed ONLY
+  from this client's own snapshot — never treat "absent from a posted list"
+  as a delete server-side.
+- `toOfferRecord`/`toOfferDoc` (`src/lib/offers/payload-doc.ts`) must stay a
+  byte-stable round trip (tested) — LetterView's `letterSig` compares JSON.
+- Still localStorage (frozen keys): `onhr_email_client` (read in sync click
+  handlers before `window.open` — cannot go async), `onhr_imported_sids`,
+  `onhr_inbox` (written by the external intake page; the 2.5s poller drains
+  it). `onhr_records_v121` is read once to migrate old data up to the server.
+
+**Auth & dashboard:** the app at `/` is login-gated (`(app)/(authed)` layout;
+`/login` posts to Payload's `/api/users/login`). `users.roles` =
+`dev | admin | user`; the FIRST user ever created gets all roles (bootstrap
+hook). `admin` and `dev` carry IDENTICAL permissions (view-as, user
+management); `user` is everyone else. `src/lib/auth/viewer.ts` resolves
+`{ actor, viewer }` — an admin/dev can
+"view as" another user via the `awm-emulate` cookie; emulation is READ-ONLY
+(write routes reject it) and all reads run
+`{ user: viewer, overrideAccess: false }` so real access control applies.
+
+**History & assignments:** every change to an offer is audited into
+`offer-events` by `afterChange` hooks on `offer-requests` — field edits and
+letter churn are COALESCED into a rolling 10-min window per actor (never one
+event per autosave); assignment/stage events are atomic. Versions are OFF on
+purpose (no actor, snapshot-per-autosave, letterHtml bloat). `/offers/[id]`
+is the per-offer page: LetterView + a client-fetched sidebar
+(`/api/offer-timeline`) — the sidebar must NEVER trigger a server re-render
+of the letter island.
 
 ## Commands
 

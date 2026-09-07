@@ -26,6 +26,7 @@ import {
   loadRecords,
   markImported,
   persistRecords,
+  persistRecordsUpsertOnly,
   readAndClearInbox,
 } from '@/lib/offers/storage'
 import type {
@@ -63,41 +64,72 @@ function scrollTop(): void {
   if (typeof window !== 'undefined') window.scrollTo({ top: 0 })
 }
 
-export function OffersProvider({ children }: { children: React.ReactNode }) {
-  const [records, setRecords] = useState<OfferRecord[]>([])
-  const [currentId, setCurrentId] = useState<string | null>(null)
-  const [view, setView] = useState<View>('pipeline')
+export interface OffersProviderProps {
+  children: React.ReactNode
+  /** Server-fetched seed for the standalone /offers/[id] page. */
+  initialRecords?: OfferRecord[]
+  initialCurrentId?: string | null
+  /**
+   * Single-record mode (the /offers/[id] page): no server hydrate on mount, no
+   * intake poller, no `#rec=` import, and UPSERT-ONLY persistence — a one-record
+   * view of the world must never compute removals or list positions.
+   */
+  standalone?: boolean
+}
+
+export function OffersProvider({
+  children,
+  initialRecords,
+  initialCurrentId,
+  standalone,
+}: OffersProviderProps) {
+  const [records, setRecords] = useState<OfferRecord[]>(initialRecords ?? [])
+  const [currentId, setCurrentId] = useState<string | null>(initialCurrentId ?? null)
+  const [view, setView] = useState<View>(standalone ? 'editor' : 'pipeline')
   const [sub, setSub] = useState<EditorSub>('letter')
   const [toastState, setToastState] = useState<ToastState | null>(null)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
   // Mirrors of the state that mutators read synchronously, so a handler never
   // works from a stale closure.
-  const recordsRef = useRef<OfferRecord[]>([])
-  const currentIdRef = useRef<string | null>(null)
+  const recordsRef = useRef<OfferRecord[]>(initialRecords ?? [])
+  const currentIdRef = useRef<string | null>(initialCurrentId ?? null)
   /** The mounted form's debounced-autosave flush (S2 670 / 680 `if(dirty)commitCurrent(true)`). */
   const pendingFlushRef = useRef<(() => void) | null>(null)
 
-  // Records hydrate here, never during SSR render — localStorage does not exist
-  // on the server and an initial mismatch would break hydration.
+  // Records hydrate here, never during SSR render. `loadRecords` is async now
+  // (it fetches from Payload); anything the user created before the fetch
+  // resolved is kept and the server list merged in behind it.
   useEffect(() => {
-    const loaded = loadRecords()
-    recordsRef.current = loaded
-    setRecords(loaded)
-  }, [])
+    if (standalone) return
+    let cancelled = false
+    void loadRecords().then((loaded) => {
+      if (cancelled || !loaded.length) return
+      const have = new Set(recordsRef.current.map((r) => r.id))
+      const merged = [...recordsRef.current, ...loaded.filter((r) => !have.has(r.id))]
+      recordsRef.current = merged
+      setRecords(merged)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [standalone])
 
   const toast = useCallback((msg: string, err?: boolean) => {
     setToastState({ msg, err: Boolean(err) })
   }, [])
 
-  /** The single write path: state + localStorage, together. */
+  /** The single write path: optimistic state first, then the server persist. */
   const commit = useCallback(
     (next: OfferRecord[]) => {
       recordsRef.current = next
       setRecords(next)
-      if (!persistRecords(next)) toast('Could not save to browser storage.', true)
+      const persist = standalone ? persistRecordsUpsertOnly : persistRecords
+      void persist(next).then((ok) => {
+        if (!ok) toast('Could not save to the server — will retry on the next change.', true)
+      })
     },
-    [toast],
+    [standalone, toast],
   )
 
   const setCurrent = useCallback((id: string | null) => {
@@ -355,6 +387,7 @@ export function OffersProvider({ children }: { children: React.ReactNode }) {
   // another tab writes it. `readAndClearInbox` clears storage as it reads, so the
   // drained rows must be committed immediately — `addRecords` persists synchronously.
   useEffect(() => {
+    if (standalone) return
     const drain = (): void => {
       const n = addSubmissions(readAndClearInbox())
       if (n) toast(n + ' new request' + (n !== 1 ? 's' : '') + ' synced from the intake form.')
@@ -369,10 +402,11 @@ export function OffersProvider({ children }: { children: React.ReactNode }) {
       window.clearInterval(timer)
       window.removeEventListener('storage', onStorage)
     }
-  }, [addSubmissions, toast])
+  }, [addSubmissions, standalone, toast])
 
   // S3 772 — a prefilled `#rec=…` link imports once, then the hash is cleaned up.
   useEffect(() => {
+    if (standalone) return
     const m = (window.location.hash || '').match(/rec=([A-Za-z0-9_-]+)/)
     if (!m) return
     const sub = parseIntakeCode(m[1])
@@ -392,7 +426,7 @@ export function OffersProvider({ children }: { children: React.ReactNode }) {
         ? 'Imported ' + (sub.data.employeeName || 'request') + '.'
         : 'That request was already imported.',
     )
-  }, [addSubmissions, toast])
+  }, [addSubmissions, standalone, toast])
 
   const api = useMemo<OffersApi>(
     () => ({

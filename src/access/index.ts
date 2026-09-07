@@ -1,3 +1,5 @@
 export { anyone } from './anyone'
 export { authenticated } from './authenticated'
 export { authenticatedOrPublished } from './authenticatedOrPublished'
+export { adminOrDev, adminOrDevFieldAccess, hasRole, selfOrAdminOrDev } from './roles'
+export type { Role } from './roles'

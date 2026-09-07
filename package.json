@@ -73,6 +73,7 @@
     "@types/node": "22.5.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
     "eslint-config-next": "15.4.11",
     "playwright": "1.62.1",
