@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Public_Sans } from 'next/font/google'
+import { Public_Sans, Source_Serif_4 } from 'next/font/google'
 import React from 'react'
 
 import '../shell.css'
@@ -17,6 +17,16 @@ const publicSans = Public_Sans({
   variable: '--font-awm',
 })
 
+// Source Serif 4 — used in exactly two places (the sign-in title, the hub
+// greeting) as a deliberate echo of the logo's own classical serif wordmark.
+// Everything else in the hub stays Public Sans; this is not a general text face.
+const sourceSerif = Source_Serif_4({
+  subsets: ['latin'],
+  weight: ['600'],
+  display: 'swap',
+  variable: '--font-serif',
+})
+
 export const metadata: Metadata = {
   title: 'AWM Internal',
   robots: { index: false, follow: false },
@@ -24,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={publicSans.variable}>
+    <html lang="en" className={`${publicSans.variable} ${sourceSerif.variable}`}>
       <body className={publicSans.className}>{children}</body>
     </html>
   )

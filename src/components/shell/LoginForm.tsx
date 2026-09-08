@@ -165,15 +165,23 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
 
   return (
     <main className="signin">
+      <div className="signin-mesh" aria-hidden="true">
+        <span className="signin-blob signin-blob-a" />
+        <span className="signin-blob signin-blob-b" />
+        <span className="signin-blob signin-blob-c" />
+      </div>
+
       <div className="signin-inner">
-        <Image
-          className="signin-mark"
-          src="/brand/awm-logo.png"
-          alt="All Western Mortgage"
-          width={200}
-          height={200}
-          priority
-        />
+        <span className="signin-mark-wrap">
+          <Image
+            className="signin-mark"
+            src="/brand/awm-logo.png"
+            alt="All Western Mortgage"
+            width={200}
+            height={200}
+            priority
+          />
+        </span>
 
         <h1 className="signin-title">Sign in</h1>
         <p className="signin-lede">
@@ -191,11 +199,15 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
                 onClick={() => void signInWithPasskey()}
                 disabled={busy !== null}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="signin-key">
-                  <circle cx="9" cy="8" r="4" />
-                  <path d="M9 13c-3.3 0-6 2.2-6 5v1h9" />
-                  <path d="M20 11.5a2.5 2.5 0 1 0-4 2v5.5l1.5 1.5 1.5-1.5-1-1 1-1-1-1 1-1v-1.5a2.5 2.5 0 0 0 1-2z" />
-                </svg>
+                {busy === 'passkey' ? (
+                  <span className="signin-spinner" aria-hidden="true" />
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="signin-key">
+                    <circle cx="9" cy="8" r="4" />
+                    <path d="M9 13c-3.3 0-6 2.2-6 5v1h9" />
+                    <path d="M20 11.5a2.5 2.5 0 1 0-4 2v5.5l1.5 1.5 1.5-1.5-1-1 1-1-1-1 1-1v-1.5a2.5 2.5 0 0 0 1-2z" />
+                  </svg>
+                )}
                 {busy === 'passkey' ? 'Waiting for your device…' : 'Sign in with a passkey'}
               </button>
 
@@ -237,6 +249,7 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
             )}
 
             <button className="signin-submit" type="submit" disabled={busy !== null}>
+              {busy === 'password' && <span className="signin-spinner" aria-hidden="true" />}
               {busy === 'password' ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
@@ -254,14 +267,20 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
         aria-hidden="true"
         focusable="false"
       >
-        <path d="M0,168 C400,44 1010,18 1440,74 L1440,320 L0,320 Z" fill="var(--awm-blue-deep)" />
         <path
-          d="M0,168 C400,44 1010,18 1440,74"
-          fill="none"
-          stroke="var(--awm-blue)"
-          strokeWidth="2.5"
-          vectorEffect="non-scaling-stroke"
+          className="signin-horizon-far"
+          d="M0,190 C420,80 1000,50 1440,96 L1440,320 L0,320 Z"
         />
+        <path
+          className="signin-horizon-mid"
+          d="M0,178 C410,60 1005,32 1440,84 L1440,320 L0,320 Z"
+        />
+        <ellipse className="signin-horizon-glow" cx="1080" cy="60" rx="260" ry="140" />
+        <path
+          className="signin-horizon-near"
+          d="M0,168 C400,44 1010,18 1440,74 L1440,320 L0,320 Z"
+        />
+        <path className="signin-horizon-line" d="M0,168 C400,44 1010,18 1440,74" />
       </svg>
     </main>
   )

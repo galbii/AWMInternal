@@ -91,7 +91,7 @@ test.describe('Offer & New Hire Request Manager @ /offers', () => {
 test.describe('App hub @ /', () => {
   test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
 
-  test('renders an app card linking to /offers', async ({ page }) => {
+  test('renders an app row linking to /offers', async ({ page }) => {
     await signIn(page)
     await page.goto(HUB_URL)
     await expect(page.locator('a[href="/offers"]')).toBeVisible()

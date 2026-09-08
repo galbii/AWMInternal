@@ -1,6 +1,9 @@
 // THE HUB — served at "/". Lists every app the signed-in user may open,
 // grouped as the registry declares, filtered by role. This page owns no
 // business logic of its own: it is a thin render of src/lib/apps/registry.ts.
+//
+// Rendered as an INDEX (one full-width row per app) rather than a card grid,
+// so it reads as a deliberate list at any registry size. See hub.css.
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -17,9 +20,14 @@ export default async function HubPage() {
   const groups = appsByGroup(apps)
   const displayName = v.actor.name || v.actor.email
 
+  // One continuous counter across every row on the page (NOT reset per group)
+  // so the rules draw in as a single pass down the index. Consumed by
+  // .hub-row::after's animation-delay via the `--r` custom property.
+  let rowIndex = -1
+
   return (
-    <div className="hub-page">
-      <header className="hub-masthead">
+    <div className="hub">
+      <header className="hub-top">
         <Image
           className="hub-mark"
           src="/brand/awm-logo.png"
@@ -28,75 +36,60 @@ export default async function HubPage() {
           height={200}
           priority
         />
-        <div className="hub-greeting">
-          <h1>Welcome, {displayName}</h1>
-          <p className="hub-subtitle">
-            {apps.length === 0
-              ? 'Internal tools'
-              : apps.length === 1
-                ? 'You have one app available.'
-                : `You have ${apps.length} apps available.`}
-          </p>
-        </div>
+        <p className="hub-hello">Welcome back, {displayName}</p>
       </header>
 
       {apps.length === 0 ? (
         <div className="hub-empty">
-          <div className="hub-empty-icon" aria-hidden="true">
-            🗄️
-          </div>
-          <h2>No apps yet</h2>
+          <h2>Nothing here yet</h2>
           <p>
-            You don&apos;t have any apps assigned to your account yet. Contact an administrator
-            to get access.
+            Your account doesn&apos;t have access to any tools. Ask an administrator to add
+            you.
           </p>
         </div>
       ) : (
         groups.map((g) => (
-          <section className="hub-group" key={g.group}>
-            <h2 className="hub-group-title">{g.group}</h2>
-            <div className="hub-grid">
+          <section className="hub-set" key={g.group}>
+            <h2 className="hub-set-name">{g.group}</h2>
+            <ul className="hub-list">
               {g.apps.map((app) => {
                 const isPlanned = app.status === 'planned'
-                const card = (
+                rowIndex += 1
+                const rowStyle = { '--r': rowIndex } as React.CSSProperties
+
+                const row = (
                   <>
-                    <span className="hub-card-icon" aria-hidden="true">
+                    <span className="hub-row-icon" aria-hidden="true">
                       {app.icon}
                     </span>
-                    <span className="hub-card-body">
-                      <span className="hub-card-name">
+                    <span className="hub-row-main">
+                      <span className="hub-row-name">
                         {app.name}
-                        {app.status === 'beta' && (
-                          <span className="hub-badge hub-badge-beta">Beta</span>
-                        )}
-                        {isPlanned && (
-                          <span className="hub-badge hub-badge-planned">Coming soon</span>
-                        )}
+                        {app.status === 'beta' && <span className="hub-tag">Beta</span>}
                       </span>
-                      <span className="hub-card-desc">{app.description}</span>
+                      <span className="hub-row-desc">{app.description}</span>
+                    </span>
+                    <span className="hub-row-go">
+                      {isPlanned ? 'Coming soon' : 'Open'}
                     </span>
                   </>
                 )
 
-                if (isPlanned) {
-                  return (
-                    <div
-                      className="hub-card hub-card-disabled"
-                      key={app.id}
-                      aria-disabled="true"
-                    >
-                      {card}
-                    </div>
-                  )
-                }
-
                 return (
-                  <Link className="hub-card" href={app.href} key={app.id}>
-                    {card}
-                  </Link>
+                  <li key={app.id}>
+                    {isPlanned ? (
+                      <div className="hub-row hub-row-off" style={rowStyle} aria-disabled="true">
+                        {row}
+                      </div>
+                    ) : (
+                      <Link className="hub-row" href={app.href} style={rowStyle}>
+                        {row}
+                      </Link>
+                    )}
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           </section>
         ))
       )}

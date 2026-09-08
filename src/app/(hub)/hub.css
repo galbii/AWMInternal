@@ -20,6 +20,13 @@
   --awm-mist:#f4f7fa;
   --awm-paper:#ffffff;
   --awm-focus:0 0 0 3px rgba(0,98,159,.22);
+  --awm-blue-bright:#2ea3d9;
+  --awm-navy:#041c2c;
+  --awm-glass:rgba(255,255,255,.9);
+  --awm-glass-border:rgba(255,255,255,.55);
+  --awm-onmesh-fg:#f3f8fb;
+  --awm-onmesh-muted:rgba(243,248,251,.72);
+  --awm-serif:var(--font-serif), Georgia, 'Times New Roman', serif;
 }
 
 /* ==================================================================
@@ -28,150 +35,195 @@
 
 .signin{
   position:relative;
+  isolation:isolate;
   min-height:100dvh;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:48px 20px 30vh;
-  background:var(--awm-mist);
+  padding:56px 20px 32vh;
+  background:
+    radial-gradient(120% 90% at 12% -10%, rgba(46,163,217,.14), transparent 60%),
+    linear-gradient(180deg, var(--awm-navy) 0%, #061f30 55%, var(--awm-blue-deep) 100%);
   overflow:hidden;
 }
 
-/* The horizon — the logo's swoosh redrawn full-bleed, rising to the right.
-   Sits behind everything and is clipped by the page, never scrolled into. */
-.signin-horizon{
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
-  width:100%;
-  height:34vh;
-  min-height:190px;
-  display:block;
+.signin::after{
+  content:"";
+  position:absolute; inset:0;
   z-index:0;
   pointer-events:none;
+  opacity:.035;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.signin-mesh{ position:absolute; inset:0; z-index:0; pointer-events:none; }
+.signin-blob{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(70px);
+  opacity:.55;
+}
+.signin-blob-a{ width:52vw; height:52vw; left:-14vw; top:-18vw; background:var(--awm-blue); }
+.signin-blob-b{ width:38vw; height:38vw; right:-10vw; top:6vw; background:var(--awm-blue-bright); opacity:.35; }
+.signin-blob-c{ width:44vw; height:44vw; left:22vw; bottom:-26vw; background:var(--awm-blue-deep); opacity:.6; }
+
+.signin-horizon{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  width:100%;
+  height:40vh;
+  min-height:220px;
+  display:block;
+  z-index:1;
+  pointer-events:none;
+}
+.signin-horizon-far{ fill:var(--awm-navy); opacity:.55; }
+.signin-horizon-mid{ fill:var(--awm-blue-deep); opacity:.8; }
+.signin-horizon-near{ fill:var(--awm-blue-deep); }
+.signin-horizon-line{
+  fill:none;
+  stroke:var(--awm-blue);
+  stroke-width:2.5;
+  vector-effect:non-scaling-stroke;
+}
+.signin-horizon-glow{
+  fill:var(--awm-blue-bright);
+  opacity:.28;
+  filter:blur(40px);
 }
 
 .signin-inner{
   position:relative;
-  z-index:1;
+  z-index:2;
   width:100%;
-  max-width:396px;
+  max-width:460px;
   display:flex;
   flex-direction:column;
   align-items:center;
   text-align:center;
 }
 
+.signin-mark-wrap{
+  position:relative;
+  margin-bottom:10px;
+}
+.signin-mark-wrap::before{
+  content:"";
+  position:absolute;
+  inset:-24%;
+  z-index:-1;
+  background:radial-gradient(circle, rgba(46,163,217,.35), transparent 70%);
+  filter:blur(24px);
+}
 .signin-mark{
-  width:172px;
+  width:184px;
   height:auto;
-  margin-bottom:4px;
+  display:block;
 }
 
 .signin-title{
   margin:0;
-  font-size:27px;
+  font-family:var(--awm-serif);
+  font-size:clamp(32px, 5vw, 40px);
   font-weight:600;
-  letter-spacing:-.015em;
-  color:var(--awm-ink);
+  line-height:1.15;
+  letter-spacing:-.01em;
+  color:var(--awm-onmesh-fg);
 }
 
 .signin-lede{
-  margin:7px 0 26px;
-  font-size:14.5px;
-  line-height:1.5;
-  color:var(--awm-slate);
-  max-width:34ch;
+  margin:10px 0 30px;
+  font-size:16.5px;
+  line-height:1.55;
+  color:var(--awm-onmesh-muted);
+  max-width:36ch;
 }
 
 .signin-card{
   width:100%;
-  background:var(--awm-paper);
-  border:1px solid var(--awm-line);
-  border-radius:14px;
-  padding:26px 24px;
+  background:var(--awm-glass);
+  backdrop-filter:blur(20px) saturate(140%);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--awm-glass-border);
+  border-radius:20px;
+  padding:34px 32px;
   text-align:left;
-  box-shadow:0 1px 2px rgba(16,32,43,.05), 0 18px 40px -22px rgba(1,58,94,.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 8px 24px -12px rgba(1,58,94,.4),
+    0 30px 60px -24px rgba(1,58,94,.6);
 }
-
-/* --- passkey (the fast path) --- */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .signin-card{ background:rgba(255,255,255,.97); }
+}
 
 .signin-passkey{
   width:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:9px;
-  padding:12px 14px;
+  gap:10px;
+  padding:14px 18px;
   border:none;
-  border-radius:9px;
-  background:var(--awm-blue);
+  border-radius:12px;
+  background:linear-gradient(135deg, var(--awm-blue), var(--awm-blue-lift));
   color:#fff;
   font-family:inherit;
-  font-size:14.5px;
+  font-size:16px;
   font-weight:600;
   cursor:pointer;
-  transition:background .14s ease;
+  box-shadow:0 8px 20px -10px rgba(0,98,159,.6), inset 0 1px 0 rgba(255,255,255,.25);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.signin-passkey:hover:not(:disabled){ background:var(--awm-blue-lift); }
-.signin-passkey:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
-.signin-passkey:disabled{ opacity:.62; cursor:default; }
+.signin-passkey:hover:not(:disabled){
+  background:linear-gradient(135deg, var(--awm-blue-lift), #1290c9);
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px -12px rgba(0,98,159,.65), inset 0 1px 0 rgba(255,255,255,.3);
+}
+.signin-passkey:active:not(:disabled){ transform:translateY(0); box-shadow:0 6px 14px -8px rgba(0,98,159,.5); }
+.signin-passkey:focus-visible{ outline:none; box-shadow:var(--awm-focus), 0 14px 28px -12px rgba(0,98,159,.5); }
+.signin-passkey:disabled{ opacity:.62; cursor:default; transform:none; }
 
 .signin-key{
-  width:18px;
-  height:18px;
-  flex:0 0 auto;
-  fill:none;
-  stroke:currentColor;
-  stroke-width:1.7;
-  stroke-linecap:round;
-  stroke-linejoin:round;
+  width:18px; height:18px; flex:0 0 auto;
+  fill:none; stroke:currentColor; stroke-width:1.7;
+  stroke-linecap:round; stroke-linejoin:round;
 }
 
-/* A labelled rule: it names the path below it, so it carries information
-   rather than decorating the gap. */
+.signin-spinner{
+  width:16px; height:16px; flex:0 0 auto;
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;
+}
+@media (prefers-reduced-motion:no-preference){
+  .signin-spinner{ animation:signin-spin .8s linear infinite; }
+}
+
 .signin-alt{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin:20px 0;
+  display:flex; align-items:center; gap:12px;
+  margin:22px 0;
   color:var(--awm-slate);
   font-size:12.5px;
 }
-.signin-alt::before,
-.signin-alt::after{
-  content:"";
-  flex:1;
-  height:1px;
-  background:var(--awm-line);
-}
+.signin-alt::before, .signin-alt::after{ content:""; flex:1; height:1px; background:var(--awm-line); }
 
-/* --- password form --- */
-
-.signin-field{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  margin-bottom:14px;
-}
-.signin-field span{
-  font-size:12.5px;
-  font-weight:600;
-  color:var(--awm-ink);
-}
+.signin-field{ display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
+.signin-field span{ font-size:13px; font-weight:600; color:var(--awm-ink); }
 .signin-field input{
-  padding:10px 12px;
+  padding:13px 14px;
   border:1px solid var(--awm-line);
-  border-radius:9px;
+  border-radius:12px;
   font-family:inherit;
-  font-size:14.5px;
+  font-size:15.5px;
   color:var(--awm-ink);
-  background:var(--awm-paper);
-  transition:border-color .14s ease, box-shadow .14s ease;
+  background:var(--awm-mist);
+  transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .signin-field input:focus{
   outline:none;
+  background:var(--awm-paper);
   border-color:var(--awm-blue);
   box-shadow:var(--awm-focus);
 }
@@ -179,20 +231,27 @@
 .signin-submit{
   width:100%;
   margin-top:4px;
-  padding:12px 14px;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:14px 18px;
   border:none;
-  border-radius:9px;
-  background:var(--awm-ink);
+  border-radius:12px;
+  background:linear-gradient(135deg, var(--awm-ink), #1b3444);
   color:#fff;
   font-family:inherit;
-  font-size:14.5px;
+  font-size:16px;
   font-weight:600;
   cursor:pointer;
-  transition:background .14s ease;
+  box-shadow:0 8px 18px -10px rgba(16,32,43,.5);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.signin-submit:hover:not(:disabled){ background:#1b3444; }
+.signin-submit:hover:not(:disabled){
+  background:linear-gradient(135deg,#1b3444,#254153);
+  transform:translateY(-1px);
+  box-shadow:0 14px 24px -12px rgba(16,32,43,.55);
+}
+.signin-submit:active:not(:disabled){ transform:translateY(0); }
 .signin-submit:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
-.signin-submit:disabled{ opacity:.62; cursor:default; }
+.signin-submit:disabled{ opacity:.62; cursor:default; transform:none; }
 
 .signin-error{
   margin:0 0 14px;
@@ -206,179 +265,280 @@
 }
 
 .signin-foot{
-  margin:22px 0 0;
-  font-size:12px;
-  color:var(--awm-slate);
+  margin:26px 0 0;
+  font-size:13px;
+  letter-spacing:.01em;
+  color:var(--awm-onmesh-muted);
 }
 
-/* One orchestrated settle on load — not a per-element entrance. */
 @media (prefers-reduced-motion:no-preference){
-  .signin-inner{ animation:signin-settle .5s cubic-bezier(.22,.68,.35,1) both; }
-  .signin-horizon{ animation:signin-rise .8s cubic-bezier(.22,.68,.35,1) both; }
+  .signin-mark-wrap{ animation:signin-in .55s cubic-bezier(.22,.68,.35,1) both; }
+  .signin-title    { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .06s both; }
+  .signin-lede     { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .12s both; }
+  .signin-card     { animation:signin-card-in .6s cubic-bezier(.22,.68,.35,1) .18s both; }
+  .signin-foot     { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .28s both; }
+  .signin-horizon  { animation:signin-rise .9s cubic-bezier(.22,.68,.35,1) both; }
+
+  .signin-blob-a{ animation:signin-drift 52s ease-in-out infinite alternate; }
+  .signin-blob-b{ animation:signin-drift 64s ease-in-out infinite alternate-reverse; }
+  .signin-blob-c{ animation:signin-drift 58s ease-in-out infinite alternate; }
+  .signin-horizon-glow{ animation:signin-glow-drift 40s ease-in-out infinite alternate; }
 }
-@keyframes signin-settle{
-  from{ opacity:0; transform:translateY(9px); }
+@keyframes signin-in{
+  from{ opacity:0; transform:translateY(10px); }
+  to{ opacity:1; transform:none; }
+}
+@keyframes signin-card-in{
+  from{ opacity:0; transform:translateY(14px) scale(.97); }
   to{ opacity:1; transform:none; }
 }
 @keyframes signin-rise{
-  from{ transform:translateY(22px); }
+  from{ transform:translateY(26px); }
   to{ transform:none; }
+}
+@keyframes signin-drift{
+  from{ transform:translate(0,0) scale(1); }
+  to{ transform:translate(3%, -2%) scale(1.06); }
+}
+@keyframes signin-glow-drift{
+  from{ transform:translateX(-3%); }
+  to{ transform:translateX(3%); }
+}
+@keyframes signin-spin{
+  to{ transform:rotate(360deg); }
 }
 
 @media (max-width:520px){
-  .signin{ padding:32px 16px 26vh; }
-  .signin-mark{ width:142px; }
-  .signin-card{ padding:22px 18px; }
+  .signin{ padding:40px 16px 26vh; }
+  .signin-mark{ width:150px; }
+  .signin-card{ padding:26px 20px; }
+  .signin-title{ font-size:30px; }
 }
 
 /* ==================================================================
    HUB  ( / )
+
+   An INDEX, not a card grid. Every app is one full-width row, so the
+   page reads as a deliberate list whether the registry holds one app
+   or twenty — a lone card in a 3-up grid reads as an empty template,
+   which is the failure mode this replaces.
+
+   Adding an app to src/lib/apps/registry.ts needs NO change here.
+   The app name is the only serif on the page (echoing the logo's own
+   wordmark); everything else is Public Sans and stays quiet, because
+   the boldness is spent on one thing: the row filling with brand blue
+   under the pointer.
    ================================================================== */
 
-.hub-page{
-  max-width:1040px;
+.hub{
+  max-width:860px;
   margin:0 auto;
-  padding:38px 24px 72px;
+  padding:56px 24px 96px;
 }
 
-/* Masthead: the mark sits with the greeting rather than floating above it. */
-.hub-masthead{
-  display:flex;
-  align-items:center;
-  gap:18px;
-  padding-bottom:22px;
-  margin-bottom:30px;
-  border-bottom:1px solid var(--awm-line);
-}
+/* The greeting is the only personal chrome — the session bar above
+   already names the signed-in user, so nothing else is repeated. */
+.hub-top{ margin-bottom:46px; }
+/* The artwork is a wordmark inside a square, not an icon — below ~90px the
+   "ALL WESTERN MORTGAGE" line collapses into mush, so it is sized to stay
+   readable rather than to be small. */
 .hub-mark{
-  width:104px;
+  width:100px;
   height:auto;
-  flex:0 0 auto;
+  display:block;
+  margin:0 0 18px -4px;
 }
-.hub-greeting h1{
-  margin:0 0 3px;
-  font-size:22px;
-  font-weight:600;
-  letter-spacing:-.012em;
+.hub-hello{
+  margin:0;
+  font-size:17px;
+  font-weight:500;
+  letter-spacing:-.005em;
   color:var(--awm-ink);
 }
-.hub-subtitle{
-  margin:0;
-  color:var(--awm-slate);
-  font-size:14px;
-}
 
-.hub-group{ margin-bottom:34px; }
-.hub-group:last-child{ margin-bottom:0; }
+.hub-set{ margin-bottom:40px; }
+.hub-set:last-child{ margin-bottom:0; }
 
-.hub-group-title{
-  margin:0 0 13px;
-  font-size:14px;
-  font-weight:600;
+/* Sentence case, not a tracked-out all-caps eyebrow: it names the set
+   below it, so it carries information rather than decorating. */
+.hub-set-name{
+  margin:0 0 2px;
+  font-size:12.5px;
+  font-weight:500;
   color:var(--awm-slate);
 }
 
-.hub-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(268px, 1fr));
-  gap:16px;
-}
+.hub-list{ list-style:none; margin:0; padding:0; }
 
-.hub-card{
+.hub-row{
   position:relative;
-  display:flex;
-  align-items:flex-start;
-  gap:14px;
-  padding:19px 20px;
-  background:var(--awm-paper);
-  border:1px solid var(--awm-line);
-  border-radius:12px;
+  display:grid;
+  grid-template-columns:24px 1fr auto;
+  align-items:baseline;
+  gap:0 18px;
+  padding:22px 16px;
+  margin:0 -16px;
+  border-radius:10px;
   text-decoration:none;
   color:inherit;
-  transition:border-color .14s ease, box-shadow .14s ease;
+  transition:background-color .18s ease, color .18s ease;
 }
-/* The accent edge is the affordance: it only exists on apps you can open. */
-.hub-card::before{
+/* The rule is a pseudo-element, not a border, so it can be drawn in on
+   load and vanish cleanly under the hover fill's rounded corners. */
+.hub-row::after{
   content:"";
   position:absolute;
-  left:-1px; top:16px; bottom:16px;
-  width:3px;
-  border-radius:0 3px 3px 0;
+  left:16px; right:16px; bottom:0;
+  height:1px;
+  background:var(--awm-line);
+  transform-origin:left;
+}
+
+a.hub-row:hover,
+a.hub-row:focus-visible{
   background:var(--awm-blue);
-  opacity:0;
-  transition:opacity .14s ease;
+  color:#fff;
 }
-a.hub-card:hover{
-  border-color:#bcd2e2;
-  box-shadow:0 10px 24px -18px rgba(1,58,94,.55);
-}
-a.hub-card:hover::before{ opacity:1; }
-a.hub-card:focus-visible{
+a.hub-row:hover::after,
+a.hub-row:focus-visible::after{ background:transparent; }
+a.hub-row:focus-visible{
   outline:none;
-  border-color:var(--awm-blue);
-  box-shadow:var(--awm-focus);
-}
-a.hub-card:focus-visible::before{ opacity:1; }
-
-.hub-card-icon{
-  font-size:26px;
-  line-height:1;
-  flex-shrink:0;
+  box-shadow:0 0 0 3px rgba(0,98,159,.3);
 }
 
-.hub-card-body{
+.hub-row-icon{
+  font-size:19px;
+  line-height:1.35;
+}
+
+.hub-row-main{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:6px;
   min-width:0;
 }
-.hub-card-name{
+
+.hub-row-name{
   display:flex;
   align-items:center;
   flex-wrap:wrap;
-  gap:8px;
-  font-size:15px;
+  gap:10px;
+  font-family:var(--awm-serif);
+  font-size:clamp(23px, 2.6vw, 28px);
+  font-weight:600;
+  line-height:1.2;
+  letter-spacing:-.005em;
+  color:var(--awm-ink);
+}
+
+.hub-row-desc{
+  font-size:14px;
+  line-height:1.5;
+  color:var(--awm-slate);
+  max-width:60ch;
+}
+
+/* The action word only appears once the row is live under pointer or
+   keyboard — the row itself is the affordance the rest of the time. */
+.hub-row-go{
+  font-size:13px;
+  font-weight:600;
+  color:#fff;
+  white-space:nowrap;
+  opacity:0;
+  transition:opacity .18s ease;
+}
+
+a.hub-row:hover .hub-row-name,
+a.hub-row:focus-visible .hub-row-name{ color:#fff; }
+a.hub-row:hover .hub-row-desc,
+a.hub-row:focus-visible .hub-row-desc{ color:rgba(255,255,255,.84); }
+a.hub-row:hover .hub-row-go,
+a.hub-row:focus-visible .hub-row-go{ opacity:1; }
+
+/* Not-yet-built apps: present, legible, obviously inert. No dashed
+   border or grey-out theatre — just less weight and a plain status. */
+.hub-row-off{ cursor:default; }
+.hub-row-off .hub-row-name{ color:var(--awm-slate); }
+.hub-row-off .hub-row-icon{ opacity:.45; }
+.hub-row-off .hub-row-go{
+  opacity:1;
+  font-weight:500;
+  color:var(--awm-slate);
+}
+
+.hub-tag{
+  font-family:var(--font-awm), sans-serif;
+  font-size:11px;
+  font-weight:600;
+  padding:2px 8px;
+  border-radius:99px;
+  background:#e6f1f8;
+  color:var(--awm-blue);
+  line-height:1.7;
+  transform:translateY(-2px);
+}
+a.hub-row:hover .hub-tag,
+a.hub-row:focus-visible .hub-tag{
+  background:rgba(255,255,255,.22);
+  color:#fff;
+}
+
+/* An empty screen is an invitation to act, so it says what to do. */
+.hub-empty{ border-top:1px solid var(--awm-line); }
+.hub-empty h2{
+  margin:26px 0 7px;
+  font-family:var(--awm-serif);
+  font-size:24px;
   font-weight:600;
   color:var(--awm-ink);
 }
-.hub-card-desc{
-  font-size:13px;
+.hub-empty p{
+  margin:0;
+  font-size:14px;
+  line-height:1.55;
   color:var(--awm-slate);
-  line-height:1.45;
+  max-width:52ch;
 }
 
-.hub-badge{
-  display:inline-block;
-  font-size:11px;
-  font-weight:600;
-  padding:1px 8px;
-  border-radius:99px;
-  line-height:1.6;
+/* One orchestrated moment on load: the column fades up as a whole and
+   the rules draw left-to-right, the way an index gets ruled. Per-row
+   content does NOT slide in separately. */
+@media (prefers-reduced-motion:no-preference){
+  .hub{ animation:hub-in .4s ease both; }
+  .hub-row::after{
+    animation:hub-rule .55s cubic-bezier(.2,.7,.3,1) both;
+    animation-delay:calc(min(var(--r, 0), 12) * 70ms + 130ms);
+  }
 }
-.hub-badge-beta{ background:#e6f1f8; color:var(--awm-blue); }
-.hub-badge-planned{ background:var(--awm-mist); color:var(--awm-slate); }
-
-.hub-card-disabled{ cursor:default; background:transparent; border-style:dashed; }
-.hub-card-disabled .hub-card-icon{ opacity:.5; }
-.hub-card-disabled .hub-card-name,
-.hub-card-disabled .hub-card-desc{ color:var(--awm-slate); }
-
-.hub-empty{
-  text-align:center;
-  padding:56px 24px;
-  background:var(--awm-paper);
-  border:1px solid var(--awm-line);
-  border-radius:12px;
+@keyframes hub-in{
+  from{ opacity:0; }
+  to{ opacity:1; }
 }
-.hub-empty-icon{ font-size:32px; margin-bottom:12px; }
-.hub-empty h2{ margin:0 0 8px; font-size:17px; color:var(--awm-ink); font-weight:600; }
-.hub-empty p{ margin:0 auto; color:var(--awm-slate); font-size:14px; max-width:44ch; line-height:1.5; }
+@keyframes hub-rule{
+  from{ transform:scaleX(0); }
+  to{ transform:scaleX(1); }
+}
 
-@media(max-width:720px){
-  .hub-grid{ grid-template-columns:1fr; }
-  .hub-page{ padding:26px 16px 48px; }
-  .hub-masthead{ gap:14px; }
-  .hub-mark{ width:82px; }
+@media(max-width:640px){
+  .hub{ padding:36px 18px 64px; }
+  .hub-top{ margin-bottom:34px; }
+  .hub-row{
+    grid-template-columns:20px 1fr;
+    gap:0 14px;
+    padding:18px 14px;
+    margin:0 -14px;
+  }
+  .hub-row::after{ left:14px; right:14px; }
+  /* No hover on touch, so the action word has no job here. The
+     inert rows still need to say why they can't be opened. */
+  .hub-row-go{ display:none; }
+  .hub-row-off .hub-row-go{
+    display:block;
+    grid-column:2;
+    margin-top:9px;
+    opacity:1;
+  }
 }
 
 /* ==================================================================
