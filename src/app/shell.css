@@ -1,0 +1,138 @@
+/* AWM Internal — SHARED SHELL STYLESHEET.
+ *
+ * Imported by EVERY app's root layout. Holds only what is common to all apps:
+ * the design tokens, a minimal reset, the session bar, the "view as" emulation
+ * chrome, the app switcher, and shared form/error styling.
+ *
+ * Rules here must stay generic. Anything specific to one app belongs in that
+ * app's own stylesheet. Note that (offers)/offers.css re-declares the same
+ * tokens and reset — that copy is verbatim port CSS and must not be touched;
+ * the values below are kept identical to it on purpose.
+ */
+
+:root{
+  --navy:#1b2a4a; --navy-2:#24365c; --accent:#2f5fd0; --accent-2:#3a72f0;
+  --bg:#eef1f6; --panel:#ffffff; --line:#dde3ec; --muted:#64748b;
+  --ok:#1f9d55; --warn:#c2410c; --danger:#c0392b; --req:#e11d48;
+  --shadow:0 1px 3px rgba(16,32,64,.08),0 4px 16px rgba(16,32,64,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:#1f2937;font-size:14px;line-height:1.45}
+
+/* ===== session bar / emulation chrome (moved out of offers.css) =====
+ * The sign-in page has its own .signin-* styles in (hub)/hub.css; only
+ * .login-error survives here because the user/new-user modals reuse it. */
+.session-bar{display:flex;align-items:center;gap:12px;padding:6px 20px;background:#101a30;color:#cbd5e1;
+  font-size:12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.session-bar .sb-user strong{color:#fff;font-weight:600}
+.sb-spacer{flex:1}
+.sb-viewas{display:flex;align-items:center;gap:6px;color:#cbd5e1}
+.sb-viewas select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);
+  background:#1b2a4a;color:#fff}
+.sb-signout{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  background:transparent;color:#e2e8f0;cursor:pointer}
+.sb-signout:hover{background:rgba(255,255,255,.1)}
+
+/* ===== app switcher (AppShell / AppSwitcher) ===== */
+.as-switcher{display:flex;align-items:center;gap:8px;padding-right:12px;margin-right:2px;
+  border-right:1px solid rgba(255,255,255,.15);background:#101a30;color:#cbd5e1;font-size:12px}
+.as-home{color:#cbd5e1;text-decoration:none;font-weight:700;letter-spacing:.02em}
+.as-home:hover{color:#fff}
+.as-current{color:#fff;font-weight:600;display:flex;align-items:center;gap:8px}
+.as-current::before{content:"/";color:#475569;font-weight:400}
+.as-select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);
+  background:#1b2a4a;color:#fff}
+
+.emu-frame{position:fixed;inset:0;pointer-events:none;z-index:9998;
+  box-shadow:inset 0 0 0 4px var(--warn)}
+.emu-banner{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:10px;
+  background:#fff7ed;color:#7c2d12;border-bottom:2px solid var(--warn);padding:8px 20px;font-size:13px}
+.emu-exit{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--warn);background:#fff;color:#7c2d12;font-weight:600}
+.emu-exit:hover{background:#ffedd5}
+
+.login-error{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:8px 10px;font-size:12.5px}
+
+/* ===== buttons + modal — DELIBERATE COPY, kept in sync with (offers)/offers.css =====
+ * offers.css lines 1-197 are verbatim ported CSS and are FROZEN (do not edit that
+ * file). src/components/shell/Modal.tsx and its callers (NewUserModal,
+ * NewUserModal, and the hub's own modals) need these same class names, so the
+ * rules are duplicated here rather than shared via import. If you change one
+ * copy for a real design reason, check whether the other should change too. */
+button{font-family:inherit;font-size:13px;cursor:pointer;border:none;border-radius:7px;padding:8px 13px;
+  font-weight:600;transition:.12s;display:inline-flex;align-items:center;gap:6px}
+button:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-2)}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff}
+.btn-ghost:hover{background:rgba(255,255,255,.22)}
+.btn-light{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn-light:hover{background:#f4f7fc}
+.btn-danger{background:#fff;color:var(--danger);border:1px solid #f0c9c4}
+.btn-danger:hover{background:#fdf2f1}
+
+.modal-bg{position:fixed;inset:0;background:rgba(16,26,48,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
+.modal h3{margin:0;padding:16px 20px;background:var(--navy);color:#fff;font-size:16px}
+.modal .body{padding:18px 20px;max-height:60vh;overflow:auto}
+.modal .foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#f8fafc}
+
+/* ===== Passkeys (settings modal) =====
+ * Rendered on the /u/<username> profile page, and reachable from every app, so these use
+ * the shared tokens above rather than the (hub)-scoped --awm-* brand ramp.
+ */
+.pk-section{display:flex;flex-direction:column;gap:10px;min-width:300px}
+.pk-head{display:flex;flex-direction:column;gap:3px}
+.pk-title{font-size:13px;font-weight:700;color:var(--navy);margin:0}
+.pk-sub{font-size:12px;color:var(--muted);margin:0;line-height:1.45}
+
+.pk-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.pk-item{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;
+  border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fbfcfe}
+.pk-item-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.pk-item-name{font-size:13.5px;font-weight:600;color:var(--navy);display:flex;
+  align-items:center;gap:7px;flex-wrap:wrap;overflow-wrap:anywhere}
+.pk-item-meta{font-size:11.5px;color:var(--muted)}
+.pk-item-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+
+.pk-badge{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;
+  border-radius:99px;background:#eef2ff;color:#3730a3;line-height:1.6}
+
+.pk-remove,.pk-remove-confirm{font-size:11.5px;padding:4px 9px;border-radius:6px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;
+  font-family:inherit;font-weight:600}
+.pk-remove:hover{background:#f8fafc;color:var(--navy)}
+.pk-remove-confirm{border-color:#f0c9c4;color:var(--danger);background:#fff}
+.pk-remove-confirm:hover{background:#fdf2f1}
+.pk-remove:disabled,.pk-remove-confirm:disabled{opacity:.55;cursor:default}
+
+.pk-empty{font-size:12.5px;color:var(--muted);background:#f8fafc;border:1px dashed var(--line);
+  border-radius:9px;padding:12px;line-height:1.45}
+
+.pk-add-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.pk-add-input{flex:1 1 150px;min-width:0;padding:8px 10px;border:1px solid var(--line);
+  border-radius:7px;font-size:13px;font-family:inherit}
+.pk-add-input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
+.pk-add{flex:0 0 auto;padding:8px 13px;border-radius:7px;border:none;background:var(--accent);
+  color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+.pk-add:hover:not(:disabled){background:var(--accent-2)}
+.pk-add:disabled{opacity:.6;cursor:default}
+
+.pk-error{font-size:12.5px;color:var(--danger);background:#fef2f2;border:1px solid #fecaca;
+  border-radius:8px;padding:8px 10px;line-height:1.45}
+.pk-note{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
+
+/* ===== New-user modal form =====
+ * Moved here from (offers)/offers.css: NewUserModal is rendered by SessionBar,
+ * which appears in EVERY app, so its styles cannot live in one app's sheet.
+ * (It was silently unstyled on the hub.)
+ */
+.usm-form{display:flex;flex-direction:column;gap:12px;min-width:300px}
+.usm-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:#334155}
+.usm-form input{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit}
+.usm-form input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
+.usm-divider{margin-top:4px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;
+  font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}

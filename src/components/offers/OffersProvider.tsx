@@ -42,7 +42,8 @@ import type {
   View,
 } from '@/lib/offers/types'
 
-import Modal from './Modal'
+import Modal from '@/components/shell/Modal'
+
 import Toast, { type ToastState } from './Toast'
 
 interface ConfirmState {

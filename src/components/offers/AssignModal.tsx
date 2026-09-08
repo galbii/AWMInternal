@@ -7,8 +7,9 @@
 import Link from 'next/link'
 import React from 'react'
 
+import Modal from '@/components/shell/Modal'
+
 import AssignmentsEditor from './AssignmentsEditor'
-import Modal from './Modal'
 
 interface AssignModalProps {
   /** null = closed. */

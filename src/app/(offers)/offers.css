@@ -195,45 +195,14 @@ main{border-left:none!important}
 .an-table th{background:#f4f7fc;color:var(--navy)}
 .an-table tbody tr:last-child td{border-bottom:none}
 .muted{color:var(--muted)}
-
 /* ================================================================
-   DASHBOARD ADDITIONS (not in the source app): session bar, login,
-   dev "view as" emulation chrome, and the /offers/[id] detail page.
-   Everything above this marker is verbatim port CSS — do not mix.
+   OFFERS-APP ADDITIONS (not in the source app): the /offers/[id]
+   detail page, assignment + settings modals. Everything ABOVE this
+   marker is verbatim port CSS — do not mix.
+   Session bar, emulation chrome and login live in src/app/shell.css.
    ================================================================ */
 
-.session-bar{display:flex;align-items:center;gap:12px;padding:6px 20px;background:#101a30;color:#cbd5e1;
-  font-size:12px;border-bottom:1px solid rgba(255,255,255,.08)}
-.session-bar .sb-user strong{color:#fff;font-weight:600}
-.sb-spacer{flex:1}
-.sb-viewas{display:flex;align-items:center;gap:6px;color:#cbd5e1}
-.sb-viewas select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);
-  background:#1b2a4a;color:#fff}
-.sb-signout{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
-  background:transparent;color:#e2e8f0;cursor:pointer}
-.sb-signout:hover{background:rgba(255,255,255,.1)}
 
-.emu-frame{position:fixed;inset:0;pointer-events:none;z-index:9998;
-  box-shadow:inset 0 0 0 4px var(--warn)}
-.emu-banner{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:10px;
-  background:#fff7ed;color:#7c2d12;border-bottom:2px solid var(--warn);padding:8px 20px;font-size:13px}
-.emu-exit{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
-  border:1px solid var(--warn);background:#fff;color:#7c2d12;font-weight:600}
-.emu-exit:hover{background:#ffedd5}
-
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px}
-.login-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
-  padding:28px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
-.login-card h1{font-size:16px;margin:0;color:var(--navy)}
-.login-sub{margin:0;color:var(--muted);font-size:13px}
-.login-card label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:#334155}
-.login-card input{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit}
-.login-card input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
-.login-error{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:8px 10px;font-size:12.5px}
-.login-card .btn-primary{padding:9px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;
-  font-weight:600;font-size:14px;cursor:pointer}
-.login-card .btn-primary:hover{background:var(--accent-2)}
-.login-card .btn-primary:disabled{opacity:.6;cursor:default}
 
 a.mini.row-page{display:inline-block;text-decoration:none}
 
@@ -291,13 +260,7 @@ a.mini.row-page{display:inline-block;text-decoration:none}
   .od-side{width:100%;flex:1 1 auto;position:static}
 }
 
-/* --- dashboard additions: settings + assignment modals --- */
-.usm-form{display:flex;flex-direction:column;gap:12px;min-width:300px}
-.usm-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:#334155}
-.usm-form input{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit}
-.usm-form input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
-.usm-divider{margin-top:4px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;
-  font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+/* --- offers additions: assignment modal --- */
 .assign-editor{min-width:300px}
 .assign-editor .od-assignees{margin-bottom:10px}
 .assign-edit-btn{margin-top:2px}

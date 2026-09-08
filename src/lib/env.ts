@@ -73,9 +73,46 @@ function normalizeShopDomain(input: string): string {
 const shopifyDomain = optional('SHOPIFY_STORE_DOMAIN')
 const shopifyToken = optional('SHOPIFY_STOREFRONT_ACCESS_TOKEN')
 
+/**
+ * Passkeys (WebAuthn) are bound to an ORIGIN and a Relying Party ID, and the
+ * browser refuses the ceremony if either disagrees with the page it runs on.
+ *
+ * `APP_ORIGIN` accepts a comma-separated list so one deployment can serve more
+ * than one origin (e.g. a bare domain and a www host, or localhost during dev).
+ * The FIRST entry is canonical: its hostname becomes the rpID, which is what
+ * credentials are actually scoped to. Every listed origin is accepted at
+ * verification time.
+ */
+function passkeyConfig(): { rpID: string; rpName: string; origins: string[] } {
+  const raw = process.env.APP_ORIGIN || 'http://localhost:3000'
+  const origins = raw
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+
+  if (!origins.length) throw new Error('APP_ORIGIN is set but empty — see .env.example.')
+
+  let canonical: URL
+  try {
+    canonical = new URL(origins[0])
+  } catch {
+    throw new Error(
+      `APP_ORIGIN must be a full origin like https://internal.example.com (got "${origins[0]}").`,
+    )
+  }
+
+  return {
+    // Bare hostname, no port — a passkey created on :3000 must still work on :3001.
+    rpID: canonical.hostname,
+    rpName: process.env.NEXT_PUBLIC_SITE_NAME || 'All Western Mortgage',
+    origins,
+  }
+}
+
 export const env = {
   DATABASE_URL: validateDatabaseUrl(required('DATABASE_URL')),
   PAYLOAD_SECRET: required('PAYLOAD_SECRET'),
+  PASSKEY: passkeyConfig(),
   // `||` not `??`: an unfilled .env.local leaves this as an empty string,
   // which `??` would happily pass through and render as "About | ".
   SITE_NAME: process.env.NEXT_PUBLIC_SITE_NAME || 'Site',

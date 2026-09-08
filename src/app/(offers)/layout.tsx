@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import React from 'react'
 
+import '../shell.css'
 import './offers.css'
 import './letter.css'
 

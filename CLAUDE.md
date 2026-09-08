@@ -1,13 +1,28 @@
-# OfferLetterAWM — AI Agent Guide
+# AWM Internal — AI Agent Guide
 
-**Offer & New Hire Request Manager** for All Western Mortgage: an internal HR
-tool that takes new-hire requests (42-question comp/equipment/setup form),
-generates legally-worded offer letters (PDF / Word / HTML / email), and tracks
-a Pipeline → Hired → Archived funnel with analytics.
+An internal **multi-app dashboard** for All Western Mortgage. Signing in lands
+on a **hub** at `/` that lists the apps a user may open; each app is a
+self-contained Next.js route group.
 
-Built on Payload CMS v3.88 + Next.js 15 App Router + Bun. The app serves at
-**`/`**; the Payload CMS (admin at `/admin`, pages at their slugs, posts,
-search) still exists underneath and is untouched by app work.
+Built on Payload CMS v3.88 + Next.js 15 App Router + Bun. The Payload CMS
+(admin at `/admin`, pages at their slugs, posts, search) still exists
+underneath and is untouched by app work.
+
+| Route | What |
+|---|---|
+| `/` | The hub — app launcher, filtered by the viewer's roles |
+| `/offers` | **Offer & New Hire Request Manager** (the first and largest app) |
+| `/offers/[id]` | Per-offer letter page + history/assignments sidebar |
+| `/login` | Sign in (honours `?next=`) |
+| `/admin` | Payload CMS |
+
+The **Offer & New Hire Request Manager** is an HR tool that takes new-hire
+requests (42-question comp/equipment/setup form), generates legally-worded
+offer letters (PDF / Word / HTML / email), and tracks a Pipeline → Hired →
+Archived funnel with analytics. Most of this guide is about that app, because
+it is where the hard-won behavior lives — but it is now **one app among
+several**, and nothing in `src/lib/offers/` or `src/components/offers/` may be
+imported by another app.
 
 ## The one rule that outranks everything: PARITY
 
@@ -28,14 +43,76 @@ language, compensation math, defaults, and edge-case behavior were ported
 ## Architecture
 
 ```
-src/app/(app)/            → the Offer Manager at "/" (own root layout; imports
-                            offers.css + letter.css — plain global CSS, verbatim
-                            from the source app; NOT Tailwind, NOT CSS modules)
+src/app/(hub)/            → the hub at "/" + /login (own root layout;
+                            shell.css + hub.css)
+src/app/(offers)/         → the Offer Manager at "/offers" and "/offers/[id]"
+                            (own root layout; shell.css THEN offers.css +
+                            letter.css — plain global CSS, verbatim from the
+                            source app; NOT Tailwind, NOT CSS modules)
 src/app/(frontend)/       → CMS site (slugs, posts, search) — template code
 src/app/(payload)/        → /admin — generated Payload UI
-src/lib/offers/           → ALL app logic, framework-free, unit-tested
-src/components/offers/    → React UI ('use client'), consumes lib via OffersApi
+src/app/shell.css         → SHARED chrome CSS: tokens, reset, session bar,
+                            emulation frame, app switcher, login, buttons,
+                            modals. Imported by every app's root layout.
+src/lib/apps/             → registry.ts (THE app list) + guard.ts (requireApp)
+src/components/shell/     → chrome shared by all apps: AppShell, AppSwitcher,
+                            SessionBar, LoginForm, Modal, user modals
+src/lib/offers/           → offers logic, framework-free, unit-tested
+src/components/offers/    → offers UI ('use client'), consumes lib via OffersApi
 ```
+
+**Each app owns a route group with its OWN root layout** (its own `<html>`),
+which is what keeps one app's global CSS from leaking into another's. The
+tradeoff is deliberate: crossing between apps is a full page load, which is
+fine for a launcher. Shared chrome is delivered as a **component**
+(`<AppShell>`), never as a shared layout.
+
+## Adding an app to the hub
+
+Two steps. Nothing else in the repo needs to change.
+
+**1. Create the route group** — copy the shape of `src/app/(hub)/`:
+
+```
+src/app/(myapp)/
+  layout.tsx              ← ROOT layout: own <html>/<body>,
+                            import '../shell.css' then './myapp.css'
+  myapp.css               ← this app's styles ONLY; prefix your classes
+  (authed)/
+    layout.tsx            ← const v = await requireApp('myapp')
+                            return <AppShell appId="myapp" viewer={v}>{children}</AppShell>
+    myapp/page.tsx        ← serves /myapp
+```
+
+**2. Add one entry to `APPS` in `src/lib/apps/registry.ts`:**
+
+```ts
+{ id: 'myapp', name: 'My App', description: '…', href: '/myapp',
+  icon: '🧾', status: 'live', group: 'Operations', roles: ['admin','dev'] }
+```
+
+The hub renders it automatically, filtered by `roles` (omit `roles` for "any
+signed-in user"). Use `status: 'planned'` to show a dimmed "Coming soon" card
+before the routes exist.
+
+Rules for a new app:
+
+- **The registry `roles` field is a UX filter, not a security boundary.** It
+  decides what a user *sees*. `requireApp()` gates the routes, and every route
+  handler must still resolve `getViewer()` itself and pass
+  `{ user: viewer, overrideAccess: false }` to Payload — exactly as
+  `/api/offer-records` does.
+- **Never import across apps.** `src/lib/offers/*` and
+  `src/components/offers/*` belong to the offers app. Anything genuinely shared
+  moves to `src/lib/apps/`, `src/lib/auth/`, or `src/components/shell/` first.
+- **Pick your own styling stack.** Because each app has its own root layout, a
+  new app can use Tailwind (already configured for `(frontend)`) even though
+  offers uses plain global CSS. Just don't add global element selectors to
+  `shell.css`.
+- **Payload collections** for a new app get their own `admin.group` so `/admin`
+  stays navigable.
+- Write route handlers under `src/app/api/` and keep the collection's
+  `endpoints: false` if the app should be the only door, as offers does.
 
 ### `src/lib/offers/` — pure logic (no React, server-import-safe)
 
@@ -94,8 +171,11 @@ record shape (unchanged):
   `onhr_inbox` (written by the external intake page; the 2.5s poller drains
   it). `onhr_records_v121` is read once to migrate old data up to the server.
 
-**Auth & dashboard:** the app at `/` is login-gated (`(app)/(authed)` layout;
-`/login` posts to Payload's `/api/users/login`). `users.roles` =
+**Auth & dashboard:** every app is login-gated by its own `(authed)` layout
+calling `requireApp('<id>')` (`src/lib/apps/guard.ts`), which redirects to
+`/login?next=…` when there is no session and to `/` when the actor lacks the
+app's registry roles. `/login` posts to Payload's `/api/users/login` and
+honours a same-origin `?next=`. `users.roles` =
 `dev | admin | user`; the FIRST user ever created gets all roles (bootstrap
 hook). `admin` and `dev` carry IDENTICAL permissions (view-as, user
 management); `user` is everyone else. `src/lib/auth/viewer.ts` resolves
@@ -103,6 +183,78 @@ management); `user` is everyone else. `src/lib/auth/viewer.ts` resolves
 "view as" another user via the `awm-emulate` cookie; emulation is READ-ONLY
 (write routes reject it) and all reads run
 `{ user: viewer, overrideAccess: false }` so real access control applies.
+
+**Passkeys (WebAuthn):** sign-in accepts a passkey as well as a password.
+Credentials live in the `passkeys` collection; the flows run through
+`/api/passkey/*` on top of `@simplewebauthn/server`. Three things to know
+before touching this:
+
+- **Origin binding.** `env.PASSKEY` (from `APP_ORIGIN`) supplies the rpID and
+  the accepted origins. The rpID is the FIRST origin's bare hostname —
+  changing it invalidates every enrolled passkey, permanently. Never
+  "tidy up" that env var on a live deployment.
+- **Sessions.** `payload.login()` needs a password, so it cannot be used here.
+  `src/lib/passkeys/session.ts` mints the session by hand:
+  append a session to `user.sessions` → `getFieldsToSign({…, sid})` →
+  `jwtSign` → `generatePayloadCookie`. `auth.useSessions` defaults to TRUE in
+  Payload 3.88, so a JWT whose `sid` has no matching session record is
+  rejected — the session row and the token must be written together.
+- **Emulation.** Every passkey WRITE rejects while `isEmulating`. An admin
+  viewing-as must never be able to enrol a credential on someone else's
+  account — that would be a permanent backdoor, not a read-only peek.
+
+Registration is discoverable (`residentKey: 'required'`), which is what makes
+usernameless sign-in and the autofill path work. The login page starts a
+conditional-UI ceremony on mount so saved passkeys appear inside the email
+field's own autofill menu; that is why the email input carries
+`autocomplete="username webauthn"`. Removing that attribute silently kills
+the feature without breaking anything visible.
+
+**`src/middleware.ts` exists for exactly one reason:** it stamps the request
+path onto `x-awm-pathname` so `requireApp()`/`requireSession()` — which run in
+(authed) LAYOUTS, and layouts get no `params` — can build
+`/login?next=<the real path>`. Without it every gated deep link collapsed to a
+hardcoded fallback (`/offers/<id>` signed-out sent you to `/offers`). It does
+NOT authenticate: auth needs Payload and a database, far too heavy for
+middleware. Keep the `api/` exclusion in its matcher — route handlers answer
+401/403 rather than redirecting.
+
+**Profiles (`/u/<username>`):** every user has a `username` handle on the
+`users` collection, and `/u/<handle>` is their profile + settings page (in the
+`(hub)` group, so it is available from every app). `/u/me` resolves to your
+own. The Settings modal is gone — the session bar links here instead.
+
+- **`src/lib/users/profile.ts` is a security boundary.** `users.read` is
+  `selfOrAdminOrDev`, so a normal user cannot read a colleague's document at
+  all. The directory profile reads with `overrideAccess: true` and then returns
+  an explicitly-built projection. **Never spread the Payload doc** in that
+  file — the whitelist is what keeps `hash`, `salt`, `sessions` and
+  `emulationBlocked` from ever leaving the server. A field added to `users`
+  later is private by default, which is the point.
+- `email` is not public: it is included only for the owner and admin/dev.
+- **Passkeys are self-service only** (`canManagePasskeys = isSelf`). An admin
+  editing someone else's profile can change their name and roles but must
+  never enrol a credential on that account — that is a permanent backdoor,
+  not an administrative action.
+- Nobody can edit their own roles, and every edit path is disabled while
+  emulating.
+- `username` is deliberately **not** `unique: true` in Payload: a unique Mongo
+  index counts every pre-existing doc's missing value as `null` and collides on
+  the second one, so the index would fail to build on an existing database.
+  The `ensureUsername` beforeChange hook owns normalization and uniqueness on
+  every write instead. Like `bootstrapFirstUser`, its probe deliberately does
+  not pass `req` (Mongo refuses a read inside the create's transaction).
+- Existing accounts predate the field: `bun run backfill:usernames`
+  (`--dry-run` to preview) fills them in. It is idempotent and talks to Mongo
+  directly — importing `@payload-config` in a plain script pulls in Lexical,
+  which fails to initialise outside Next's bundler.
+
+**Brand & sign-in design:** `public/brand/awm-logo.png` is the logo of record.
+`--awm-blue` (`#00629f`) in `(hub)/hub.css` is sampled from that artwork, not
+approximated — the mark, the horizon curve and the primary button are the same
+blue on purpose. The `(hub)` group sets Public Sans via `next/font`; the
+offers app deliberately keeps its verbatim port CSS and system font stack.
+The sign-in page's horizon SVG is the logo's own swoosh redrawn full-bleed.
 
 **History & assignments:** every change to an offer is audited into
 `offer-events` by `afterChange` hooks on `offer-requests` — field edits and
@@ -121,7 +273,7 @@ of the letter island.
 | `bun run build` | Production build. MUST PASS before work is complete. Needs a reachable `DATABASE_URL`. |
 | `bun run typecheck` | `tsc --noEmit` — lint does NOT typecheck |
 | `bun test tests/int/offers/` | The app's unit tests (schema/calc/letter/io/roundtrip) |
-| `bun run test:e2e` | Playwright smoke of the app at `/` |
+| `bun run test:e2e` | Playwright smoke of the hub at `/` + the offers app at `/offers` |
 | `bun run generate:types` | After Payload schema changes only |
 
 Bun only — npm/pnpm/yarn desync `bun.lock`. `xlsx` is pinned to the SheetJS
@@ -141,7 +293,7 @@ zone — get explicit sign-off, and update `letter.int.spec.ts`.
 **Add a signatory:** `SIGNATORY` map in `letter.ts` (key + name + title) —
 flows to options panel, bulk-assign, and `swapSigInHtml` automatically.
 
-**Styling:** the app's look lives in `src/app/(app)/offers.css` +
+**Styling:** the app's look lives in `src/app/(offers)/offers.css` +
 `letter.css` — plain CSS, verbatim class names from the source (generated
 letter HTML references them as strings). Don't Tailwind-ify; don't rename
 classes. `letter.css` includes `@media print` rules the PDF/print path
@@ -149,8 +301,15 @@ depends on. (Tailwind + `@/utilities/ui` `cn()` still apply to CMS-side code.)
 
 ## Gotchas
 
-- **`/` shadows any CMS Page with slug `home`** — the app owns the root. CMS
+- **`/` shadows any CMS Page with slug `home`** — the hub owns the root. CMS
   pages live at their other slugs.
+- **`/offers` is the Offer Manager now, not `/`.** Anything that hardcoded the
+  root as "the app" is wrong. Check `OfferDetail`'s back-link and the e2e spec
+  when touching routing.
+- **`shell.css` deliberately duplicates the tokens, reset, buttons and modal
+  rules that also live in the frozen top half of `offers.css`.** That copy is
+  intentional: `offers.css` lines 1–197 are verbatim port CSS and must not be
+  edited, but the hub needs the same primitives. Change both or neither.
 - LetterView's hand-edit invalidation: editing any form field sets
   `letterStale`; the letter rebuilds (discarding hand edits, with a toast)
   only when the letter subview is opened. Don't trigger resolve/regen from

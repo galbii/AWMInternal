@@ -1,15 +1,18 @@
 import { expect, test, type Page } from '@playwright/test'
 
-// `/` serves the Offer & New Hire Request Manager (src/app/(app)), now behind
-// a login gate with Payload-backed persistence. This is a committed smoke test
-// only — it renders the shell and one record round-trip, and deliberately does
-// not touch export/print paths.
+// `/` serves the app hub/launcher (src/app/(hub)), a login-gated dashboard that
+// lists the internal apps a signed-in user may open. The Offer & New Hire
+// Request Manager (src/app/(offers)) is one such app and now serves at
+// `/offers` instead of `/`. This is a committed smoke test only — it renders
+// the hub, then the Offer Manager shell and one record round-trip, and
+// deliberately does not touch export/print paths.
 //
 // Credentials come from E2E_EMAIL / E2E_PASSWORD (a real user in the target
 // DB). Without them the suite skips rather than fails, so `bun run test:e2e`
 // stays green on machines without a seeded login.
 
-const APP_URL = 'http://localhost:3000/'
+const HUB_URL = 'http://localhost:3000/'
+const APP_URL = 'http://localhost:3000/offers'
 const EMAIL = process.env.E2E_EMAIL || ''
 const PASSWORD = process.env.E2E_PASSWORD || ''
 
@@ -17,19 +20,22 @@ async function signIn(page: Page): Promise<void> {
   await page.goto(APP_URL)
   // Unauthenticated hits redirect to /login.
   if (!page.url().includes('/login')) return
-  await page.locator('.login-card input[type="email"]').fill(EMAIL)
-  await page.locator('.login-card input[type="password"]').fill(PASSWORD)
-  await page.locator('.login-card button[type="submit"]').click()
-  await page.waitForURL(APP_URL)
+  await page.locator('.signin-card input[type="email"]').fill(EMAIL)
+  await page.locator('.signin-card input[type="password"]').fill(PASSWORD)
+  await page.locator('.signin-card button[type="submit"]').click()
+  // Sign-in always lands on the hub, not back on the app that triggered the
+  // login redirect — go there next explicitly.
+  await page.waitForURL(HUB_URL)
+  await page.goto(APP_URL)
 }
 
-test.describe('Offer & New Hire Request Manager @ /', () => {
+test.describe('Offer & New Hire Request Manager @ /offers', () => {
   test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
 
   test('gates unauthenticated visitors at /login', async ({ page }) => {
     await page.goto(APP_URL)
-    await expect(page).toHaveURL(/\/login$/)
-    await expect(page.locator('.login-card h1')).toBeVisible()
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.locator('.signin-title')).toBeVisible()
   })
 
   test('renders the app shell after sign-in', async ({ page }) => {
@@ -79,5 +85,15 @@ test.describe('Offer & New Hire Request Manager @ /', () => {
     const modalContinue = page.getByRole('button', { name: 'Continue' })
     if (await modalContinue.isVisible().catch(() => false)) await modalContinue.click()
     await expect(pipelineBody).not.toContainText(name, { timeout: 5000 })
+  })
+})
+
+test.describe('App hub @ /', () => {
+  test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
+
+  test('renders an app card linking to /offers', async ({ page }) => {
+    await signIn(page)
+    await page.goto(HUB_URL)
+    await expect(page.locator('a[href="/offers"]')).toBeVisible()
   })
 })

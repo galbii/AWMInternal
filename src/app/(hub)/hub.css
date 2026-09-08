@@ -1,0 +1,626 @@
+/* AWM Internal — HUB + SIGN-IN STYLES.
+ *
+ * Scoped to the (hub) route group: the launcher at "/" (.hub-*) and the
+ * sign-in page at "/login" (.signin-*).
+ *
+ * Palette note: --awm-blue is sampled from the supplied logo artwork
+ * (public/brand/awm-logo.png), not approximated — the mark, the horizon and
+ * the primary button are literally the same blue. The rest of the ramp is
+ * built around it. These tokens sit alongside (not instead of) the --navy /
+ * --accent tokens in shell.css, which the session bar and modals still use.
+ */
+
+:root{
+  --awm-blue:#00629f;        /* the mark's blue, sampled from the artwork */
+  --awm-blue-lift:#0b76b8;   /* hover */
+  --awm-blue-deep:#013a5e;   /* the field below the horizon */
+  --awm-ink:#10202b;         /* headings — a blue-slate, not a tinted black */
+  --awm-slate:#5e6e7b;       /* secondary text, echoes the logo's grey wordmark */
+  --awm-line:#dbe3ea;
+  --awm-mist:#f4f7fa;
+  --awm-paper:#ffffff;
+  --awm-focus:0 0 0 3px rgba(0,98,159,.22);
+}
+
+/* ==================================================================
+   SIGN-IN  ( / login )
+   ================================================================== */
+
+.signin{
+  position:relative;
+  min-height:100dvh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:48px 20px 30vh;
+  background:var(--awm-mist);
+  overflow:hidden;
+}
+
+/* The horizon — the logo's swoosh redrawn full-bleed, rising to the right.
+   Sits behind everything and is clipped by the page, never scrolled into. */
+.signin-horizon{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  width:100%;
+  height:34vh;
+  min-height:190px;
+  display:block;
+  z-index:0;
+  pointer-events:none;
+}
+
+.signin-inner{
+  position:relative;
+  z-index:1;
+  width:100%;
+  max-width:396px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+
+.signin-mark{
+  width:172px;
+  height:auto;
+  margin-bottom:4px;
+}
+
+.signin-title{
+  margin:0;
+  font-size:27px;
+  font-weight:600;
+  letter-spacing:-.015em;
+  color:var(--awm-ink);
+}
+
+.signin-lede{
+  margin:7px 0 26px;
+  font-size:14.5px;
+  line-height:1.5;
+  color:var(--awm-slate);
+  max-width:34ch;
+}
+
+.signin-card{
+  width:100%;
+  background:var(--awm-paper);
+  border:1px solid var(--awm-line);
+  border-radius:14px;
+  padding:26px 24px;
+  text-align:left;
+  box-shadow:0 1px 2px rgba(16,32,43,.05), 0 18px 40px -22px rgba(1,58,94,.45);
+}
+
+/* --- passkey (the fast path) --- */
+
+.signin-passkey{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:12px 14px;
+  border:none;
+  border-radius:9px;
+  background:var(--awm-blue);
+  color:#fff;
+  font-family:inherit;
+  font-size:14.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .14s ease;
+}
+.signin-passkey:hover:not(:disabled){ background:var(--awm-blue-lift); }
+.signin-passkey:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
+.signin-passkey:disabled{ opacity:.62; cursor:default; }
+
+.signin-key{
+  width:18px;
+  height:18px;
+  flex:0 0 auto;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+/* A labelled rule: it names the path below it, so it carries information
+   rather than decorating the gap. */
+.signin-alt{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:20px 0;
+  color:var(--awm-slate);
+  font-size:12.5px;
+}
+.signin-alt::before,
+.signin-alt::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--awm-line);
+}
+
+/* --- password form --- */
+
+.signin-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+}
+.signin-field span{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--awm-ink);
+}
+.signin-field input{
+  padding:10px 12px;
+  border:1px solid var(--awm-line);
+  border-radius:9px;
+  font-family:inherit;
+  font-size:14.5px;
+  color:var(--awm-ink);
+  background:var(--awm-paper);
+  transition:border-color .14s ease, box-shadow .14s ease;
+}
+.signin-field input:focus{
+  outline:none;
+  border-color:var(--awm-blue);
+  box-shadow:var(--awm-focus);
+}
+
+.signin-submit{
+  width:100%;
+  margin-top:4px;
+  padding:12px 14px;
+  border:none;
+  border-radius:9px;
+  background:var(--awm-ink);
+  color:#fff;
+  font-family:inherit;
+  font-size:14.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .14s ease;
+}
+.signin-submit:hover:not(:disabled){ background:#1b3444; }
+.signin-submit:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
+.signin-submit:disabled{ opacity:.62; cursor:default; }
+
+.signin-error{
+  margin:0 0 14px;
+  padding:9px 11px;
+  border-radius:8px;
+  background:#fef2f2;
+  border:1px solid #fecaca;
+  color:#a3231b;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.signin-foot{
+  margin:22px 0 0;
+  font-size:12px;
+  color:var(--awm-slate);
+}
+
+/* One orchestrated settle on load — not a per-element entrance. */
+@media (prefers-reduced-motion:no-preference){
+  .signin-inner{ animation:signin-settle .5s cubic-bezier(.22,.68,.35,1) both; }
+  .signin-horizon{ animation:signin-rise .8s cubic-bezier(.22,.68,.35,1) both; }
+}
+@keyframes signin-settle{
+  from{ opacity:0; transform:translateY(9px); }
+  to{ opacity:1; transform:none; }
+}
+@keyframes signin-rise{
+  from{ transform:translateY(22px); }
+  to{ transform:none; }
+}
+
+@media (max-width:520px){
+  .signin{ padding:32px 16px 26vh; }
+  .signin-mark{ width:142px; }
+  .signin-card{ padding:22px 18px; }
+}
+
+/* ==================================================================
+   HUB  ( / )
+   ================================================================== */
+
+.hub-page{
+  max-width:1040px;
+  margin:0 auto;
+  padding:38px 24px 72px;
+}
+
+/* Masthead: the mark sits with the greeting rather than floating above it. */
+.hub-masthead{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding-bottom:22px;
+  margin-bottom:30px;
+  border-bottom:1px solid var(--awm-line);
+}
+.hub-mark{
+  width:104px;
+  height:auto;
+  flex:0 0 auto;
+}
+.hub-greeting h1{
+  margin:0 0 3px;
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:-.012em;
+  color:var(--awm-ink);
+}
+.hub-subtitle{
+  margin:0;
+  color:var(--awm-slate);
+  font-size:14px;
+}
+
+.hub-group{ margin-bottom:34px; }
+.hub-group:last-child{ margin-bottom:0; }
+
+.hub-group-title{
+  margin:0 0 13px;
+  font-size:14px;
+  font-weight:600;
+  color:var(--awm-slate);
+}
+
+.hub-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(268px, 1fr));
+  gap:16px;
+}
+
+.hub-card{
+  position:relative;
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  padding:19px 20px;
+  background:var(--awm-paper);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+  text-decoration:none;
+  color:inherit;
+  transition:border-color .14s ease, box-shadow .14s ease;
+}
+/* The accent edge is the affordance: it only exists on apps you can open. */
+.hub-card::before{
+  content:"";
+  position:absolute;
+  left:-1px; top:16px; bottom:16px;
+  width:3px;
+  border-radius:0 3px 3px 0;
+  background:var(--awm-blue);
+  opacity:0;
+  transition:opacity .14s ease;
+}
+a.hub-card:hover{
+  border-color:#bcd2e2;
+  box-shadow:0 10px 24px -18px rgba(1,58,94,.55);
+}
+a.hub-card:hover::before{ opacity:1; }
+a.hub-card:focus-visible{
+  outline:none;
+  border-color:var(--awm-blue);
+  box-shadow:var(--awm-focus);
+}
+a.hub-card:focus-visible::before{ opacity:1; }
+
+.hub-card-icon{
+  font-size:26px;
+  line-height:1;
+  flex-shrink:0;
+}
+
+.hub-card-body{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+.hub-card-name{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  font-size:15px;
+  font-weight:600;
+  color:var(--awm-ink);
+}
+.hub-card-desc{
+  font-size:13px;
+  color:var(--awm-slate);
+  line-height:1.45;
+}
+
+.hub-badge{
+  display:inline-block;
+  font-size:11px;
+  font-weight:600;
+  padding:1px 8px;
+  border-radius:99px;
+  line-height:1.6;
+}
+.hub-badge-beta{ background:#e6f1f8; color:var(--awm-blue); }
+.hub-badge-planned{ background:var(--awm-mist); color:var(--awm-slate); }
+
+.hub-card-disabled{ cursor:default; background:transparent; border-style:dashed; }
+.hub-card-disabled .hub-card-icon{ opacity:.5; }
+.hub-card-disabled .hub-card-name,
+.hub-card-disabled .hub-card-desc{ color:var(--awm-slate); }
+
+.hub-empty{
+  text-align:center;
+  padding:56px 24px;
+  background:var(--awm-paper);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+}
+.hub-empty-icon{ font-size:32px; margin-bottom:12px; }
+.hub-empty h2{ margin:0 0 8px; font-size:17px; color:var(--awm-ink); font-weight:600; }
+.hub-empty p{ margin:0 auto; color:var(--awm-slate); font-size:14px; max-width:44ch; line-height:1.5; }
+
+@media(max-width:720px){
+  .hub-grid{ grid-template-columns:1fr; }
+  .hub-page{ padding:26px 16px 48px; }
+  .hub-masthead{ gap:14px; }
+  .hub-mark{ width:82px; }
+}
+
+/* ==================================================================
+   PROFILE  ( /u/<username> )
+   Shares the hub's container and card language so moving between them
+   feels like one product rather than two pages.
+   ================================================================== */
+
+.profile-page{
+  max-width:720px;
+  margin:0 auto;
+  padding:38px 24px 72px;
+}
+
+.profile-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:20px;
+  padding-bottom:20px;
+  margin-bottom:26px;
+  border-bottom:1px solid var(--awm-line);
+}
+.profile-identity{ min-width:0; }
+.profile-name{
+  margin:0;
+  font-size:23px;
+  font-weight:600;
+  letter-spacing:-.012em;
+  color:var(--awm-ink);
+  overflow-wrap:anywhere;
+}
+.profile-handle{
+  margin:2px 0 0;
+  font-size:14px;
+  color:var(--awm-slate);
+}
+.profile-roles{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.profile-role{
+  font-size:11.5px;
+  font-weight:600;
+  padding:2px 9px;
+  border-radius:99px;
+  background:#e6f1f8;
+  color:var(--awm-blue);
+  line-height:1.6;
+}
+.profile-joined{
+  flex:0 0 auto;
+  font-size:12.5px;
+  color:var(--awm-slate);
+  padding-top:5px;
+  white-space:nowrap;
+}
+
+/* Shown when the viewer can look but not touch — it should read as a
+   deliberate state, not a form that failed to load. */
+.profile-readonly{
+  background:var(--awm-mist);
+  border:1px solid var(--awm-line);
+  border-radius:10px;
+  padding:15px 17px;
+  font-size:13.5px;
+  color:var(--awm-slate);
+  line-height:1.5;
+}
+.profile-emunote{
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  color:#7c2d12;
+  border-radius:10px;
+  padding:11px 14px;
+  font-size:13px;
+  margin-bottom:20px;
+}
+
+.profile-sections{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+/* --- editor sections --- */
+
+.pe-section{
+  background:var(--awm-paper);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+  padding:20px 22px;
+}
+.pe-title{
+  margin:0;
+  font-size:15px;
+  font-weight:600;
+  color:var(--awm-ink);
+}
+.pe-desc{
+  margin:4px 0 16px;
+  font-size:13px;
+  color:var(--awm-slate);
+  line-height:1.5;
+}
+
+.pe-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+}
+.pe-label{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--awm-ink);
+}
+.pe-input{
+  width:100%;
+  padding:9px 11px;
+  border:1px solid var(--awm-line);
+  border-radius:8px;
+  font-family:inherit;
+  font-size:14px;
+  color:var(--awm-ink);
+  background:var(--awm-paper);
+  transition:border-color .14s ease, box-shadow .14s ease;
+}
+.pe-input:focus{
+  outline:none;
+  border-color:var(--awm-blue);
+  box-shadow:var(--awm-focus);
+}
+
+/* The @ sits inside the field so the handle reads the way it will appear. */
+.pe-prefix-wrap{
+  display:flex;
+  align-items:stretch;
+  border:1px solid var(--awm-line);
+  border-radius:8px;
+  overflow:hidden;
+  background:var(--awm-paper);
+  transition:border-color .14s ease, box-shadow .14s ease;
+}
+.pe-prefix-wrap:focus-within{
+  border-color:var(--awm-blue);
+  box-shadow:var(--awm-focus);
+}
+.pe-prefix{
+  display:flex;
+  align-items:center;
+  padding:0 3px 0 11px;
+  color:var(--awm-slate);
+  font-size:14px;
+  user-select:none;
+}
+.pe-prefix-wrap .pe-input{
+  border:none;
+  border-radius:0;
+  padding-left:2px;
+}
+.pe-prefix-wrap .pe-input:focus{ box-shadow:none; }
+
+.pe-hint{
+  font-size:12px;
+  color:var(--awm-slate);
+  line-height:1.45;
+}
+.pe-hint-ok{ color:#1f7a4d; }
+.pe-hint-bad{ color:#a3231b; }
+
+.pe-roles{ display:flex; flex-direction:column; gap:9px; margin-bottom:14px; }
+.pe-role{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  font-size:13.5px;
+  color:var(--awm-ink);
+  cursor:pointer;
+}
+.pe-role input{ margin-top:2px; accent-color:var(--awm-blue); width:15px; height:15px; }
+
+.pe-actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:4px;
+}
+.pe-save{
+  padding:9px 16px;
+  border:none;
+  border-radius:8px;
+  background:var(--awm-blue);
+  color:#fff;
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .14s ease;
+}
+.pe-save:hover:not(:disabled){ background:var(--awm-blue-lift); }
+.pe-save:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
+.pe-save:disabled{ opacity:.55; cursor:default; }
+
+.pe-status{ font-size:12.5px; color:#1f7a4d; }
+.pe-error{
+  margin:0 0 12px;
+  padding:9px 11px;
+  border-radius:8px;
+  background:#fef2f2;
+  border:1px solid #fecaca;
+  color:#a3231b;
+  font-size:12.5px;
+  line-height:1.45;
+}
+
+/* The passkey block is rendered by PasskeyManager (styled in shell.css);
+   give it the same card as the editor sections so the page reads as one set. */
+.profile-sections .pk-section{
+  background:var(--awm-paper);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+  padding:20px 22px;
+}
+.profile-sections .pk-title{ font-size:15px; color:var(--awm-ink); }
+.profile-sections .pk-sub{ font-size:13px; color:var(--awm-slate); }
+
+@media(max-width:600px){
+  .profile-page{ padding:26px 16px 48px; }
+  .profile-head{ flex-direction:column; gap:10px; }
+  .profile-joined{ padding-top:0; }
+  .pe-section,
+  .profile-sections .pk-section{ padding:17px 16px; }
+}
+
+/* The error is rendered INSIDE the always-present aria-live .pe-status region
+   (a live region has to pre-exist to announce), so it has to reset the status
+   colour and the standalone block's margins rather than sit under them. */
+.pe-status .pe-error{
+  display:block;
+  margin:8px 0 0;
+}

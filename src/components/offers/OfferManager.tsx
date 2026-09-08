@@ -26,9 +26,10 @@ import {
 import { importedSids, markImported } from '@/lib/offers/storage'
 import type { EditorSub, OfferRecord, Stage, View } from '@/lib/offers/types'
 
+import Modal from '@/components/shell/Modal'
+
 import AnalysisView from './AnalysisView'
 import LetterView from './LetterView'
-import Modal from './Modal'
 import { useOffers } from './OffersProvider'
 import RecordList from './RecordList'
 import RequestForm from './RequestForm'

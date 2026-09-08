@@ -1,4 +1,9 @@
-// Server-side identity resolution for the Offer Manager dashboard.
+// Server-side identity resolution for the internal dashboard.
+//
+// getViewer() is wrapped in React's `cache()`, so it is deduped PER REQUEST:
+// an app's (authed) layout, its page, and <AppShell> can each call it (directly
+// or via requireApp) without triggering three payload.auth() round-trips. The
+// cache lifetime is one server request — it never leaks between users.
 //
 // `actor` is the real, authenticated human — audit attribution ALWAYS uses it.
 // `viewer` is the identity every data read is evaluated against; it differs
@@ -14,6 +19,7 @@
 import config from '@payload-config'
 import { cookies, headers as nextHeaders } from 'next/headers'
 import { getPayload, type Payload } from 'payload'
+import { cache } from 'react'
 
 import { hasRole } from '@/access/roles'
 import type { User } from '@/payload-types'
@@ -29,7 +35,7 @@ export interface Viewer {
   payload: Payload
 }
 
-export async function getViewer(): Promise<Viewer | null> {
+export const getViewer = cache(async function getViewer(): Promise<Viewer | null> {
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers: await nextHeaders() })
   if (!user) return null
@@ -50,7 +56,7 @@ export async function getViewer(): Promise<Viewer | null> {
   }
 
   return { actor, viewer, isEmulating, payload }
-}
+})
 
 /** For route handlers: 401/403 responses instead of redirects. */
 export function deny(status: 401 | 403, msg?: string): Response {

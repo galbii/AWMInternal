@@ -74,6 +74,7 @@ export interface Config {
     users: User;
     'offer-requests': OfferRequest;
     'offer-events': OfferEvent;
+    passkeys: Passkey;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -98,6 +99,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     'offer-requests': OfferRequestsSelect<false> | OfferRequestsSelect<true>;
     'offer-events': OfferEventsSelect<false> | OfferEventsSelect<true>;
+    passkeys: PasskeysSelect<false> | PasskeysSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -475,6 +477,10 @@ export interface Category {
 export interface User {
   id: string;
   name?: string | null;
+  /**
+   * Profile handle — the /u/<username> URL. Lowercase, no spaces.
+   */
+  username?: string | null;
   roles: ('dev' | 'admin' | 'user')[];
   /**
    * Prevent dev "view as" from emulating this account.
@@ -923,6 +929,46 @@ export interface OfferEvent {
   createdAt: string;
 }
 /**
+ * WebAuthn credentials — created automatically, never by hand.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "passkeys".
+ */
+export interface Passkey {
+  id: string;
+  user: string | User;
+  credentialID: string;
+  /**
+   * COSE public key, base64url-encoded (see src/lib/passkeys/credential.ts).
+   */
+  publicKey: string;
+  counter: number;
+  transports?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * "singleDevice" or "multiDevice".
+   */
+  deviceType?: string | null;
+  /**
+   * Synced to a passkey provider (iCloud, Google, …).
+   */
+  backedUp?: boolean | null;
+  /**
+   * What the person calls this device, e.g. "MacBook Pro".
+   */
+  label?: string | null;
+  lastUsedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -1139,6 +1185,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'offer-events';
         value: string | OfferEvent;
+      } | null)
+    | ({
+        relationTo: 'passkeys';
+        value: string | Passkey;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -1486,6 +1536,7 @@ export interface CategoriesSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  username?: T;
   roles?: T;
   emulationBlocked?: T;
   updatedAt?: T;
@@ -1560,6 +1611,23 @@ export interface OfferEventsSelect<T extends boolean = true> {
   targetRole?: T;
   windowEndsAt?: T;
   editCount?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "passkeys_select".
+ */
+export interface PasskeysSelect<T extends boolean = true> {
+  user?: T;
+  credentialID?: T;
+  publicKey?: T;
+  counter?: T;
+  transports?: T;
+  deviceType?: T;
+  backedUp?: T;
+  label?: T;
+  lastUsedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

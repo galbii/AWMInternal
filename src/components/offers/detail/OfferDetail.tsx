@@ -29,7 +29,7 @@ export default function OfferDetail({
     <div className="offer-detail">
       <div className="od-main">
         <div className="od-head">
-          <Link className="od-back" href="/">
+          <Link className="od-back" href="/offers">
             ← All requests
           </Link>
           <h2>{name}</h2>

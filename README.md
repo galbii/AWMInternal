@@ -6,7 +6,8 @@ Website Template.
 
 | Route | What serves it |
 |-------|----------------|
-| `/` | The Offer Manager app (`src/app/(app)`). Marked `noindex`. |
+| `/` | The app hub / launcher (`src/app/(hub)`). Marked `noindex`. |
+| `/offers` | The Offer Manager app (`src/app/(offers)`). Marked `noindex`. |
 | `/admin` | The Payload CMS admin panel. |
 | `/<slug>` | CMS Pages, Posts, search, sitemaps — everything the template ships with. |
 
