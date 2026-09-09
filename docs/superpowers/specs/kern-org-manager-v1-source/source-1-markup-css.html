@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kern Org Manager</title>
+<style>
+  :root{
+    --bg:#03060e; --panel:#0a1524; --panel2:#070f1b; --line:#123048;
+    --ink:#d6f2ff; --muted:#6f93b0; --accent:#25e0ff; --accent2:#25e0ff;
+    --danger:#ff3b52; --chip:#0e2033; --hover:#0f2740;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{color:var(--ink);
+    background:
+      radial-gradient(1200px 520px at 14% -6%, rgba(37,224,255,.12), transparent 55%),
+      radial-gradient(1000px 520px at 86% 106%, rgba(255,59,82,.12), transparent 55%),
+      #03060e;
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(37,224,255,.045) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(37,224,255,.045) 1px,transparent 1px);
+    background-size:40px 40px;
+    -webkit-mask-image:radial-gradient(circle at 50% 28%, #000, transparent 92%);
+    mask-image:radial-gradient(circle at 50% 28%, #000, transparent 92%)}
+  header,.tabs,main{position:relative;z-index:1}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+    border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px}
+  .grow{flex:1}
+  .status{font-size:12px;color:var(--muted);white-space:nowrap}
+  .status b{color:var(--accent2)}
+  .status.dirty b{color:#f59e0b}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--chip);
+    color:var(--ink);padding:7px 12px;border-radius:8px;transition:.12s}
+  button:hover{background:var(--hover);border-color:#33477a}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.08)}
+  button.good{background:var(--accent2);border-color:var(--accent2);color:#04240f}
+  button.ghost{background:transparent}
+  button.sm{padding:4px 8px;font-size:12px;border-radius:6px}
+  button.danger{color:#fecaca;border-color:#5b2330;background:#2a151a}
+  button.danger:hover{background:#3a1a20}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .tabs{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line);
+    background:var(--panel2);position:sticky;top:53px;z-index:19;flex-wrap:wrap}
+  .tab{padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;
+    color:var(--muted);background:transparent;cursor:pointer;font-weight:550}
+  .tab:hover{color:var(--ink);background:var(--hover)}
+  .tab.active{color:var(--ink);background:var(--panel);border-color:var(--line)}
+  .tab .count{display:inline-block;margin-left:7px;font-size:11px;color:var(--muted);
+    background:var(--chip);border-radius:20px;padding:1px 7px}
+  main{padding:18px 20px 60px}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .search{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;color:var(--ink);min-width:220px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{background:var(--panel2);color:var(--muted);font-weight:600;
+    font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  tr:hover td{background:var(--hover)}
+  td input,td select{width:100%;background:transparent;border:1px solid transparent;color:var(--ink);
+    padding:5px 6px;border-radius:6px;font:inherit}
+  td input:hover,td select:hover{border-color:var(--line)}
+  td input:focus,td select:focus{outline:none;border-color:var(--accent);background:var(--panel2)}
+  td select option{background:var(--panel);color:var(--ink)}
+  td.num{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.actions{white-space:nowrap;text-align:right}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .pill.active{background:#0f2f1c;color:#4ade80}
+  .pill.inactive{background:#2b2030;color:#c4b5fd}
+  .pill.pending{background:#2a2410;color:#fbbf24}
+  .pill.none{background:#20293d;color:#93a4c2}
+  .muted{color:var(--muted)}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .link{color:var(--accent);cursor:pointer;font-weight:600;background:none;border:none;padding:0;font:inherit}
+  .link:hover{text-decoration:underline}
+  .hint{font-size:12px;color:var(--muted);margin:2px 0 14px}
+  /* detail */
+  .detail-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .detail-head h2{margin:0;font-size:18px}
+  .detail{display:grid;gap:16px}
+  .section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .section h3{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    display:flex;align-items:center;gap:10px}
+  .section h3 .flex{flex:1}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .field input,.field select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;color:var(--ink);font:inherit}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .field input:disabled{opacity:.45}
+  .field select option{background:var(--panel);color:var(--ink)}
+  .field .val{padding:8px 10px;background:var(--panel2);border:1px dashed var(--line);border-radius:8px;color:var(--ink)}
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .chip-item{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--line);
+    border-radius:20px;padding:4px 6px 4px 12px;font-size:12px}
+  .chip-item button{padding:0 3px;border:none;background:transparent;color:var(--muted);font-size:14px;line-height:1}
+  .chip-item button:hover{color:var(--danger)}
+  .chip-add{background:var(--panel2);border:1px dashed var(--line);border-radius:20px;padding:5px 12px;
+    color:var(--ink);min-width:130px;font:inherit}
+  .chip-add:focus{outline:none;border-color:var(--accent)}
+  .footnote{margin-top:14px;color:var(--muted);font-size:12px}
+  dialog{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;
+    padding:0;max-width:520px;width:92%}
+  dialog::backdrop{background:rgba(2,6,20,.6)}
+  .dlg-body{padding:18px 20px}
+  .dlg-body h3{margin:0 0 10px}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--line)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#04240f;color:#c9f7d6;border:1px solid var(--accent2);padding:10px 16px;border-radius:10px;
+    opacity:0;transition:.25s;pointer-events:none;z-index:50;font-weight:600}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:#2a151a;color:#fecaca;border-color:var(--danger)}
+  /* ===== Tron theme ===== */
+  header{border-bottom-color:rgba(37,224,255,.35);box-shadow:0 1px 0 rgba(37,224,255,.18)}
+  header h1{color:#eaffff;text-shadow:0 0 12px rgba(37,224,255,.6);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1.5px;text-transform:uppercase;font-size:15px}
+  header .sub{letter-spacing:.4px}
+  .tabs{border-bottom-color:rgba(37,224,255,.28)}
+  .tab.active{border-color:rgba(37,224,255,.45);color:#eaffff;text-shadow:0 0 8px rgba(37,224,255,.45);
+    box-shadow:0 -3px 14px rgba(37,224,255,.16) inset}
+  button.primary{background:transparent;border-color:var(--accent);color:var(--accent)}
+  button.primary:hover{background:rgba(37,224,255,.12);box-shadow:0 0 12px rgba(37,224,255,.4)}
+  button.good{background:var(--accent);color:#02121b;border-color:var(--accent);
+    box-shadow:0 0 16px rgba(37,224,255,.45);font-weight:650}
+  button.good:hover{filter:brightness(1.12)}
+  button.danger{color:#ff92a3;border-color:rgba(255,59,82,.5);background:rgba(255,59,82,.08)}
+  button.danger:hover{background:rgba(255,59,82,.18);box-shadow:0 0 12px rgba(255,59,82,.35)}
+  .card,.section{box-shadow:0 0 0 1px rgba(37,224,255,.05),0 0 24px rgba(0,0,0,.35)}
+  th{color:#8fd4ea}
+  .pill.active{background:rgba(37,224,255,.14);color:#7fefff}
+  .pill.inactive{background:rgba(255,59,82,.16);color:#ff92a3}
+  .pill.pending{background:rgba(245,158,11,.16);color:#fcd34d}
+  .status b{color:var(--accent)}
+  .status.dirty b{color:var(--danger)}
+  .toast{background:#04202b;color:#bff5ff;border-color:var(--accent);box-shadow:0 0 20px rgba(37,224,255,.3)}
+  .toast.err{background:#2a0f16;color:#ffd0d7;border-color:var(--danger);box-shadow:0 0 20px rgba(255,59,82,.3)}
+  /* builder collapse + team colors */
+  .ocaret{cursor:pointer;color:var(--muted);user-select:none;width:14px;text-align:center;font-size:11px}
+  .ocaret:hover{color:var(--accent)}
+  .col-title{color:#cdeefe;text-transform:uppercase;letter-spacing:.7px}
+  .ocard.team-blue{border-color:rgba(37,224,255,.55);box-shadow:0 0 18px rgba(37,224,255,.2)}
+  .ocard.team-blue>.ocard-head input{color:#7fefff;text-shadow:0 0 8px rgba(37,224,255,.45)}
+  .ocard.team-red{border-color:rgba(255,59,82,.55);box-shadow:0 0 18px rgba(255,59,82,.2)}
+  .ocard.team-red>.ocard-head input{color:#ff92a3;text-shadow:0 0 8px rgba(255,59,82,.45)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kern Org Manager</h1>
+  <span class="sub">Divisions → Regions → Areas → Branches</span>
+  <div class="grow"></div>
+  <span id="fileStatus" class="status">Not linked to a file</span>
+  <span id="saveStatus" class="status">·</span>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+<main id="view"></main>
+<datalist id="titlesList"></datalist>
+
+<div class="toast" id="toast"></div>
+
+<dialog id="confirmDlg">
+  <div class="dlg-body">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <div id="confirmMsg" class="muted"></div>
+  </div>
+  <div class="dlg-actions">
+    <button class="ghost" id="confirmNo">Cancel</button>
+    <button class="danger" id="confirmYes">Delete</button>
+  </div>
+</dialog>
+
+<!-- [vendored ECharts <script> at source lines 180-225 stripped: 1.29MB] -->
+</body>
+</html>
