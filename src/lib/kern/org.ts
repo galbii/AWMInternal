@@ -19,8 +19,7 @@ export const branchDivision = (s: OrgState, b: Branch): Division | undefined =>
   b.divisionId ? byId(s.divisions, b.divisionId) : undefined
 
 /** K 127 — tagged at any level at all. */
-export const branchHasTag = (b: Branch): boolean =>
-  Boolean(b.areaId || b.regionId || b.divisionId)
+export const branchHasTag = (b: Branch): boolean => Boolean(b.areaId || b.regionId || b.divisionId)
 
 /** K 128 — the most specific tag's name, or ''. */
 export function branchTagLabel(s: OrgState, b: Branch): string {
@@ -63,17 +62,45 @@ export function superOfSub(s: OrgState, subId: string): SuperDivision | undefine
 }
 
 /**
- * K 258–262 — a branch is tagged at exactly ONE level. Setting a parent clears
- * the other two, so a branch can never be double-counted.
+ * K 258–262 — the Branch-detail parent picker, which offers regions and areas
+ * only.
+ *
+ * NOTE: it deliberately does NOT touch `divisionId`. A branch keeps its
+ * division tag when it is placed under a region or area, which is what lets the
+ * Analysis tab roll the same branch up by division AND by region. Only area and
+ * region are mutually exclusive here.
  */
-export function setBranchParent(b: Branch, kind: 'area' | 'region' | 'division', id: string | null): void {
-  b.areaId = null
-  b.regionId = null
-  b.divisionId = null
-  if (!id) return
-  if (kind === 'area') b.areaId = id
-  else if (kind === 'region') b.regionId = id
-  else b.divisionId = id
+export function setBranchParent(b: Branch, val: string): void {
+  if (!val) {
+    b.areaId = null
+    b.regionId = null
+    return
+  }
+  const [t, id] = val.split(':')
+  if (t === 'area') {
+    b.areaId = id
+    b.regionId = null
+  } else {
+    b.regionId = id
+    b.areaId = null
+  }
+}
+
+/** The current value for the parent picker above. */
+export function branchParentValue(b: Branch): string {
+  if (b.areaId) return `area:${b.areaId}`
+  if (b.regionId) return `region:${b.regionId}`
+  return ''
+}
+
+/** K 136-140 — the status pill's class and label. */
+export function statusPill(status?: string): { cls: string; label: string } {
+  const t = (status || '').toLowerCase()
+  let cls = 'none'
+  if (t === 'active') cls = 'active'
+  else if (t === 'inactive') cls = 'inactive'
+  else if (t === 'pending') cls = 'pending'
+  return { cls: `pill ${cls}`, label: status || '—' }
 }
 
 /** Divisions with no live super-division parent — rendered at the top level. */

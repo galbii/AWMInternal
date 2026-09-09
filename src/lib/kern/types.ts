@@ -11,7 +11,8 @@ export interface OrgNode {
   manager: string
 }
 
-export interface SuperDivision extends OrgNode {}
+/** The top level. Carries no extra fields — its children are Divisions. */
+export type SuperDivision = OrgNode
 
 /** A sub-division. `parentId` points at a SuperDivision. */
 export interface Division extends OrgNode {
@@ -261,9 +262,22 @@ export interface CreditData {
 // ---- UI contracts -----------------------------------------------------------
 
 export type TabId =
-  | 'branches' | 'areas' | 'regions' | 'divisions' | 'titles' | 'archive'
-  | 'employees' | 'roster' | 'data' | 'credit' | 'tenure' | 'analysis'
-  | 'monthly' | 'highlight' | 'hierarchy' | 'builder'
+  | 'branches'
+  | 'areas'
+  | 'regions'
+  | 'divisions'
+  | 'titles'
+  | 'archive'
+  | 'employees'
+  | 'roster'
+  | 'data'
+  | 'credit'
+  | 'tenure'
+  | 'analysis'
+  | 'monthly'
+  | 'highlight'
+  | 'hierarchy'
+  | 'builder'
 
 export type MetricKey = 'dollars' | 'units'
 /** K 1289 — the Analysis/Highlight grouping levels, coarsest to finest. */

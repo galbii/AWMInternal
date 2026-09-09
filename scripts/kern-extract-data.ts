@@ -33,7 +33,10 @@ const lines = html.split('\n')
 function grab(name: string): unknown {
   const line = lines.find((l) => l.startsWith(`const ${name} = `) || l.startsWith(`const ${name}=`))
   if (!line) throw new Error(`could not find "const ${name}" in ${src}`)
-  const body = line.slice(line.indexOf('=') + 1).trim().replace(/;$/, '')
+  const body = line
+    .slice(line.indexOf('=') + 1)
+    .trim()
+    .replace(/;$/, '')
   return JSON.parse(body)
 }
 
@@ -102,4 +105,6 @@ writeFileSync(resolve(root, 'public/kern/credit.json'), JSON.stringify(CREDIT))
 console.log(`seed:        ${(SEED as { branches: unknown[] }).branches.length} branches`)
 console.log(`production:  ${Object.keys(prod.PROD as object).length} orgs`)
 console.log(`roster:      ${(TYROSTER as { people: unknown[] }).people.length} people`)
-console.log(`credit:      ${Object.keys(CREDIT.orgs).length} orgs, ${redacted} borrower names REDACTED`)
+console.log(
+  `credit:      ${Object.keys(CREDIT.orgs).length} orgs, ${redacted} borrower names REDACTED`,
+)

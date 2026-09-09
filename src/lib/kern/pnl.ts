@@ -70,11 +70,18 @@ export function computePnl(P: PnlSettings, rosterUnits: number, rosterVol: numbe
   const breakEvenUnits = contribLow > 0 ? team / contribLow : null
 
   return {
-    units, vol, avgLoan,
-    team, revenue,
-    procBps, loaBps,
-    compBlend, compLow, fixed,
-    netBlend, netLow,
+    units,
+    vol,
+    avgLoan,
+    team,
+    revenue,
+    procBps,
+    loaBps,
+    compBlend,
+    compLow,
+    fixed,
+    netBlend,
+    netLow,
     compSaving: compBlend - compLow,
     breakEvenUnits,
   }
@@ -85,7 +92,13 @@ export function computePnl(P: PnlSettings, rosterUnits: number, rosterVol: numbe
  * from every branch's roster by title, plus the legacy flat name lists.
  */
 export function knownSupport(
-  branches: { roster?: { name: string; title?: string }[]; processors?: string[]; loas?: string[]; processorName?: string; loaName?: string }[],
+  branches: {
+    roster?: { name: string; title?: string }[]
+    processors?: string[]
+    loas?: string[]
+    processorName?: string
+    loaName?: string
+  }[],
   kind: 'proc' | 'loa',
 ): string[] {
   const set = new Set<string>()
@@ -107,4 +120,74 @@ export function knownSupport(
   })
 
   return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+}
+
+/**
+ * K 1062-1072 — the per-branch staffing basis the P&L runs on.
+ *
+ * `partialMonth` is the in-progress month from PROD_RUNRATE; it is EXCLUDED
+ * from every average here, because a month that is five business days old
+ * would drag a branch's monthly average down and understate the basis.
+ */
+export interface RosterBasis {
+  /** Average funded units/month for a branch, or null with no funded data. */
+  monthlyUnits(b: { orgid?: string }): number | null
+  /** Average loan size for a branch, falling back to the company-wide figure. */
+  avgLoan(b: { orgid?: string }): number
+  globalAvgLoan: number
+}
+
+export function rosterBasis(
+  production: Record<string, Record<string, [number, number]>>,
+  partialMonth: string | null,
+): RosterBasis {
+  // K 1069 — the company-wide fallback for a branch with no production.
+  let gD = 0
+  let gU = 0
+  Object.keys(production).forEach((o) =>
+    Object.keys(production[o]).forEach((m) => {
+      if (m === partialMonth) return
+      gD += production[o][m][0] || 0
+      gU += production[o][m][1] || 0
+    }),
+  )
+  const globalAvgLoan = gU ? gD / gU : 0
+
+  const orgOf = (b: { orgid?: string }): string | null =>
+    b && b.orgid != null ? String(b.orgid) : null
+
+  return {
+    globalAvgLoan,
+    monthlyUnits(b) {
+      const org = orgOf(b)
+      if (!org) return null
+      const mm = production[org]
+      if (!mm) return null
+      let tot = 0
+      let n = 0
+      // Only months that actually funded something count toward the average.
+      Object.keys(mm).forEach((m) => {
+        if (m === partialMonth) return
+        const u = mm[m][1] || 0
+        if (u > 0) {
+          tot += u
+          n++
+        }
+      })
+      return n ? tot / n : null
+    },
+    avgLoan(b) {
+      const org = orgOf(b)
+      const mm = org ? production[org] : undefined
+      if (!mm) return globalAvgLoan
+      let d = 0
+      let u = 0
+      Object.keys(mm).forEach((m) => {
+        if (m === partialMonth) return
+        d += mm[m][0] || 0
+        u += mm[m][1] || 0
+      })
+      return u ? d / u : globalAvgLoan
+    },
+  }
 }

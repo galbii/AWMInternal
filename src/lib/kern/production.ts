@@ -6,12 +6,7 @@
 // known branch; it is included/excluded like any other org.
 
 import { byId } from '@/lib/kern/org'
-import type {
-  DimensionKey,
-  OrgState,
-  ProductionPair,
-  MetricKey,
-} from '@/lib/kern/types'
+import type { DimensionKey, OrgState, ProductionPair, MetricKey } from '@/lib/kern/types'
 
 /** K 806 — the display name for a production org id. */
 export function prodName(s: OrgState, org: string): string {

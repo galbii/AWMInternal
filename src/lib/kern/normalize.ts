@@ -10,8 +10,7 @@ import type { Branch, Employee, OrgState, PnlSettings, TyRoster } from '@/lib/ke
 
 let seq = 0
 /** K 5 — the source's id format; kept so imported documents stay comparable. */
-export const uid = (p: string): string =>
-  `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`
+export const uid = (p: string): string => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`
 
 /** K 40 */
 export const emp = (name?: string, title?: string): Employee => ({

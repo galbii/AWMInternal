@@ -43,7 +43,15 @@ export function creditOrgRows(s: OrgState, data: CreditData): CreditOrgRow[] {
           ni++
         }),
       )
-      return { o, name: creditOrgName(s, o), nl: Object.keys(loans).length, ni, ch, cr, net: ch + cr }
+      return {
+        o,
+        name: creditOrgName(s, o),
+        nl: Object.keys(loans).length,
+        ni,
+        ch,
+        cr,
+        net: ch + cr,
+      }
     })
     .sort((a, b) => b.ch - a.ch)
 }
@@ -141,7 +149,11 @@ export function creditOperatorRows(
         const n = (bb.name || '').toLowerCase()
         const t = n.split(' ')
         return Boolean(
-          n && (t.includes(last) || t[t.length - 1] === last || n === `branch ${last}` || n.replace('branch ', '') === last),
+          n &&
+          (t.includes(last) ||
+            t[t.length - 1] === last ||
+            n === `branch ${last}` ||
+            n.replace('branch ', '') === last),
         )
       })
       const known = Boolean(home)
@@ -158,4 +170,26 @@ export function creditOperatorRows(
       }
     })
     .sort((a, b) => b.ch - a.ch)
+}
+
+/**
+ * Fetch the credit dataset.
+ *
+ * It is NOT a bundled module: it carries per-loan billing detail and is
+ * generated into public/kern/credit.json by scripts/kern-extract-data.ts,
+ * which is gitignored (port design spec, D2). Returns null when the file is
+ * absent, which is the normal state of a fresh clone — the tab renders an
+ * explanatory empty state rather than breaking.
+ *
+ * When the backend lands this becomes a viewer-gated route handler; the
+ * signature does not change.
+ */
+export async function fetchCreditData(): Promise<CreditData | null> {
+  try {
+    const res = await fetch('/kern/credit.json', { cache: 'force-cache' })
+    if (!res.ok) return null
+    return (await res.json()) as CreditData
+  } catch {
+    return null
+  }
 }
