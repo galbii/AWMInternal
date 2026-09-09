@@ -49,6 +49,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cross-env": "^7.0.3",
+    "echarts": "^6.1.0",
     "geist": "^1.7.0",
     "graphql": "^16.13.1",
     "html2canvas": "^1.4.1",
