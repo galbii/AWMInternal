@@ -50,6 +50,17 @@ export const APPS: AppDef[] = [
     status: 'live',
     group: 'People',
   },
+  {
+    id: 'kern',
+    name: 'Kern Org Manager',
+    description:
+      'Divisions → Regions → Areas → Branches — org structure, branch rosters, and production analytics.',
+    href: '/kern',
+    icon: '🏢',
+    status: 'beta',
+    group: 'Operations',
+    roles: ['admin', 'dev'],
+  },
 ]
 
 /** Every app the given user may see, in registry order. */

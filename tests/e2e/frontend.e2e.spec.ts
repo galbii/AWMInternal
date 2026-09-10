@@ -13,6 +13,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 const HUB_URL = 'http://localhost:3000/'
 const APP_URL = 'http://localhost:3000/offers'
+const KERN_URL = 'http://localhost:3000/kern'
 const EMAIL = process.env.E2E_EMAIL || ''
 const PASSWORD = process.env.E2E_PASSWORD || ''
 
@@ -88,6 +89,63 @@ test.describe('Offer & New Hire Request Manager @ /offers', () => {
   })
 })
 
+// The Kern Org Manager (src/app/(kern)) at /kern. Phase 1 keeps its org
+// document in localStorage, so this smoke test asserts the shell, the 16-tab
+// bar, and that a chart-bearing tab mounts ECharts without throwing — it does
+// not mutate anything.
+test.describe('Kern Org Manager @ /kern', () => {
+  test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
+
+  test('gates unauthenticated visitors at /login', async ({ page }) => {
+    await page.goto(KERN_URL)
+    await expect(page).toHaveURL(/\/login/)
+  })
+
+  test('renders the shell and all 16 tabs', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(String(e)))
+
+    await signIn(page)
+    await page.goto(KERN_URL)
+
+    await expect(page).toHaveTitle('Kern Org Manager')
+    await expect(page.locator('.kern header h1')).toHaveText('Kern Org Manager')
+    await expect(page.locator('.session-bar .sb-user')).toContainText('Signed in as')
+
+    const tabs = page.locator('.kern nav.tabs .tab')
+    await expect(tabs).toHaveCount(16)
+    await expect(tabs.nth(0)).toContainText('Branches')
+    await expect(tabs.nth(15)).toContainText('Org Builder')
+
+    // The seed loads through the storage seam, so the branch table has rows.
+    await expect(page.locator('.kern table.tbl-center tbody tr').first()).toBeVisible()
+
+    expect(errors).toEqual([])
+  })
+
+  test('a chart tab mounts ECharts and syncs ?tab=', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(String(e)))
+
+    await signIn(page)
+    await page.goto(KERN_URL)
+    await page.locator('.kern nav.tabs .tab', { hasText: 'Analysis' }).click()
+
+    await expect(page).toHaveURL(/\?tab=analysis/)
+    // ECharts renders into a <canvas> inside .chart-canvas once it loads.
+    await expect(page.locator('.kern .chart-canvas canvas').first()).toBeVisible({
+      timeout: 15000,
+    })
+    expect(errors).toEqual([])
+  })
+
+  test('the tab in ?tab= survives a reload', async ({ page }) => {
+    await signIn(page)
+    await page.goto(`${KERN_URL}?tab=hierarchy`)
+    await expect(page.locator('.kern nav.tabs .tab.active')).toContainText('Hierarchy')
+  })
+})
+
 test.describe('App hub @ /', () => {
   test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
 
@@ -95,5 +153,11 @@ test.describe('App hub @ /', () => {
     await signIn(page)
     await page.goto(HUB_URL)
     await expect(page.locator('a[href="/offers"]')).toBeVisible()
+  })
+
+  test('renders an app row linking to /kern', async ({ page }) => {
+    await signIn(page)
+    await page.goto(HUB_URL)
+    await expect(page.locator('a[href="/kern"]')).toBeVisible()
   })
 })
