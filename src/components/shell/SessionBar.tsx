@@ -1,18 +1,18 @@
 'use client'
 
-// Slim session strip above the app shell: who is signed in, a link to their
-// profile & settings page, sign-out, and — for admins/devs — "view as"
-// emulation and user creation. While emulating, a hard orange frame + banner
-// make the mode impossible to miss, and the whole app is read-only (writes are
-// rejected server-side).
+// Slim session strip above the app shell: who is signed in, Settings (opens
+// the shared preferences modal — theme etc.), sign-out, and — for admins/devs
+// — "view as" emulation and user creation. While emulating, a hard orange
+// frame + banner make the mode impossible to miss, and the whole app is
+// read-only (writes are rejected server-side).
 //
-// "Settings" used to open UserSettingsModal; it is now a link to /u/<username>,
-// so settings have a real URL and double as the person's directory profile.
+// Identity settings (name, username, passkeys) live on /u/<username>; the
+// settings modal links there rather than duplicating them.
 
-import Link from 'next/link'
 import React, { useState } from 'react'
 
 import NewUserModal from './NewUserModal'
+import SettingsModal from './SettingsModal'
 
 export interface SessionUserOption {
   id: string
@@ -61,6 +61,7 @@ export default function SessionBar({
 }: SessionBarProps): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [newUserOpen, setNewUserOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const viewAs = async (userId: string): Promise<void> => {
     if (!userId || busy) return
@@ -133,16 +134,22 @@ export default function SessionBar({
             </select>
           </label>
         )}
-        {/* Settings is a page now (/u/<username>), not a modal. Next forces a
-            hard navigation between route groups with different root layouts,
-            so this crosses from an app into (hub) correctly. */}
-        <Link className="sb-signout" href={profileHref}>
+        {/* Settings opens the shared preferences modal (theme, etc.); identity
+            and passkeys keep living on the profile page, which the modal links
+            to — crossing route groups there is a full navigation, by design. */}
+        <button className="sb-signout" onClick={() => setSettingsOpen(true)}>
           Settings
-        </Link>
+        </button>
         <button className="sb-signout" onClick={() => void signOut()} disabled={busy}>
           Sign out
         </button>
       </div>
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        profileHref={profileHref}
+        actorLabel={actorLabel}
+      />
       {canManage && <NewUserModal open={newUserOpen} onClose={() => setNewUserOpen(false)} />}
     </>
   )

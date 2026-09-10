@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { Public_Sans, Source_Serif_4 } from 'next/font/google'
+import { cookies } from 'next/headers'
 import React from 'react'
+
+import { parseTheme, THEME_COOKIE, themeDomAttr } from '@/lib/theme'
 
 import '../shell.css'
 import './hub.css'
@@ -32,9 +35,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function HubLayout({ children }: { children: React.ReactNode }) {
+export default async function HubLayout({ children }: { children: React.ReactNode }) {
+  // Stamped server-side so the first paint is already in the right theme.
+  // 'system' stamps nothing and prefers-color-scheme decides in CSS.
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value)
   return (
-    <html lang="en" className={`${publicSans.variable} ${sourceSerif.variable}`}>
+    <html
+      lang="en"
+      data-theme={themeDomAttr(theme)}
+      className={`${publicSans.variable} ${sourceSerif.variable}`}
+    >
       <body className={publicSans.className}>{children}</body>
     </html>
   )

@@ -73,12 +73,34 @@ button:active{transform:translateY(1px)}
 .btn-danger{background:#fff;color:var(--danger);border:1px solid #f0c9c4}
 .btn-danger:hover{background:#fdf2f1}
 
-.modal-bg{position:fixed;inset:0;background:rgba(16,26,48,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+/* Modal theme seam: the rules below consume these tokens so the dark ramp is
+ * a token swap, not a second copy of every rule. Light values here; the dark
+ * blocks at the end of this file override ONLY the tokens. Inside (offers)
+ * the frozen offers.css copy of `.modal` wins the light cascade (it loads
+ * later) — the [data-theme] token swaps still apply there by design, so the
+ * chrome follows the theme in every app. */
+:root{
+  --md-backdrop:rgba(4,16,26,.5);
+  --md-surface:#ffffff;
+  --md-ink:#16232e;
+  --md-muted:#64748b;
+  --md-line:#e2e8f0;
+  --md-foot:#f8fafc;
+}
+.modal-bg{position:fixed;inset:0;background:var(--md-backdrop);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 .modal-bg.show{display:flex}
-.modal{background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
-.modal h3{margin:0;padding:16px 20px;background:var(--navy);color:#fff;font-size:16px}
-.modal .body{padding:18px 20px;max-height:60vh;overflow:auto}
-.modal .foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#f8fafc}
+.modal{background:var(--md-surface);color:var(--md-ink);border-radius:16px;max-width:560px;width:100%;
+  box-shadow:0 10px 30px -12px rgba(2,20,33,.35),0 32px 80px -24px rgba(2,20,33,.45);overflow:hidden}
+.modal h3{margin:0;padding:17px 22px 15px;background:transparent;color:var(--md-ink);
+  font-size:16px;border-bottom:1px solid var(--md-line)}
+.modal .body{padding:18px 22px;max-height:60vh;overflow:auto}
+.modal .foot{padding:14px 22px;border-top:1px solid var(--md-line);display:flex;justify-content:flex-end;gap:8px;background:var(--md-foot)}
+@media (prefers-reduced-motion:no-preference){
+  .modal-bg.show .modal{ animation:modal-in .22s cubic-bezier(.22,.68,.35,1) both }
+  .modal-bg.show{ animation:modal-bg-in .18s ease both }
+}
+@keyframes modal-in{ from{ opacity:0; transform:translateY(10px) scale(.97) } to{ opacity:1; transform:none } }
+@keyframes modal-bg-in{ from{ opacity:0 } to{ opacity:1 } }
 
 /* ===== Passkeys (settings modal) =====
  * Rendered on the /u/<username> profile page, and reachable from every app, so these use
@@ -86,35 +108,35 @@ button:active{transform:translateY(1px)}
  */
 .pk-section{display:flex;flex-direction:column;gap:10px;min-width:300px}
 .pk-head{display:flex;flex-direction:column;gap:3px}
-.pk-title{font-size:13px;font-weight:700;color:var(--navy);margin:0}
-.pk-sub{font-size:12px;color:var(--muted);margin:0;line-height:1.45}
+.pk-title{font-size:13px;font-weight:700;color:var(--sh-ink);margin:0}
+.pk-sub{font-size:12px;color:var(--sh-muted);margin:0;line-height:1.45}
 
 .pk-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
 .pk-item{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;
-  border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fbfcfe}
+  border:1px solid var(--sh-line);border-radius:9px;padding:9px 11px;background:var(--sh-card)}
 .pk-item-main{min-width:0;display:flex;flex-direction:column;gap:2px}
-.pk-item-name{font-size:13.5px;font-weight:600;color:var(--navy);display:flex;
+.pk-item-name{font-size:13.5px;font-weight:600;color:var(--sh-ink);display:flex;
   align-items:center;gap:7px;flex-wrap:wrap;overflow-wrap:anywhere}
-.pk-item-meta{font-size:11.5px;color:var(--muted)}
+.pk-item-meta{font-size:11.5px;color:var(--sh-muted)}
 .pk-item-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 
 .pk-badge{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;
-  border-radius:99px;background:#eef2ff;color:#3730a3;line-height:1.6}
+  border-radius:99px;background:var(--sh-chip-bg);color:var(--sh-chip-fg);line-height:1.6}
 
 .pk-remove,.pk-remove-confirm{font-size:11.5px;padding:4px 9px;border-radius:6px;
-  border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;
+  border:1px solid var(--sh-line);background:var(--sh-field);color:var(--sh-muted);cursor:pointer;
   font-family:inherit;font-weight:600}
-.pk-remove:hover{background:#f8fafc;color:var(--navy)}
-.pk-remove-confirm{border-color:#f0c9c4;color:var(--danger);background:#fff}
+.pk-remove:hover{background:var(--sh-soft);color:var(--sh-ink)}
+.pk-remove-confirm{border-color:#f0c9c4;color:var(--danger);background:var(--sh-field)}
 .pk-remove-confirm:hover{background:#fdf2f1}
 .pk-remove:disabled,.pk-remove-confirm:disabled{opacity:.55;cursor:default}
 
-.pk-empty{font-size:12.5px;color:var(--muted);background:#f8fafc;border:1px dashed var(--line);
+.pk-empty{font-size:12.5px;color:var(--sh-muted);background:var(--sh-soft);border:1px dashed var(--sh-line);
   border-radius:9px;padding:12px;line-height:1.45}
 
 .pk-add-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.pk-add-input{flex:1 1 150px;min-width:0;padding:8px 10px;border:1px solid var(--line);
-  border-radius:7px;font-size:13px;font-family:inherit}
+.pk-add-input{flex:1 1 150px;min-width:0;padding:8px 10px;border:1px solid var(--sh-line);
+  border-radius:7px;font-size:13px;font-family:inherit;background:var(--sh-field);color:var(--sh-ink)}
 .pk-add-input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
 .pk-add{flex:0 0 auto;padding:8px 13px;border-radius:7px;border:none;background:var(--accent);
   color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
@@ -123,7 +145,7 @@ button:active{transform:translateY(1px)}
 
 .pk-error{font-size:12.5px;color:var(--danger);background:#fef2f2;border:1px solid #fecaca;
   border-radius:8px;padding:8px 10px;line-height:1.45}
-.pk-note{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
+.pk-note{font-size:12px;color:var(--sh-muted);line-height:1.45;margin:0}
 
 /* ===== New-user modal form =====
  * Moved here from (offers)/offers.css: NewUserModal is rendered by SessionBar,
@@ -131,8 +153,134 @@ button:active{transform:translateY(1px)}
  * (It was silently unstyled on the hub.)
  */
 .usm-form{display:flex;flex-direction:column;gap:12px;min-width:300px}
-.usm-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:#334155}
-.usm-form input{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit}
+.usm-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--sh-ink)}
+.usm-form input{padding:8px 10px;border:1px solid var(--sh-line);border-radius:7px;font-size:13.5px;
+  font-family:inherit;background:var(--sh-field);color:var(--sh-ink)}
 .usm-form input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
-.usm-divider{margin-top:4px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;
-  font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.usm-divider{margin-top:4px;padding-top:10px;border-top:1px solid var(--sh-line);font-size:11.5px;
+  font-weight:700;color:var(--sh-muted);letter-spacing:.3px}
+
+/* ==================================================================
+   THEME SEAM — shared chrome tokens.
+
+   `--sh-*` (and the `--md-*` modal tokens above) are NEW names on purpose:
+   the frozen offers.css re-declares --navy/--line/etc. and its rules must
+   keep resolving to their light values, so the dark ramp must never touch
+   a token name the frozen sheet consumes. Only chrome rules (modals, the
+   passkey/profile blocks, the settings modal) read --sh-*.
+
+   Contract (src/lib/theme.ts): <html data-theme="dark"> is explicit dark,
+   no attribute means "system" and the media query decides, and
+   data-theme="light" pins light even when the OS is dark.
+   ================================================================== */
+:root{
+  --sh-ink:#16232e;
+  --sh-muted:#64748b;
+  --sh-line:#dde3ec;
+  --sh-field:#ffffff;
+  --sh-soft:#f6f8fb;
+  --sh-card:#fbfcfe;
+  --sh-chip-bg:#e6f1f8;
+  --sh-chip-fg:#00629f;
+}
+:root[data-theme='dark']{
+  --sh-ink:#e6eef4; --sh-muted:#8fa3b0; --sh-line:rgba(148,180,203,.2);
+  --sh-field:#0e1c26; --sh-soft:rgba(148,180,203,.08); --sh-card:#101e28;
+  --sh-chip-bg:rgba(46,163,217,.16); --sh-chip-fg:#5fbbe4;
+  --md-backdrop:rgba(0,0,0,.55); --md-surface:#101e28; --md-ink:#e6eef4;
+  --md-muted:#8fa3b0; --md-line:rgba(148,180,203,.16); --md-foot:#0c1822;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']){
+    --sh-ink:#e6eef4; --sh-muted:#8fa3b0; --sh-line:rgba(148,180,203,.2);
+    --sh-field:#0e1c26; --sh-soft:rgba(148,180,203,.08); --sh-card:#101e28;
+    --sh-chip-bg:rgba(46,163,217,.16); --sh-chip-fg:#5fbbe4;
+    --md-backdrop:rgba(0,0,0,.55); --md-surface:#101e28; --md-ink:#e6eef4;
+    --md-muted:#8fa3b0; --md-line:rgba(148,180,203,.16); --md-foot:#0c1822;
+  }
+}
+
+/* Footer buttons inside a modal follow the modal's theme. The .modal scope
+ * both keeps this away from app content and outranks the frozen offers.css
+ * button rules, so modal chrome is consistent in every app. Light values
+ * match the originals exactly. */
+.modal .btn-light{background:var(--md-surface);color:var(--md-ink);border:1px solid var(--sh-line)}
+.modal .btn-light:hover{background:var(--sh-soft)}
+.modal .btn-danger{background:var(--md-surface)}
+
+/* ==================================================================
+   SETTINGS MODAL (SettingsModal.tsx) — appearance preferences.
+   ================================================================== */
+.st-body{display:flex;flex-direction:column;gap:18px;min-width:300px}
+.st-group-name{margin:0 0 2px;font-size:13px;font-weight:600;color:var(--md-ink)}
+.st-group-sub{margin:0 0 12px;font-size:12.5px;color:var(--md-muted);line-height:1.5}
+
+.st-themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.st-theme{display:flex;flex-direction:column;gap:8px;padding:9px 9px 10px;margin:0;
+  border:1px solid var(--sh-line);border-radius:12px;background:transparent;color:var(--md-ink);
+  font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center;
+  transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}
+.st-theme:hover{border-color:#7fb4d4;transform:translateY(-1px)}
+.st-theme:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,98,159,.28)}
+.st-theme[aria-checked='true']{border-color:#00629f;box-shadow:0 0 0 1px #00629f}
+
+/* The swatch is a miniature of the dashboard: a chrome bar and two tiles. */
+.st-sw{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:7px;
+  overflow:hidden;border:1px solid var(--sh-line)}
+.st-sw-bar{position:absolute;left:0;right:0;top:0;height:22%}
+.st-sw-tile{position:absolute;top:38%;width:34%;height:44%;border-radius:3px;border:1px solid}
+.st-sw-tile:first-of-type{left:10%}
+.st-sw-tile:last-of-type{left:52%}
+
+.st-sw-light{background:#f4f7fa}
+.st-sw-light .st-sw-bar{background:#041c2c}
+.st-sw-light .st-sw-tile{background:#fff;border-color:#dbe3ea}
+
+.st-sw-dark{background:#0a141c}
+.st-sw-dark .st-sw-bar{background:#041c2c}
+.st-sw-dark .st-sw-tile{background:#101e28;border-color:rgba(148,180,203,.25)}
+
+/* System: the light miniature with a dark half clipped over it. */
+.st-sw-system{background:linear-gradient(105deg,#f4f7fa 50%,#0a141c 50%)}
+.st-sw-system .st-sw-bar{background:#041c2c}
+.st-sw-system .st-sw-tile:first-of-type{background:#fff;border-color:#dbe3ea}
+.st-sw-system .st-sw-tile:last-of-type{background:#101e28;border-color:rgba(148,180,203,.25)}
+
+.st-note{margin:10px 0 0;font-size:12px;color:var(--md-muted);line-height:1.5}
+
+.st-profile{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 14px;border:1px solid var(--sh-line);border-radius:12px;background:var(--sh-soft)}
+.st-profile-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.st-profile-name{font-size:13px;font-weight:600;color:var(--md-ink)}
+.st-profile-sub{font-size:12px;color:var(--md-muted)}
+.st-profile-link{flex:0 0 auto;font-size:12.5px;font-weight:600;color:#00629f;text-decoration:none;
+  padding:6px 11px;border-radius:7px;border:1px solid var(--sh-line);background:var(--md-surface)}
+.st-profile-link:hover{border-color:#00629f}
+.st-profile-link:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,98,159,.28)}
+:root[data-theme='dark'] .st-profile-link{color:#5fbbe4}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .st-profile-link{color:#5fbbe4}
+}
+
+@media (max-width:460px){
+  .st-themes{grid-template-columns:1fr 1fr}
+}
+
+/* ==================================================================
+   CROSS-DOCUMENT VIEW TRANSITIONS.
+
+   Every root layout imports this sheet, so login → hub and hub → app
+   handoffs (which are FULL page loads, by design) get a soft fade-rise in
+   browsers that support @view-transition. Everyone else gets a normal
+   navigation — this block must never become load-bearing.
+   ================================================================== */
+@view-transition{ navigation:auto }
+@media (prefers-reduced-motion:no-preference){
+  ::view-transition-old(root){ animation:vt-out .16s ease both }
+  ::view-transition-new(root){ animation:vt-in .3s cubic-bezier(.22,.68,.35,1) both }
+}
+@media (prefers-reduced-motion:reduce){
+  ::view-transition-old(root),::view-transition-new(root){ animation:none }
+}
+@keyframes vt-out{ to{ opacity:0 } }
+@keyframes vt-in{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }

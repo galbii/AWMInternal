@@ -222,7 +222,19 @@ middleware. Keep the `api/` exclusion in its matcher — route handlers answer
 **Profiles (`/u/<username>`):** every user has a `username` handle on the
 `users` collection, and `/u/<handle>` is their profile + settings page (in the
 `(hub)` group, so it is available from every app). `/u/me` resolves to your
-own. The Settings modal is gone — the session bar links here instead.
+own. The session bar's "Settings" opens `SettingsModal` (shared chrome:
+preferences like the theme, plus a link to the profile page); identity and
+passkeys stay on `/u/<handle>` because they need real URLs and server checks.
+
+**Theme (light/dark/system):** the preference is the `awm-theme` cookie
+(`src/lib/theme.ts` owns the contract). Every app's ROOT layout reads it via
+`cookies()` and stamps `data-theme` on `<html>` — 'system' stamps nothing and
+`prefers-color-scheme` decides in CSS. The dark ramp lives in NEW token names
+(`--awm-*` themed surfaces in `hub.css`, `--sh-*`/`--md-*` chrome tokens in
+`shell.css`). Never flip a token the frozen `offers.css` re-declares
+(`--navy`, `--line`, …): offers/kern app CONTENT stays light on purpose
+(parity + printed letters); only the shared chrome (modals) follows the theme
+inside those apps.
 
 - **`src/lib/users/profile.ts` is a security boundary.** `users.read` is
   `selfOrAdminOrDev`, so a normal user cannot read a colleague's document at

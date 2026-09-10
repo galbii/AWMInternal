@@ -1,161 +1,177 @@
 /* AWM Internal — HUB + SIGN-IN STYLES.
  *
- * Scoped to the (hub) route group: the launcher at "/" (.hub-*) and the
- * sign-in page at "/login" (.signin-*).
+ * Scoped to the (hub) route group: the launcher at "/" (.hub-*), the sign-in
+ * page at "/login" (.signin-*), and the profile page at /u/<handle>.
  *
  * Palette note: --awm-blue is sampled from the supplied logo artwork
- * (public/brand/awm-logo.png), not approximated — the mark, the horizon and
- * the primary button are literally the same blue. The rest of the ramp is
- * built around it. These tokens sit alongside (not instead of) the --navy /
- * --accent tokens in shell.css, which the session bar and modals still use.
+ * (public/brand/awm-logo.png), not approximated — the mark, the sign-in
+ * panel's drawn swoosh and the primary button are literally the same blue.
+ * The rest of the ramp is built around it. These tokens sit alongside (not
+ * instead of) the --navy / --accent tokens in shell.css, which the session
+ * bar and modals still use.
+ *
+ * THEMING: <html data-theme="dark"> (or OS dark + no attribute) swaps the
+ * surface tokens below. The brand constants (--awm-blue, --awm-navy, the
+ * sign-in brand panel) do not change with the theme — the brand is the brand.
  */
 
 :root{
   --awm-blue:#00629f;        /* the mark's blue, sampled from the artwork */
   --awm-blue-lift:#0b76b8;   /* hover */
   --awm-blue-deep:#013a5e;   /* the field below the horizon */
+  --awm-blue-bright:#2ea3d9;
+  --awm-navy:#041c2c;
+  --awm-focus:0 0 0 3px rgba(0,98,159,.22);
+  --awm-onmesh-fg:#f3f8fb;
+  --awm-onmesh-muted:rgba(243,248,251,.68);
+  --awm-serif:var(--font-serif), Georgia, 'Times New Roman', serif;
+
+  /* Themed surfaces — light values; dark blocks below swap ONLY these. */
+  --awm-page:#f5f8fa;        /* page ground */
+  --awm-card:#ffffff;        /* tiles, profile cards, sign-in form panel */
+  --awm-field:#f4f7fa;       /* inputs at rest */
+  --awm-mist:#edf4f9;        /* icon plates, quiet fills */
   --awm-ink:#10202b;         /* headings — a blue-slate, not a tinted black */
   --awm-slate:#5e6e7b;       /* secondary text, echoes the logo's grey wordmark */
   --awm-line:#dbe3ea;
-  --awm-mist:#f4f7fa;
-  --awm-paper:#ffffff;
-  --awm-focus:0 0 0 3px rgba(0,98,159,.22);
-  --awm-blue-bright:#2ea3d9;
-  --awm-navy:#041c2c;
-  --awm-glass:rgba(255,255,255,.9);
-  --awm-glass-border:rgba(255,255,255,.55);
-  --awm-onmesh-fg:#f3f8fb;
-  --awm-onmesh-muted:rgba(243,248,251,.72);
-  --awm-serif:var(--font-serif), Georgia, 'Times New Roman', serif;
+  --awm-chip-bg:#e6f1f8;
+  --awm-chip-fg:#00629f;
+  --awm-link:#00629f;        /* accent TEXT — needs the bright blue on dark */
+  --awm-tile-shadow:0 14px 32px -18px rgba(1,58,94,.35);
+}
+:root[data-theme='dark']{
+  color-scheme:dark;
+  --awm-page:#0a141c; --awm-card:#101e28; --awm-field:#0c1a24;
+  --awm-mist:rgba(46,163,217,.1); --awm-ink:#e6eef4; --awm-slate:#8fa3b0;
+  --awm-line:rgba(148,180,203,.2);
+  --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
+  --awm-link:#5fbbe4;
+  --awm-tile-shadow:0 16px 36px -18px rgba(0,0,0,.6);
+  --awm-focus:0 0 0 3px rgba(46,163,217,.32);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']){
+    color-scheme:dark;
+    --awm-page:#0a141c; --awm-card:#101e28; --awm-field:#0c1a24;
+    --awm-mist:rgba(46,163,217,.1); --awm-ink:#e6eef4; --awm-slate:#8fa3b0;
+    --awm-line:rgba(148,180,203,.2);
+    --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
+    --awm-link:#5fbbe4;
+    --awm-tile-shadow:0 16px 36px -18px rgba(0,0,0,.6);
+    --awm-focus:0 0 0 3px rgba(46,163,217,.32);
+  }
 }
 
+body{ background:var(--awm-page); color:var(--awm-ink); }
+
 /* ==================================================================
-   SIGN-IN  ( / login )
+   SIGN-IN  ( /login )
+
+   A split screen: the brand holds the left panel — deep navy, the mark,
+   and the logo's swoosh redrawn as a single line that draws itself in —
+   and the work happens on the right, on a clean themed panel. The drawn
+   line is the page's one flourish; everything else stays quiet.
    ================================================================== */
 
 .signin{
-  position:relative;
-  isolation:isolate;
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);
   min-height:100dvh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:56px 20px 32vh;
-  background:
-    radial-gradient(120% 90% at 12% -10%, rgba(46,163,217,.14), transparent 60%),
-    linear-gradient(180deg, var(--awm-navy) 0%, #061f30 55%, var(--awm-blue-deep) 100%);
-  overflow:hidden;
 }
 
-.signin::after{
-  content:"";
-  position:absolute; inset:0;
-  z-index:0;
-  pointer-events:none;
-  opacity:.035;
-  mix-blend-mode:overlay;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+/* ---- brand panel ---- */
 
-.signin-mesh{ position:absolute; inset:0; z-index:0; pointer-events:none; }
-.signin-blob{
-  position:absolute;
-  border-radius:50%;
-  filter:blur(70px);
-  opacity:.55;
-}
-.signin-blob-a{ width:52vw; height:52vw; left:-14vw; top:-18vw; background:var(--awm-blue); }
-.signin-blob-b{ width:38vw; height:38vw; right:-10vw; top:6vw; background:var(--awm-blue-bright); opacity:.35; }
-.signin-blob-c{ width:44vw; height:44vw; left:22vw; bottom:-26vw; background:var(--awm-blue-deep); opacity:.6; }
-
-.signin-horizon{
-  position:absolute;
-  left:0; right:0; bottom:0;
-  width:100%;
-  height:40vh;
-  min-height:220px;
-  display:block;
-  z-index:1;
-  pointer-events:none;
-}
-.signin-horizon-far{ fill:var(--awm-navy); opacity:.55; }
-.signin-horizon-mid{ fill:var(--awm-blue-deep); opacity:.8; }
-.signin-horizon-near{ fill:var(--awm-blue-deep); }
-.signin-horizon-line{
-  fill:none;
-  stroke:var(--awm-blue);
-  stroke-width:2.5;
-  vector-effect:non-scaling-stroke;
-}
-.signin-horizon-glow{
-  fill:var(--awm-blue-bright);
-  opacity:.28;
-  filter:blur(40px);
-}
-
-.signin-inner{
+.signin-brand{
   position:relative;
-  z-index:2;
-  width:100%;
-  max-width:460px;
+  overflow:hidden;
   display:flex;
   flex-direction:column;
-  align-items:center;
-  text-align:center;
+  justify-content:space-between;
+  gap:32px;
+  padding:clamp(32px,4.5vw,60px);
+  background:
+    radial-gradient(110% 80% at 14% -6%, rgba(46,163,217,.16), transparent 58%),
+    linear-gradient(168deg, var(--awm-navy) 0%, #062338 62%, var(--awm-blue-deep) 100%);
+  color:var(--awm-onmesh-fg);
 }
 
-.signin-mark-wrap{
-  position:relative;
-  margin-bottom:10px;
-}
-.signin-mark-wrap::before{
-  content:"";
-  position:absolute;
-  inset:-24%;
-  z-index:-1;
-  background:radial-gradient(circle, rgba(46,163,217,.35), transparent 70%);
-  filter:blur(24px);
-}
+/* The artwork ships on a white ground — rounding it and lifting it slightly
+   turns the slab into a deliberate badge. */
 .signin-mark{
-  width:184px;
+  width:124px;
   height:auto;
   display:block;
+  border-radius:14px;
+  box-shadow:0 10px 28px -14px rgba(0,0,0,.55);
+}
+
+/* The swoosh: the logo's own horizon, one stroke, drawing itself in.
+   With no headline on this panel it IS the composition — sized to hold
+   the lower half rather than hide at the bottom edge. */
+.signin-swoosh{
+  position:absolute;
+  left:0; right:0; bottom:-4px;
+  width:100%;
+  height:min(52vh,420px);
+  display:block;
+  pointer-events:none;
+}
+/* The glow rides the stroke itself (a clipped blurred shape would print a
+   hard seam across the panel where the svg's box ends). */
+.signin-swoosh{ filter:drop-shadow(0 0 18px rgba(46,163,217,.5)); }
+.signin-swoosh-line{
+  fill:none;
+  stroke:var(--awm-blue-bright);
+  stroke-width:2.5;
+  stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+}
+.signin-swoosh-echo{
+  fill:none;
+  stroke:var(--awm-blue);
+  stroke-width:1.5;
+  stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+  opacity:.4;
+}
+
+.signin-brand-foot{
+  position:relative;
+  z-index:1;
+  margin:0;
+  font-size:12.5px;
+  letter-spacing:.01em;
+  color:var(--awm-onmesh-muted);
+}
+
+/* ---- form panel ---- */
+
+.signin-panel{
+  display:grid;
+  place-items:center;
+  padding:clamp(32px,5vw,64px) clamp(24px,4vw,56px);
+  background:var(--awm-card);
+}
+
+.signin-box{
+  width:100%;
+  max-width:392px;
 }
 
 .signin-title{
   margin:0;
   font-family:var(--awm-serif);
-  font-size:clamp(32px, 5vw, 40px);
+  font-size:clamp(28px,3vw,34px);
   font-weight:600;
   line-height:1.15;
   letter-spacing:-.01em;
-  color:var(--awm-onmesh-fg);
+  color:var(--awm-ink);
 }
-
 .signin-lede{
-  margin:10px 0 30px;
-  font-size:16.5px;
+  margin:10px 0 28px;
+  font-size:15px;
   line-height:1.55;
-  color:var(--awm-onmesh-muted);
-  max-width:36ch;
-}
-
-.signin-card{
-  width:100%;
-  background:var(--awm-glass);
-  backdrop-filter:blur(20px) saturate(140%);
-  -webkit-backdrop-filter:blur(20px) saturate(140%);
-  border:1px solid var(--awm-glass-border);
-  border-radius:20px;
-  padding:34px 32px;
-  text-align:left;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.6),
-    0 8px 24px -12px rgba(1,58,94,.4),
-    0 30px 60px -24px rgba(1,58,94,.6);
-}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .signin-card{ background:rgba(255,255,255,.97); }
+  color:var(--awm-slate);
 }
 
 .signin-passkey{
@@ -170,26 +186,35 @@
   background:linear-gradient(135deg, var(--awm-blue), var(--awm-blue-lift));
   color:#fff;
   font-family:inherit;
-  font-size:16px;
+  font-size:15.5px;
   font-weight:600;
   cursor:pointer;
-  box-shadow:0 8px 20px -10px rgba(0,98,159,.6), inset 0 1px 0 rgba(255,255,255,.25);
+  box-shadow:0 8px 20px -10px rgba(0,98,159,.55), inset 0 1px 0 rgba(255,255,255,.22);
   transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .signin-passkey:hover:not(:disabled){
   background:linear-gradient(135deg, var(--awm-blue-lift), #1290c9);
   transform:translateY(-1px);
-  box-shadow:0 14px 28px -12px rgba(0,98,159,.65), inset 0 1px 0 rgba(255,255,255,.3);
+  box-shadow:0 14px 28px -12px rgba(0,98,159,.6), inset 0 1px 0 rgba(255,255,255,.28);
 }
 .signin-passkey:active:not(:disabled){ transform:translateY(0); box-shadow:0 6px 14px -8px rgba(0,98,159,.5); }
 .signin-passkey:focus-visible{ outline:none; box-shadow:var(--awm-focus), 0 14px 28px -12px rgba(0,98,159,.5); }
-.signin-passkey:disabled{ opacity:.62; cursor:default; transform:none; }
+.signin-passkey:disabled{ opacity:.72; cursor:default; transform:none; }
 
 .signin-key{
   width:18px; height:18px; flex:0 0 auto;
   fill:none; stroke:currentColor; stroke-width:1.7;
   stroke-linecap:round; stroke-linejoin:round;
 }
+.signin-check{
+  width:17px; height:17px; flex:0 0 auto;
+  fill:none; stroke:currentColor; stroke-width:2.2;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+@media (prefers-reduced-motion:no-preference){
+  .signin-check{ stroke-dasharray:24; stroke-dashoffset:24; animation:signin-check .3s ease .05s forwards; }
+}
+@keyframes signin-check{ to{ stroke-dashoffset:0 } }
 
 .signin-spinner{
   width:16px; height:16px; flex:0 0 auto;
@@ -218,12 +243,12 @@
   font-family:inherit;
   font-size:15.5px;
   color:var(--awm-ink);
-  background:var(--awm-mist);
+  background:var(--awm-field);
   transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .signin-field input:focus{
   outline:none;
-  background:var(--awm-paper);
+  background:var(--awm-card);
   border-color:var(--awm-blue);
   box-shadow:var(--awm-focus);
 }
@@ -233,12 +258,12 @@
   margin-top:4px;
   display:flex; align-items:center; justify-content:center; gap:10px;
   padding:14px 18px;
-  border:none;
+  border:1px solid transparent;
   border-radius:12px;
   background:linear-gradient(135deg, var(--awm-ink), #1b3444);
   color:#fff;
   font-family:inherit;
-  font-size:16px;
+  font-size:15.5px;
   font-weight:600;
   cursor:pointer;
   box-shadow:0 8px 18px -10px rgba(16,32,43,.5);
@@ -251,7 +276,27 @@
 }
 .signin-submit:active:not(:disabled){ transform:translateY(0); }
 .signin-submit:focus-visible{ outline:none; box-shadow:var(--awm-focus); }
-.signin-submit:disabled{ opacity:.62; cursor:default; transform:none; }
+.signin-submit:disabled{ opacity:.72; cursor:default; transform:none; }
+/* The ink gradient disappears on a dark panel — hand the dark theme a
+ * slate-blue version with real contrast against --awm-card. */
+:root[data-theme='dark'] .signin-submit{
+  background:linear-gradient(135deg,#27495e,#1b3a4c);
+  border-color:rgba(148,180,203,.22);
+  box-shadow:0 8px 18px -10px rgba(0,0,0,.5);
+}
+:root[data-theme='dark'] .signin-submit:hover:not(:disabled){
+  background:linear-gradient(135deg,#2e556d,#224559);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .signin-submit{
+    background:linear-gradient(135deg,#27495e,#1b3a4c);
+    border-color:rgba(148,180,203,.22);
+    box-shadow:0 8px 18px -10px rgba(0,0,0,.5);
+  }
+  :root:not([data-theme='light']) .signin-submit:hover:not(:disabled){
+    background:linear-gradient(135deg,#2e556d,#224559);
+  }
+}
 
 .signin-error{
   margin:0 0 14px;
@@ -263,208 +308,225 @@
   font-size:13px;
   line-height:1.45;
 }
-
-.signin-foot{
-  margin:26px 0 0;
-  font-size:13px;
-  letter-spacing:.01em;
-  color:var(--awm-onmesh-muted);
+:root[data-theme='dark'] .signin-error{
+  background:rgba(190,60,50,.14); border-color:rgba(240,120,110,.35); color:#f5a9a2;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .signin-error{
+    background:rgba(190,60,50,.14); border-color:rgba(240,120,110,.35); color:#f5a9a2;
+  }
 }
 
+/* ---- entrance: the brand side draws, the form side settles in ---- */
 @media (prefers-reduced-motion:no-preference){
-  .signin-mark-wrap{ animation:signin-in .55s cubic-bezier(.22,.68,.35,1) both; }
-  .signin-title    { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .06s both; }
-  .signin-lede     { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .12s both; }
-  .signin-card     { animation:signin-card-in .6s cubic-bezier(.22,.68,.35,1) .18s both; }
-  .signin-foot     { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .28s both; }
-  .signin-horizon  { animation:signin-rise .9s cubic-bezier(.22,.68,.35,1) both; }
+  .signin-mark      { animation:signin-in .5s cubic-bezier(.22,.68,.35,1) both; }
+  .signin-brand-foot{ animation:signin-in .55s ease .5s both; }
+  .signin-title     { animation:signin-in .5s cubic-bezier(.22,.68,.35,1) .1s both; }
+  .signin-lede      { animation:signin-in .5s cubic-bezier(.22,.68,.35,1) .16s both; }
+  .signin-card-seq  { animation:signin-in .55s cubic-bezier(.22,.68,.35,1) .22s both; }
 
-  .signin-blob-a{ animation:signin-drift 52s ease-in-out infinite alternate; }
-  .signin-blob-b{ animation:signin-drift 64s ease-in-out infinite alternate-reverse; }
-  .signin-blob-c{ animation:signin-drift 58s ease-in-out infinite alternate; }
-  .signin-horizon-glow{ animation:signin-glow-drift 40s ease-in-out infinite alternate; }
+  .signin-swoosh-line{
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+    animation:signin-draw 1.3s cubic-bezier(.4,.1,.2,1) .25s forwards;
+  }
+  .signin-swoosh-echo{
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+    animation:signin-draw 1.3s cubic-bezier(.4,.1,.2,1) .45s forwards;
+  }
 }
 @keyframes signin-in{
   from{ opacity:0; transform:translateY(10px); }
   to{ opacity:1; transform:none; }
 }
-@keyframes signin-card-in{
-  from{ opacity:0; transform:translateY(14px) scale(.97); }
-  to{ opacity:1; transform:none; }
-}
-@keyframes signin-rise{
-  from{ transform:translateY(26px); }
-  to{ transform:none; }
-}
-@keyframes signin-drift{
-  from{ transform:translate(0,0) scale(1); }
-  to{ transform:translate(3%, -2%) scale(1.06); }
-}
-@keyframes signin-glow-drift{
-  from{ transform:translateX(-3%); }
-  to{ transform:translateX(3%); }
+@keyframes signin-draw{
+  to{ stroke-dashoffset:0; }
 }
 @keyframes signin-spin{
   to{ transform:rotate(360deg); }
 }
 
-@media (max-width:520px){
-  .signin{ padding:40px 16px 26vh; }
-  .signin-mark{ width:150px; }
-  .signin-card{ padding:26px 20px; }
-  .signin-title{ font-size:30px; }
+@media (max-width:880px){
+  .signin{ grid-template-columns:1fr; min-height:100dvh; grid-template-rows:auto 1fr; }
+  .signin-brand{
+    flex-direction:row;
+    align-items:center;
+    justify-content:flex-start;
+    gap:18px;
+    padding:18px 22px;
+  }
+  .signin-mark{ width:72px; }
+  .signin-brand-foot{ margin:0; }
+  .signin-swoosh{ display:none; }
+  .signin-panel{ align-items:start; padding-top:40px; }
 }
 
 /* ==================================================================
    HUB  ( / )
 
-   An INDEX, not a card grid. Every app is one full-width row, so the
-   page reads as a deliberate list whether the registry holds one app
-   or twenty — a lone card in a 3-up grid reads as an empty template,
-   which is the failure mode this replaces.
-
-   Adding an app to src/lib/apps/registry.ts needs NO change here.
-   The app name is the only serif on the page (echoing the logo's own
-   wordmark); everything else is Public Sans and stays quiet, because
-   the boldness is spent on one thing: the row filling with brand blue
-   under the pointer.
+   A LAUNCHER: a grid of substantial tiles, grouped as the registry
+   declares. Adding an app to src/lib/apps/registry.ts needs NO change
+   here. The app name is (with the greeting) the only serif on the page,
+   echoing the logo's own wordmark; the boldness is spent on one thing —
+   the tile answering the pointer with the brand blue.
    ================================================================== */
 
 .hub{
-  max-width:860px;
+  max-width:1060px;
   margin:0 auto;
-  padding:56px 24px 96px;
+  padding:52px 28px 96px;
 }
 
 /* The greeting is the only personal chrome — the session bar above
    already names the signed-in user, so nothing else is repeated. */
-.hub-top{ margin-bottom:46px; }
+.hub-top{ margin-bottom:42px; }
 /* The artwork is a wordmark inside a square, not an icon — below ~90px the
    "ALL WESTERN MORTGAGE" line collapses into mush, so it is sized to stay
    readable rather than to be small. */
 .hub-mark{
-  width:100px;
+  width:96px;
   height:auto;
   display:block;
-  margin:0 0 18px -4px;
+  margin:0 0 20px -3px;
+  /* The artwork ships on a white ground; rounding it makes it a badge
+     instead of a glaring slab once the page itself goes dark. */
+  border-radius:12px;
+  box-shadow:0 6px 18px -10px rgba(1,58,94,.35);
 }
 .hub-hello{
   margin:0;
-  font-size:17px;
-  font-weight:500;
-  letter-spacing:-.005em;
+  font-family:var(--awm-serif);
+  font-size:clamp(25px,3vw,31px);
+  font-weight:600;
+  letter-spacing:-.012em;
+  line-height:1.2;
   color:var(--awm-ink);
 }
+.hub-sub{
+  margin:8px 0 0;
+  font-size:14.5px;
+  color:var(--awm-slate);
+}
 
-.hub-set{ margin-bottom:40px; }
+.hub-set{ margin-bottom:38px; }
 .hub-set:last-child{ margin-bottom:0; }
 
 /* Sentence case, not a tracked-out all-caps eyebrow: it names the set
    below it, so it carries information rather than decorating. */
 .hub-set-name{
-  margin:0 0 2px;
-  font-size:12.5px;
-  font-weight:500;
+  margin:0 0 12px;
+  font-size:13px;
+  font-weight:600;
   color:var(--awm-slate);
 }
 
-.hub-list{ list-style:none; margin:0; padding:0; }
-
-.hub-row{
-  position:relative;
+.hub-grid{
+  list-style:none;
+  margin:0;
+  padding:0;
   display:grid;
-  grid-template-columns:24px 1fr auto;
-  align-items:baseline;
-  gap:0 18px;
-  padding:22px 16px;
-  margin:0 -16px;
-  border-radius:10px;
-  text-decoration:none;
-  color:inherit;
-  transition:background-color .18s ease, color .18s ease;
-}
-/* The rule is a pseudo-element, not a border, so it can be drawn in on
-   load and vanish cleanly under the hover fill's rounded corners. */
-.hub-row::after{
-  content:"";
-  position:absolute;
-  left:16px; right:16px; bottom:0;
-  height:1px;
-  background:var(--awm-line);
-  transform-origin:left;
+  grid-template-columns:repeat(auto-fill, minmax(252px, 1fr));
+  gap:14px;
 }
 
-a.hub-row:hover,
-a.hub-row:focus-visible{
-  background:var(--awm-blue);
-  color:#fff;
-}
-a.hub-row:hover::after,
-a.hub-row:focus-visible::after{ background:transparent; }
-a.hub-row:focus-visible{
-  outline:none;
-  box-shadow:0 0 0 3px rgba(0,98,159,.3);
-}
-
-.hub-row-icon{
-  font-size:19px;
-  line-height:1.35;
-}
-
-.hub-row-main{
+.hub-tile{
+  position:relative;
   display:flex;
   flex-direction:column;
-  gap:6px;
-  min-width:0;
+  gap:12px;
+  min-height:172px;
+  padding:20px 20px 18px;
+  border:1px solid var(--awm-line);
+  border-radius:14px;
+  background:var(--awm-card);
+  text-decoration:none;
+  color:inherit;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
+a.hub-tile:hover,
+a.hub-tile:focus-visible{
+  transform:translateY(-3px);
+  border-color:var(--awm-blue);
+  box-shadow:var(--awm-tile-shadow);
+}
+a.hub-tile:focus-visible{
+  outline:none;
+  box-shadow:var(--awm-focus), var(--awm-tile-shadow);
+}
+a.hub-tile:active{ transform:translateY(-1px); }
 
-.hub-row-name{
+.hub-tile-icon{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  font-size:20px;
+  border-radius:11px;
+  background:var(--awm-mist);
+  transition:background-color .18s ease;
+}
+a.hub-tile:hover .hub-tile-icon,
+a.hub-tile:focus-visible .hub-tile-icon{ background:var(--awm-chip-bg); }
+
+.hub-tile-name{
   display:flex;
   align-items:center;
   flex-wrap:wrap;
-  gap:10px;
+  gap:8px;
   font-family:var(--awm-serif);
-  font-size:clamp(23px, 2.6vw, 28px);
+  font-size:19.5px;
   font-weight:600;
-  line-height:1.2;
+  line-height:1.25;
   letter-spacing:-.005em;
   color:var(--awm-ink);
 }
 
-.hub-row-desc{
-  font-size:14px;
+.hub-tile-desc{
+  flex:1;
+  font-size:13.5px;
   line-height:1.5;
   color:var(--awm-slate);
-  max-width:60ch;
 }
 
-/* The action word only appears once the row is live under pointer or
-   keyboard — the row itself is the affordance the rest of the time. */
-.hub-row-go{
+/* The action only appears once the tile is live under pointer or
+   keyboard — the tile itself is the affordance the rest of the time.
+   Touch gets it always (there is no hover to reveal it). */
+.hub-tile-open{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
   font-size:13px;
   font-weight:600;
-  color:#fff;
-  white-space:nowrap;
+  color:var(--awm-link);
   opacity:0;
-  transition:opacity .18s ease;
+  transform:translateX(-4px);
+  transition:opacity .18s ease, transform .18s ease;
 }
-
-a.hub-row:hover .hub-row-name,
-a.hub-row:focus-visible .hub-row-name{ color:#fff; }
-a.hub-row:hover .hub-row-desc,
-a.hub-row:focus-visible .hub-row-desc{ color:rgba(255,255,255,.84); }
-a.hub-row:hover .hub-row-go,
-a.hub-row:focus-visible .hub-row-go{ opacity:1; }
+.hub-tile-arrow{
+  width:14px; height:14px;
+  fill:none; stroke:currentColor; stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round;
+  transition:transform .18s ease;
+}
+a.hub-tile:hover .hub-tile-open,
+a.hub-tile:focus-visible .hub-tile-open{ opacity:1; transform:none; }
+a.hub-tile:hover .hub-tile-arrow,
+a.hub-tile:focus-visible .hub-tile-arrow{ transform:translateX(2px); }
+@media (hover:none){
+  .hub-tile-open{ opacity:1; transform:none; }
+}
 
 /* Not-yet-built apps: present, legible, obviously inert. No dashed
    border or grey-out theatre — just less weight and a plain status. */
-.hub-row-off{ cursor:default; }
-.hub-row-off .hub-row-name{ color:var(--awm-slate); }
-.hub-row-off .hub-row-icon{ opacity:.45; }
-.hub-row-off .hub-row-go{
+.hub-tile-off{ cursor:default; background:transparent; }
+.hub-tile-off .hub-tile-name{ color:var(--awm-slate); }
+.hub-tile-off .hub-tile-icon{ opacity:.5; }
+.hub-tile-off .hub-tile-open{
   opacity:1;
-  font-weight:500;
+  transform:none;
   color:var(--awm-slate);
+  font-weight:500;
 }
 
 .hub-tag{
@@ -473,15 +535,9 @@ a.hub-row:focus-visible .hub-row-go{ opacity:1; }
   font-weight:600;
   padding:2px 8px;
   border-radius:99px;
-  background:#e6f1f8;
-  color:var(--awm-blue);
+  background:var(--awm-chip-bg);
+  color:var(--awm-chip-fg);
   line-height:1.7;
-  transform:translateY(-2px);
-}
-a.hub-row:hover .hub-tag,
-a.hub-row:focus-visible .hub-tag{
-  background:rgba(255,255,255,.22);
-  color:#fff;
 }
 
 /* An empty screen is an invitation to act, so it says what to do. */
@@ -501,44 +557,32 @@ a.hub-row:focus-visible .hub-tag{
   max-width:52ch;
 }
 
-/* One orchestrated moment on load: the column fades up as a whole and
-   the rules draw left-to-right, the way an index gets ruled. Per-row
-   content does NOT slide in separately. */
+/* One orchestrated moment on load: the greeting settles first, then the
+   tiles rise in a single pass across the page. Consumed via the `--r`
+   custom property the page stamps on each tile (one counter across ALL
+   groups, so the wave never restarts mid-page). */
 @media (prefers-reduced-motion:no-preference){
-  .hub{ animation:hub-in .4s ease both; }
-  .hub-row::after{
-    animation:hub-rule .55s cubic-bezier(.2,.7,.3,1) both;
-    animation-delay:calc(min(var(--r, 0), 12) * 70ms + 130ms);
+  .hub-top{ animation:hub-in .45s cubic-bezier(.22,.68,.35,1) both; }
+  .hub-set-name{ animation:hub-in .45s ease .15s both; }
+  .hub-tile{
+    animation:hub-tile-in .5s cubic-bezier(.22,.68,.35,1) both;
+    animation-delay:calc(min(var(--r, 0), 12) * 55ms + 140ms);
   }
 }
 @keyframes hub-in{
-  from{ opacity:0; }
-  to{ opacity:1; }
+  from{ opacity:0; transform:translateY(8px); }
+  to{ opacity:1; transform:none; }
 }
-@keyframes hub-rule{
-  from{ transform:scaleX(0); }
-  to{ transform:scaleX(1); }
+@keyframes hub-tile-in{
+  from{ opacity:0; transform:translateY(12px); }
+  to{ opacity:1; transform:none; }
 }
 
 @media(max-width:640px){
-  .hub{ padding:36px 18px 64px; }
-  .hub-top{ margin-bottom:34px; }
-  .hub-row{
-    grid-template-columns:20px 1fr;
-    gap:0 14px;
-    padding:18px 14px;
-    margin:0 -14px;
-  }
-  .hub-row::after{ left:14px; right:14px; }
-  /* No hover on touch, so the action word has no job here. The
-     inert rows still need to say why they can't be opened. */
-  .hub-row-go{ display:none; }
-  .hub-row-off .hub-row-go{
-    display:block;
-    grid-column:2;
-    margin-top:9px;
-    opacity:1;
-  }
+  .hub{ padding:34px 18px 64px; }
+  .hub-top{ margin-bottom:30px; }
+  .hub-grid{ grid-template-columns:1fr; gap:12px; }
+  .hub-tile{ min-height:0; }
 }
 
 /* ==================================================================
@@ -587,8 +631,8 @@ a.hub-row:focus-visible .hub-tag{
   font-weight:600;
   padding:2px 9px;
   border-radius:99px;
-  background:#e6f1f8;
-  color:var(--awm-blue);
+  background:var(--awm-chip-bg);
+  color:var(--awm-chip-fg);
   line-height:1.6;
 }
 .profile-joined{
@@ -602,7 +646,7 @@ a.hub-row:focus-visible .hub-tag{
 /* Shown when the viewer can look but not touch — it should read as a
    deliberate state, not a form that failed to load. */
 .profile-readonly{
-  background:var(--awm-mist);
+  background:var(--awm-field);
   border:1px solid var(--awm-line);
   border-radius:10px;
   padding:15px 17px;
@@ -619,6 +663,14 @@ a.hub-row:focus-visible .hub-tag{
   font-size:13px;
   margin-bottom:20px;
 }
+:root[data-theme='dark'] .profile-emunote{
+  background:rgba(194,120,40,.14); border-color:rgba(230,160,80,.35); color:#f3c78f;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .profile-emunote{
+    background:rgba(194,120,40,.14); border-color:rgba(230,160,80,.35); color:#f3c78f;
+  }
+}
 
 .profile-sections{
   display:flex;
@@ -629,7 +681,7 @@ a.hub-row:focus-visible .hub-tag{
 /* --- editor sections --- */
 
 .pe-section{
-  background:var(--awm-paper);
+  background:var(--awm-card);
   border:1px solid var(--awm-line);
   border-radius:12px;
   padding:20px 22px;
@@ -666,7 +718,7 @@ a.hub-row:focus-visible .hub-tag{
   font-family:inherit;
   font-size:14px;
   color:var(--awm-ink);
-  background:var(--awm-paper);
+  background:var(--awm-field);
   transition:border-color .14s ease, box-shadow .14s ease;
 }
 .pe-input:focus{
@@ -682,7 +734,7 @@ a.hub-row:focus-visible .hub-tag{
   border:1px solid var(--awm-line);
   border-radius:8px;
   overflow:hidden;
-  background:var(--awm-paper);
+  background:var(--awm-field);
   transition:border-color .14s ease, box-shadow .14s ease;
 }
 .pe-prefix-wrap:focus-within{
@@ -711,6 +763,12 @@ a.hub-row:focus-visible .hub-tag{
 }
 .pe-hint-ok{ color:#1f7a4d; }
 .pe-hint-bad{ color:#a3231b; }
+:root[data-theme='dark'] .pe-hint-ok{ color:#63cf95; }
+:root[data-theme='dark'] .pe-hint-bad{ color:#f5a9a2; }
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .pe-hint-ok{ color:#63cf95; }
+  :root:not([data-theme='light']) .pe-hint-bad{ color:#f5a9a2; }
+}
 
 .pe-roles{ display:flex; flex-direction:column; gap:9px; margin-bottom:14px; }
 .pe-role{
@@ -747,6 +805,10 @@ a.hub-row:focus-visible .hub-tag{
 .pe-save:disabled{ opacity:.55; cursor:default; }
 
 .pe-status{ font-size:12.5px; color:#1f7a4d; }
+:root[data-theme='dark'] .pe-status{ color:#63cf95; }
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .pe-status{ color:#63cf95; }
+}
 .pe-error{
   margin:0 0 12px;
   padding:9px 11px;
@@ -757,11 +819,19 @@ a.hub-row:focus-visible .hub-tag{
   font-size:12.5px;
   line-height:1.45;
 }
+:root[data-theme='dark'] .pe-error{
+  background:rgba(190,60,50,.14); border-color:rgba(240,120,110,.35); color:#f5a9a2;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .pe-error{
+    background:rgba(190,60,50,.14); border-color:rgba(240,120,110,.35); color:#f5a9a2;
+  }
+}
 
 /* The passkey block is rendered by PasskeyManager (styled in shell.css);
    give it the same card as the editor sections so the page reads as one set. */
 .profile-sections .pk-section{
-  background:var(--awm-paper);
+  background:var(--awm-card);
   border:1px solid var(--awm-line);
   border-radius:12px;
   padding:20px 22px;

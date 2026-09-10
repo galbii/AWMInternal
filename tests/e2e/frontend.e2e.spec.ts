@@ -21,9 +21,9 @@ async function signIn(page: Page): Promise<void> {
   await page.goto(APP_URL)
   // Unauthenticated hits redirect to /login.
   if (!page.url().includes('/login')) return
-  await page.locator('.signin-card input[type="email"]').fill(EMAIL)
-  await page.locator('.signin-card input[type="password"]').fill(PASSWORD)
-  await page.locator('.signin-card button[type="submit"]').click()
+  await page.locator('.signin-box input[type="email"]').fill(EMAIL)
+  await page.locator('.signin-box input[type="password"]').fill(PASSWORD)
+  await page.locator('.signin-box button[type="submit"]').click()
   // Sign-in always lands on the hub, not back on the app that triggered the
   // login redirect — go there next explicitly.
   await page.waitForURL(HUB_URL)
