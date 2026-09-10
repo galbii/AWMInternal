@@ -23,27 +23,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 
 /* ===== session bar / emulation chrome (moved out of offers.css) =====
  * The sign-in page has its own .signin-* styles in (hub)/hub.css; only
- * .login-error survives here because the user/new-user modals reuse it. */
-.session-bar{display:flex;align-items:center;gap:12px;padding:6px 20px;background:#101a30;color:#cbd5e1;
-  font-size:12px;border-bottom:1px solid rgba(255,255,255,.08)}
+ * .login-error survives here because the user/new-user modals reuse it.
+ *
+ * The bar is CHROME and deliberately stays dark in both themes — the same
+ * deep AWM navy as the sign-in brand panel, capped with a thin brand-blue
+ * light strip. Controls are hairline ghosts that light up brand-blue. */
+.session-bar{position:relative;display:flex;align-items:center;gap:14px;padding:9px 20px;
+  background:linear-gradient(180deg,#041c2c,#082741);color:#9db3c2;
+  font-size:12.5px;border-bottom:1px solid rgba(46,163,217,.22)}
+.session-bar::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,#00629f,#2ea3d9 38%,rgba(46,163,217,.05) 80%)}
 .session-bar .sb-user strong{color:#fff;font-weight:600}
 .sb-spacer{flex:1}
-.sb-viewas{display:flex;align-items:center;gap:6px;color:#cbd5e1}
-.sb-viewas select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);
-  background:#1b2a4a;color:#fff}
-.sb-signout{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
-  background:transparent;color:#e2e8f0;cursor:pointer}
-.sb-signout:hover{background:rgba(255,255,255,.1)}
+.sb-viewas{display:flex;align-items:center;gap:7px;color:#9db3c2}
+.sb-viewas select{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid rgba(148,180,203,.3);
+  background:#0a2438;color:#e8f1f7;transition:border-color .16s ease}
+.sb-viewas select:hover{border-color:#2ea3d9}
+.sb-viewas select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
+.sb-signout{font-size:12px;font-weight:600;padding:5px 13px;border-radius:7px;
+  border:1px solid rgba(148,180,203,.3);background:transparent;color:#dbe7ef;cursor:pointer;
+  transition:border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
+.sb-signout:hover{border-color:#2ea3d9;color:#fff;background:rgba(46,163,217,.12);
+  box-shadow:0 0 14px -5px rgba(46,163,217,.55)}
+.sb-signout:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
+.sb-signout:disabled{opacity:.55;cursor:default;box-shadow:none}
 
 /* ===== app switcher (AppShell / AppSwitcher) ===== */
-.as-switcher{display:flex;align-items:center;gap:8px;padding-right:12px;margin-right:2px;
-  border-right:1px solid rgba(255,255,255,.15);background:#101a30;color:#cbd5e1;font-size:12px}
-.as-home{color:#cbd5e1;text-decoration:none;font-weight:700;letter-spacing:.02em}
-.as-home:hover{color:#fff}
+.as-switcher{display:flex;align-items:center;gap:10px;padding-right:14px;margin-right:2px;
+  border-right:1px solid rgba(148,180,203,.22);background:transparent;color:#9db3c2;font-size:12.5px}
+.as-home{color:#cfe2ef;text-decoration:none;font-weight:700;letter-spacing:.02em;
+  transition:color .16s ease,text-shadow .16s ease}
+.as-home:hover{color:#fff;text-shadow:0 0 12px rgba(46,163,217,.65)}
+.as-home:focus-visible{outline:none;border-radius:4px;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
 .as-current{color:#fff;font-weight:600;display:flex;align-items:center;gap:8px}
-.as-current::before{content:"/";color:#475569;font-weight:400}
-.as-select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);
-  background:#1b2a4a;color:#fff}
+.as-current::before{content:"/";color:rgba(148,180,203,.45);font-weight:400}
+.as-select{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid rgba(148,180,203,.3);
+  background:#0a2438;color:#e8f1f7;transition:border-color .16s ease}
+.as-select:hover{border-color:#2ea3d9}
+.as-select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
 
 .emu-frame{position:fixed;inset:0;pointer-events:none;z-index:9998;
   box-shadow:inset 0 0 0 4px var(--warn)}

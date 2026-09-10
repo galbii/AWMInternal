@@ -37,7 +37,9 @@
   --awm-chip-bg:#e6f1f8;
   --awm-chip-fg:#00629f;
   --awm-link:#00629f;        /* accent TEXT — needs the bright blue on dark */
-  --awm-tile-shadow:0 14px 32px -18px rgba(1,58,94,.35);
+  --awm-tile-shadow:0 24px 44px -20px rgba(1,58,94,.4);
+  --awm-card-deep:#f0f5f9;   /* the showcase card's lower gradient stop */
+  --awm-glare:rgba(0,98,159,.09); /* the pointer-following sheen */
 }
 :root[data-theme='dark']{
   color-scheme:dark;
@@ -46,7 +48,9 @@
   --awm-line:rgba(148,180,203,.2);
   --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
   --awm-link:#5fbbe4;
-  --awm-tile-shadow:0 16px 36px -18px rgba(0,0,0,.6);
+  --awm-tile-shadow:0 26px 48px -20px rgba(0,0,0,.65);
+  --awm-card-deep:#0c1822;
+  --awm-glare:rgba(46,163,217,.15);
   --awm-focus:0 0 0 3px rgba(46,163,217,.32);
 }
 @media (prefers-color-scheme:dark){
@@ -57,7 +61,9 @@
     --awm-line:rgba(148,180,203,.2);
     --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
     --awm-link:#5fbbe4;
-    --awm-tile-shadow:0 16px 36px -18px rgba(0,0,0,.6);
+    --awm-tile-shadow:0 26px 48px -20px rgba(0,0,0,.65);
+    --awm-card-deep:#0c1822;
+    --awm-glare:rgba(46,163,217,.15);
     --awm-focus:0 0 0 3px rgba(46,163,217,.32);
   }
 }
@@ -409,73 +415,123 @@ body{ background:var(--awm-page); color:var(--awm-ink); }
   color:var(--awm-slate);
 }
 
-.hub-set{ margin-bottom:38px; }
-.hub-set:last-child{ margin-bottom:0; }
-
-/* Sentence case, not a tracked-out all-caps eyebrow: it names the set
-   below it, so it carries information rather than decorating. */
-.hub-set-name{
-  margin:0 0 12px;
-  font-size:13px;
-  font-weight:600;
-  color:var(--awm-slate);
-}
-
+/* THE SHOWCASE SLAB. Uniform TALL cards joined edge to edge — square
+   corners, hairline seams, one framed piece. The border scheme is what
+   keeps every seam exactly 1px at ANY column count: the wrapper draws the
+   top and left edges, every cell draws its own right and bottom edge.
+   HubShowcase.tsx writes --gx/--gy so the sheen follows the pointer. */
 .hub-grid{
   list-style:none;
   margin:0;
   padding:0;
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(252px, 1fr));
-  gap:14px;
+  grid-template-columns:repeat(3, 1fr);
+  gap:0;
+  border-top:1px solid var(--awm-line);
+  border-left:1px solid var(--awm-line);
 }
+/* The entrance animation stays applied (fill-mode: both), which makes each
+   <li> a stacking context of its own — so the LI, not the card, must be
+   raised on hover, or the expanded card slides UNDER later siblings. */
+.hub-grid > li{ position:relative; }
+.hub-grid > li:hover,
+.hub-grid > li:focus-within{ z-index:2; }
 
 .hub-tile{
   position:relative;
   display:flex;
   flex-direction:column;
-  gap:12px;
-  min-height:172px;
-  padding:20px 20px 18px;
-  border:1px solid var(--awm-line);
-  border-radius:14px;
-  background:var(--awm-card);
+  align-items:center;
+  text-align:center;
+  height:100%;
+  min-height:430px;
+  padding:34px 28px 26px;
+  border:0;
+  border-right:1px solid var(--awm-line);
+  border-bottom:1px solid var(--awm-line);
+  border-radius:0;
+  background:linear-gradient(178deg, var(--awm-card) 55%, var(--awm-card-deep) 100%);
   text-decoration:none;
   color:inherit;
-  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  transition:transform .24s cubic-bezier(.22,.68,.35,1), box-shadow .24s ease;
 }
+
+/* Hover: the card EXPANDS over its neighbours — scaled, lifted above the
+   slab, a brand ring drawn over the shared hairlines. No layout shift:
+   the growth is pure transform, so the seams underneath never move. */
 a.hub-tile:hover,
 a.hub-tile:focus-visible{
-  transform:translateY(-3px);
-  border-color:var(--awm-blue);
-  box-shadow:var(--awm-tile-shadow);
+  z-index:2;
+  transform:scale(1.05);
+  box-shadow:0 0 0 1px var(--awm-blue), var(--awm-tile-shadow);
 }
 a.hub-tile:focus-visible{
   outline:none;
-  box-shadow:var(--awm-focus), var(--awm-tile-shadow);
+  box-shadow:0 0 0 1px var(--awm-blue), var(--awm-focus), var(--awm-tile-shadow);
 }
-a.hub-tile:active{ transform:translateY(-1px); }
+a.hub-tile:active{ transform:scale(1.03); }
+
+.hub-tile::before{
+  content:"";
+  position:absolute;
+  top:0; left:0; right:0;
+  height:2px;
+  background:var(--awm-blue);
+  transform:scaleX(0);
+  transform-origin:left;
+  transition:transform .28s cubic-bezier(.22,.68,.35,1);
+}
+a.hub-tile:hover::before,
+a.hub-tile:focus-visible::before{ transform:scaleX(1); }
+
+/* The sheen: a soft brand-blue light that sits where the pointer is. */
+.hub-tile::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:radial-gradient(360px circle at var(--gx,50%) var(--gy,30%),
+    var(--awm-glare), transparent 62%);
+  opacity:0;
+  transition:opacity .22s ease;
+}
+a.hub-tile:hover::after{ opacity:1; }
+
+.hub-tile-group{
+  font-size:11.5px;
+  font-weight:600;
+  letter-spacing:.02em;
+  color:var(--awm-slate);
+  margin-bottom:26px;
+}
 
 .hub-tile-icon{
-  width:42px;
-  height:42px;
+  flex:0 0 auto;
+  width:72px;
+  height:72px;
   display:grid;
   place-items:center;
-  font-size:20px;
-  border-radius:11px;
+  font-size:34px;
+  border-radius:18px;
   background:var(--awm-mist);
-  transition:background-color .18s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 6px 16px -10px rgba(1,58,94,.3);
+  margin-bottom:22px;
+  transition:background-color .18s ease, transform .18s ease;
 }
 a.hub-tile:hover .hub-tile-icon,
-a.hub-tile:focus-visible .hub-tile-icon{ background:var(--awm-chip-bg); }
+a.hub-tile:focus-visible .hub-tile-icon{
+  background:var(--awm-chip-bg);
+  transform:translateY(-2px);
+}
 
 .hub-tile-name{
   display:flex;
   align-items:center;
+  justify-content:center;
   flex-wrap:wrap;
   gap:8px;
   font-family:var(--awm-serif);
-  font-size:19.5px;
+  font-size:21px;
   font-weight:600;
   line-height:1.25;
   letter-spacing:-.005em;
@@ -484,9 +540,11 @@ a.hub-tile:focus-visible .hub-tile-icon{ background:var(--awm-chip-bg); }
 
 .hub-tile-desc{
   flex:1;
+  margin-top:12px;
   font-size:13.5px;
-  line-height:1.5;
+  line-height:1.6;
   color:var(--awm-slate);
+  max-width:30ch;
 }
 
 /* The action only appears once the tile is live under pointer or
@@ -558,15 +616,13 @@ a.hub-tile:focus-visible .hub-tile-arrow{ transform:translateX(2px); }
 }
 
 /* One orchestrated moment on load: the greeting settles first, then the
-   tiles rise in a single pass across the page. Consumed via the `--r`
-   custom property the page stamps on each tile (one counter across ALL
-   groups, so the wave never restarts mid-page). */
+   cells fade in one after another. Opacity ONLY — the cells share edges,
+   so any translate would tear the seams open during the entrance. */
 @media (prefers-reduced-motion:no-preference){
   .hub-top{ animation:hub-in .45s cubic-bezier(.22,.68,.35,1) both; }
-  .hub-set-name{ animation:hub-in .45s ease .15s both; }
-  .hub-tile{
-    animation:hub-tile-in .5s cubic-bezier(.22,.68,.35,1) both;
-    animation-delay:calc(min(var(--r, 0), 12) * 55ms + 140ms);
+  .hub-grid > li{
+    animation:hub-tile-in .5s ease both;
+    animation-delay:calc(min(var(--r, 0), 12) * 70ms + 140ms);
   }
 }
 @keyframes hub-in{
@@ -574,15 +630,21 @@ a.hub-tile:focus-visible .hub-tile-arrow{ transform:translateX(2px); }
   to{ opacity:1; transform:none; }
 }
 @keyframes hub-tile-in{
-  from{ opacity:0; transform:translateY(12px); }
-  to{ opacity:1; transform:none; }
+  from{ opacity:0; }
+  to{ opacity:1; }
 }
 
+@media(max-width:980px){
+  .hub-grid{ grid-template-columns:repeat(2, 1fr); }
+  .hub-tile{ min-height:400px; }
+}
 @media(max-width:640px){
   .hub{ padding:34px 18px 64px; }
   .hub-top{ margin-bottom:30px; }
-  .hub-grid{ grid-template-columns:1fr; gap:12px; }
-  .hub-tile{ min-height:0; }
+  /* One column — the slab becomes a stack, still connected edge to edge.
+     The cards drop the enforced height; content sets it. */
+  .hub-grid{ grid-template-columns:1fr; }
+  .hub-tile{ min-height:0; padding:28px 22px 24px; }
 }
 
 /* ==================================================================
