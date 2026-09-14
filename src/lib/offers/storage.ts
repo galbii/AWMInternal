@@ -181,6 +181,25 @@ export function persistRecordsUpsertOnly(records: OfferRecord[]): Promise<boolea
   return enqueuePersist(records, false)
 }
 
+/**
+ * Explicit single-record delete, for the standalone /offers/[id] page. That page
+ * persists upsert-only — it deliberately cannot INFER a removal from its
+ * one-record view of the world — so a delete there has to name the id outright.
+ * Still "this client asked for this id", never "absent from a posted list".
+ * Goes through the same queue as the autosaves so it cannot race an in-flight
+ * upsert of the record it is deleting.
+ */
+export function removeRecordOnServer(id: string): Promise<boolean> {
+  if (!isBrowser()) return Promise.resolve(false)
+  const run = async (): Promise<boolean> => {
+    const ok = await syncPost({ upsert: [], reorder: [], remove: [id] })
+    if (ok) snapshot.delete(id)
+    return ok
+  }
+  queue = queue.then(run, run)
+  return queue
+}
+
 // S3 509
 export function getEmailPref(): EmailClientPref {
   if (!isBrowser()) return 'desktop'

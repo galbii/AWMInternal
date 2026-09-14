@@ -5,19 +5,44 @@
 // Behaviour: autosave S2 613–617, commit S2 618–636, validation S2 598–605,
 // dollar-blur S2 908–910, bonus clear-on-uncheck S2 911–919, letterStale
 // S2 900–907 / 920–922, action buttons S2 925–945.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import BaseWageField from '@/components/offers/fields/BaseWageField'
 import BonusField from '@/components/offers/fields/BonusField'
 import RadioField from '@/components/offers/fields/RadioField'
+import {
+  FORM_SECTIONS,
+  fieldById,
+  navEntries,
+  overridesTargeting,
+  OVERRIDE_LINKS,
+  type FormCard,
+  type LetterReach,
+  type FormSection,
+} from '@/components/offers/form-sections'
 import { useOffers } from '@/components/offers/OffersProvider'
 import { fmtDollarStr } from '@/lib/offers/format'
-import { DOLLAR_FIELD_IDS, FIELDS, GROUPS, missingRequired } from '@/lib/offers/schema'
+import { DOLLAR_FIELD_IDS, missingRequired } from '@/lib/offers/schema'
+import { removeRecordOnServer } from '@/lib/offers/storage'
 import type { FieldDef, OfferData } from '@/lib/offers/types'
 
 const AUTOSAVE_MS = 600
 
-export default function RequestForm() {
+export interface RequestFormProps {
+  /**
+   * Rendered on the standalone /offers/[id] workspace, which holds exactly one
+   * record. Two actions change shape there: Duplicate is dropped (a single-record
+   * page has nowhere to put the copy, and the provider's upsert-only persist would
+   * strand it off-screen), and Delete cannot go through `api.deleteRecord` —
+   * that path relies on the full-list diff to emit a removal, which upsert-only
+   * persistence never does, so it would clear the screen and leave the row in Mongo.
+   */
+  standalone?: boolean
+  /** Called after a successful standalone delete, so the page can navigate away. */
+  onDeleted?: () => void
+}
+
+export default function RequestForm({ standalone, onDeleted }: RequestFormProps) {
   const api = useOffers()
 
   const [data, setData] = useState<OfferData>({})
@@ -165,13 +190,26 @@ export default function RequestForm() {
   const onDelete = (): void => {
     const id = api.currentId
     if (!id) {
-      api.newRecord()
+      if (!standalone) api.newRecord()
       return
     }
     api.confirmDialog(
       'Delete request',
       'Permanently delete this request? This cannot be undone.',
       () => {
+        if (standalone) {
+          clearTimer()
+          dirtyRef.current = false
+          void removeRecordOnServer(id).then((ok) => {
+            if (!ok) {
+              api.toast('Could not delete on the server — nothing was removed.', true)
+              return
+            }
+            api.toast('Request deleted.') // S2 934
+            if (onDeleted) onDeleted()
+          })
+          return
+        }
         api.deleteRecord(id)
         api.toast('Request deleted.') // S2 934
       },
@@ -199,7 +237,7 @@ export default function RequestForm() {
     )
   }
 
-  const renderField = (f: FieldDef) => {
+  const renderField = (f: FieldDef, extra?: React.ReactNode) => {
     const cls = 'fld' + (missingIds.includes(f.id) ? ' missing' : '')
     if (f.type === 'bonus' || f.type === 'base') {
       return (
@@ -220,6 +258,7 @@ export default function RequestForm() {
           ) : (
             <BaseWageField field={f} data={data} onChange={setField} onDollarBlur={onDollarBlur} />
           )}
+          {extra}
         </div>
       )
     }
@@ -232,9 +271,163 @@ export default function RequestForm() {
         </label>
         {f.help && <span className="help">{f.help}</span>}
         {renderControl(f)}
+        {extra}
       </div>
     )
   }
+
+  /* ---- section / card rendering ---- */
+
+  const letterBadge = (reach: LetterReach | undefined) => {
+    if (!reach || reach.kind === 'none') return null
+    if (reach.kind === 'internal')
+      return (
+        <span className="rf-reach rf-reach-internal" title="Nothing here appears in the offer letter">
+          Internal only
+        </span>
+      )
+    return (
+      <span className="rf-reach rf-reach-letter">In the letter: {reach.what}</span>
+    )
+  }
+
+  /**
+   * The Group F footgun, made visible. `resolveLetter` takes the custom wording
+   * over the computed row whenever it is filled, so the card whose fields just
+   * lost says so, with a jump to the text that beat it.
+   */
+  const overrideNotices = (cardId: string) => {
+    const hits = overridesTargeting(cardId).filter((o) => (data[o.wordingId] || '').trim() !== '')
+    if (!hits.length) return null
+    return (
+      <div className="rf-overridden" role="status">
+        {hits.map((o) => (
+          <p key={o.wordingId}>
+            The <strong>{o.row}</strong> row is coming from your custom wording, not {o.beats}.{' '}
+            <button type="button" className="rf-link" onClick={() => jumpToField(o.wordingId)}>
+              Show the wording
+            </button>
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  /** On the wording card itself: say which row each filled box has claimed. */
+  const claimedRow = (fieldId: string) => {
+    const link = OVERRIDE_LINKS.find((o) => o.wordingId === fieldId)
+    if (!link || !(data[fieldId] || '').trim()) return null
+    return (
+      <span className="rf-claim">
+        Now writing the <strong>{link.row}</strong> row instead of {link.beats}.{' '}
+        <button type="button" className="rf-link" onClick={() => jumpTo('sec-' + link.targetCard)}>
+          Go to those fields
+        </button>
+      </span>
+    )
+  }
+
+  const renderCard = (c: FormCard) => (
+    <div className="rf-card" id={'sec-' + c.id} key={c.id}>
+      <div className="rf-card-head">
+        <h4>{c.title}</h4>
+        {letterBadge(c.letter)}
+      </div>
+      {c.blurb && <p className="rf-blurb">{c.blurb}</p>}
+      {overrideNotices(c.id)}
+      {c.fields.map((id) => {
+        const f = fieldById(id)
+        return f ? renderField(f, claimedRow(id)) : null
+      })}
+    </div>
+  )
+
+  const renderSection = (sec: FormSection) => {
+    const need = missingIn(sec.fields ?? (sec.cards ?? []).flatMap((c) => c.fields))
+    return (
+      <section className="grp rf-sec" id={'sec-' + sec.id} key={sec.id}>
+        <div className="grp-head rf-sec-head">
+          <span className="rf-sec-title">{sec.title}</span>
+          {letterBadge(sec.letter)}
+          <span className="rf-sec-status">
+            {need > 0 ? (
+              <span className="rf-need">
+                {need} required field{need === 1 ? '' : 's'} still needed
+              </span>
+            ) : (
+              <span className="rf-complete">Complete</span>
+            )}
+          </span>
+        </div>
+        <div className="grp-body">
+          {sec.blurb && <p className="rf-blurb rf-sec-blurb">{sec.blurb}</p>}
+          {sec.fields?.map((id) => {
+            const f = fieldById(id)
+            return f ? renderField(f) : null
+          })}
+          {sec.cards?.map((c) => renderCard(c))}
+        </div>
+      </section>
+    )
+  }
+
+  /* ---- section navigation (presentation only — see form-sections.ts) ---- */
+
+  const NAV = useMemo(() => navEntries(), [])
+  const [activeSection, setActiveSection] = useState<string>(NAV[0]?.id ?? '')
+  const sectionsRef = useRef<HTMLFormElement | null>(null)
+
+  /** Required fields still empty inside one section or card. */
+  const missingIn = (ids: string[]): number =>
+    ids.filter((id) => {
+      const f = fieldById(id)
+      return f?.req && !(data[id] || '').trim()
+    }).length
+
+  // Scroll-spy. `rootMargin` biases the "current" band to the upper third so a
+  // section counts as active once its heading reaches the sticky action bar
+  // rather than when it fully fills the viewport.
+  useEffect(() => {
+    const root = sectionsRef.current
+    if (!root || typeof IntersectionObserver === 'undefined') return
+    const targets = NAV.map((n) => root.querySelector('#sec-' + n.id)).filter(
+      (el): el is Element => el !== null,
+    )
+    if (!targets.length) return
+    const seen = new Map<string, boolean>()
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => seen.set(e.target.id, e.isIntersecting))
+        const first = NAV.find((n) => seen.get('sec-' + n.id))
+        if (first) setActiveSection(first.id)
+      },
+      { rootMargin: '-72px 0px -62% 0px', threshold: 0 },
+    )
+    targets.forEach((t) => obs.observe(t))
+    return () => obs.disconnect()
+  }, [NAV, formKey])
+
+  const jumpTo = useCallback((anchorId: string): void => {
+    const el = document.getElementById(anchorId)
+    if (!el) return
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }, [])
+
+  /** Flash a field the user was sent to, so the jump lands somewhere obvious. */
+  const jumpToField = useCallback(
+    (fieldId: string): void => {
+      const el = sectionsRef.current?.querySelector('[data-fid="' + fieldId + '"]')
+      if (!(el instanceof HTMLElement)) return
+      jumpTo(el.id || '')
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('rf-flash')
+      window.setTimeout(() => el.classList.remove('rf-flash'), 1400)
+    },
+    [jumpTo],
+  )
 
   const title = (data.employeeName || '').trim() || 'New Request'
 
@@ -258,9 +451,11 @@ export default function RequestForm() {
         <button className="btn-light" id="btnPrint" type="button" onClick={onPrint}>
           Print / PDF
         </button>
-        <button className="btn-light" id="btnDuplicate" type="button" onClick={onDuplicate}>
-          Duplicate
-        </button>
+        {standalone ? null : (
+          <button className="btn-light" id="btnDuplicate" type="button" onClick={onDuplicate}>
+            Duplicate
+          </button>
+        )}
         <button className="btn-danger" id="btnDelete" type="button" onClick={onDelete}>
           Delete
         </button>
@@ -277,21 +472,47 @@ export default function RequestForm() {
         </span>
       </div>
 
-      <form id="form" autoComplete="off" key={formKey} onSubmit={(e) => e.preventDefault()}>
-        {GROUPS.map((gr) => (
-          <section className="grp" key={gr.n}>
-            <div className="grp-head">
-              <span className="gn">{gr.n}</span>
-              {gr.title}
-            </div>
-            <div className="grp-body">
-              {FIELDS.filter((f) => f.g === gr.n)
-                .filter((f) => f.type === 'bonus' || f.type === 'base' || !f.hidden)
-                .map((f) => renderField(f))}
-            </div>
-          </section>
-        ))}
-      </form>
+      <div className="rf-body">
+        <nav className="rf-nav" aria-label="Form sections">
+          <ul>
+            {NAV.map((n) => {
+              const need = missingIn(n.fields)
+              const active = activeSection === n.id
+              return (
+                <li key={n.id} className={n.depth === 1 ? 'rf-nav-sub' : undefined}>
+                  <button
+                    type="button"
+                    className={'rf-nav-item' + (active ? ' active' : '')}
+                    aria-current={active ? 'true' : undefined}
+                    onClick={() => jumpTo('sec-' + n.id)}
+                  >
+                    <span className="rf-nav-label">{n.title}</span>
+                    {need > 0 ? (
+                      <span className="rf-nav-count" title={need + ' required field(s) still empty'}>
+                        {need}
+                      </span>
+                    ) : (
+                      <span className="rf-nav-done" aria-label="complete">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        <form
+          id="form"
+          autoComplete="off"
+          key={formKey}
+          onSubmit={(e) => e.preventDefault()}
+          ref={sectionsRef}
+        >
+          {FORM_SECTIONS.map((sec) => renderSection(sec))}
+        </form>
+      </div>
     </main>
   )
 }

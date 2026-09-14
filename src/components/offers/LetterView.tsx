@@ -9,13 +9,12 @@
 // between rebuilds, so the DOM the user is editing is left alone.
 // All letter-HTML builders are client-only; they run in effects/handlers, never during SSR.
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useOffers } from '@/components/offers/OffersProvider'
 import { esc, safeFileBase } from '@/lib/offers/format'
 import {
   generateLetterHTML,
-  letterEditIsCurrent,
   letterWrap,
   resolveLetter,
   setByPath,
@@ -30,6 +29,14 @@ import {
 } from '@/lib/offers/letter-exports'
 import { downloadBlob } from '@/lib/offers/spreadsheet'
 import { getEmailPref, setEmailPref } from '@/lib/offers/storage'
+import {
+  AUTO_ROWS,
+  EDITABLE_ROWS,
+  PANEL_SECTIONS,
+  panelNavEntries,
+  rowAnchorId,
+  rowIncluded,
+} from '@/components/offers/letter-panel'
 import type { EmailClientPref, LetterConfig, OfferRecord, OffersApi } from '@/lib/offers/types'
 
 /* ---------- option-panel primitives (S3 234–237: selOpt / chkOpt / txtOpt / inpOpt) ---------- */
@@ -138,8 +145,6 @@ function InpOpt({
 
 /* ---------------------------------- the view ---------------------------------- */
 
-type EditStatus = 'idle' | 'saving' | 'saved'
-
 function cloneLetter(L: LetterConfig): LetterConfig {
   return JSON.parse(JSON.stringify(L)) as LetterConfig
 }
@@ -157,13 +162,52 @@ function letterSig(
   return id ? id + '\u0000' + JSON.stringify([letter || null, html || null]) : ''
 }
 
-export default function LetterView(): React.JSX.Element | null {
+export interface LetterViewProps {
+  /**
+   * Rendered on the standalone /offers/[id] workspace rather than inside the SPA's
+   * Editor tab. That page owns its own navigation ("← All requests" in its
+   * header), so the toolbar's "Back to Pipeline" — which can only flip an SPA
+   * view that the page does not render — is dropped instead of being a dead button.
+   */
+  standalone?: boolean
+}
+
+/**
+ * A section of the options column. Deliberately the same shape as a section of
+ * the New Hire Details form — card, hairline head, blurb — and it reuses that
+ * form's `.rf-blurb` class rather than restating it, so the two editors cannot
+ * drift apart visually.
+ */
+function PanelBlock({
+  id,
+  title,
+  writes,
+  children,
+}: {
+  id: string
+  title: string
+  writes: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <section className="lp-block" id={id}>
+      <div className="lp-block-head">
+        <h4>{title}</h4>
+      </div>
+      <div className="lp-block-body">
+        <p className="rf-blurb">Writes {writes}.</p>
+        {children}
+      </div>
+    </section>
+  )
+}
+
+export default function LetterView({ standalone }: LetterViewProps): React.JSX.Element | null {
   const api = useOffers()
   const rec: OfferRecord | null = api.records.find((r) => r.id === api.currentId) || null
 
   const [L, setL] = useState<LetterConfig | null>(null)
   const [contentKey, setContentKey] = useState(0)
-  const [status, setStatus] = useState<EditStatus>('idle')
   const [emailClient, setEmailClient] = useState<EmailClientPref>('desktop')
 
   const htmlRef = useRef<string>('')
@@ -177,7 +221,6 @@ export default function LetterView(): React.JSX.Element | null {
   const initedFor = useRef<string | null>(null)
   /** `letterSig` of the last letter state THIS view wrote or loaded. */
   const ownSigRef = useRef<string>('')
-  const editTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const regenTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep the refs the imperative handlers read in sync. Declared first so it runs
@@ -232,8 +275,17 @@ export default function LetterView(): React.JSX.Element | null {
       if (!r) return
       htmlRef.current = letterWrap(generateLetterHTML(r, nextL))
       setContentKey((k) => k + 1)
-      patchSelf(recId, { letterHtml: null, letterStale: false, letter: nextL })
-      setStatus('idle')
+      // Re-resolving on every entry to the letter (restoring S3 293-298) would
+      // otherwise patch the record each time, and `offer-events` would log a
+      // "letter-updated" for merely LOOKING at the letter. Only write when the
+      // rebuild actually changes something.
+      const unchanged =
+        !r.letterHtml && !r.letterStale && JSON.stringify(r.letter ?? null) === JSON.stringify(nextL)
+      if (unchanged) {
+        ownSigRef.current = letterSig(recId, r.letter, r.letterHtml)
+      } else {
+        patchSelf(recId, { letterHtml: null, letterStale: false, letter: nextL })
+      }
       window.setTimeout(renderWatermark, 0)
     },
     [patchSelf, renderWatermark],
@@ -254,7 +306,16 @@ export default function LetterView(): React.JSX.Element | null {
       initedFor.current = null
       return
     }
-    if (!letterActive) return
+    if (!letterActive) {
+      // S3 293–298 ran inside openLetter(), so it re-resolved on EVERY entry to
+      // the letter. Turning it into an effect added a once-per-record latch, which
+      // silently broke that: with the record unchanged, coming back from the
+      // details form showed a letter built from fields that had since been edited,
+      // and a staled hand-edit was never rebuilt. Clearing the latch on exit
+      // restores "resolve each time the letter is opened".
+      initedFor.current = null
+      return
+    }
     if (initedFor.current === recId) return
     const a = apiRef.current
     const r = a.records.find((x) => x.id === recId)
@@ -263,18 +324,11 @@ export default function LetterView(): React.JSX.Element | null {
     const resolved = resolveLetter(r)
     LRef.current = resolved
     setL(resolved)
-    if (letterEditIsCurrent(r)) {
-      ownSigRef.current = letterSig(recId, r.letter, r.letterHtml)
-      htmlRef.current = r.letterHtml || ''
-      setContentKey((k) => k + 1)
-      setStatus('saved')
-      window.setTimeout(renderWatermark, 0)
-    } else {
-      const wasEdited = !!r.letterHtml
-      regen(resolved, recId)
-      if (wasEdited)
-        a.toast('Details changed since your edits — letter rebuilt from the current fields.')
-    }
+    // Always rebuilt from the record. The letter body is no longer editable in
+    // place, so there is never a hand-edited `letterHtml` to prefer over it, and
+    // a stored one from before that change is deliberately ignored — the letter
+    // is a function of the fields, with no second source of truth.
+    regen(resolved, recId)
   }, [letterActive, recId, regen, renderWatermark])
 
   // An open letter must follow the record when someone ELSE rewrites its letter
@@ -292,15 +346,48 @@ export default function LetterView(): React.JSX.Element | null {
     const resolved = resolveLetter(r)
     LRef.current = resolved
     setL(resolved)
-    if (letterEditIsCurrent(r)) {
-      htmlRef.current = r.letterHtml || ''
-      setContentKey((k) => k + 1)
-      setStatus('saved')
-      window.setTimeout(renderWatermark, 0)
-    } else {
-      regen(resolved, recId)
-    }
+    regen(resolved, recId)
   }, [recId, recSig, regen, renderWatermark])
+
+  /* ---- options rail: the letter editor's answer to the details form's ---- */
+
+  const [activeBlock, setActiveBlock] = useState<string>('lp-letter')
+  const optionsRef = useRef<HTMLDivElement | null>(null)
+
+  const navRows = useMemo(
+    () => (L ? panelNavEntries(L, rec ? rec.data : {}) : []),
+    [L, rec],
+  )
+
+  const jumpToBlock = useCallback((id: string): void => {
+    const el = document.getElementById(id)
+    const col = optionsRef.current
+    if (!el || !col) return
+    // Assign scrollTop rather than scrollIntoView: only this column should move,
+    // and programmatic smooth scrolling is unreliable on it.
+    col.scrollTop = col.scrollTop + (el.getBoundingClientRect().top - col.getBoundingClientRect().top) - 10
+  }, [])
+
+  useEffect(() => {
+    const col = optionsRef.current
+    if (!col || typeof IntersectionObserver === 'undefined' || !navRows.length) return
+    const ids = navRows.map((n) => n.id)
+    const targets = ids
+      .map((id) => col.querySelector('#' + CSS.escape(id)))
+      .filter((el): el is Element => el !== null)
+    if (!targets.length) return
+    const seen = new Map<string, boolean>()
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => seen.set(e.target.id, e.isIntersecting))
+        const first = ids.find((id) => seen.get(id))
+        if (first) setActiveBlock(first)
+      },
+      { root: col, rootMargin: '0px 0px -70% 0px', threshold: 0 },
+    )
+    targets.forEach((t) => obs.observe(t))
+    return () => obs.disconnect()
+  }, [navRows, contentKey])
 
   // S3 509–510 — remembered email-client preference (client-only read).
   useEffect(() => {
@@ -309,29 +396,14 @@ export default function LetterView(): React.JSX.Element | null {
 
   useEffect(() => {
     return () => {
-      if (editTimer.current) clearTimeout(editTimer.current)
       if (regenTimer.current) clearTimeout(regenTimer.current)
     }
   }, [])
 
   /* ---------------------------- handlers ---------------------------- */
 
-  // S3 446–453 — persist manual edits to the letter body (debounced 500ms).
-  const onContentInput = useCallback(() => {
-    const r = recRef.current
-    if (!r) return
-    setStatus('saving')
-    if (editTimer.current) clearTimeout(editTimer.current)
-    editTimer.current = setTimeout(() => {
-      const html = contentRef.current ? contentRef.current.innerHTML : ''
-      const patch: Partial<OfferRecord> = { letterHtml: html, letterStale: false }
-      if (LRef.current) patch.letter = LRef.current
-      patchSelf(r.id, patch)
-      setStatus('saved')
-    }, 500)
-  }, [patchSelf])
-
-  // S3 454–458 — an option change on a hand-edited letter prompts the discard confirm.
+  // S3 454–458. The source confirmed here before discarding manual edits; with
+  // the body no longer editable there is nothing to discard, so it just applies.
   const onOpt = useCallback(
     (path: string, val: OptValue, delay: number) => {
       const r = recRef.current
@@ -347,37 +419,18 @@ export default function LetterView(): React.JSX.Element | null {
           regen(next, r.id)
         }, delay)
       }
-      if (r.letterHtml) {
-        // Cancelling needs no work: the controls are controlled by `L`, so React
-        // restores the previous value on its own.
-        apiRef.current.confirmDialog(
-          'Discard manual edits?',
-          'This letter has manual edits. Changing this option rebuilds it and discards those edits. Continue?',
-          apply,
-        )
-      } else apply()
+      apply()
     },
     [patchSelf, regen, setLetter],
   )
 
-  // S3 435–438 — Regenerate, confirming first when the letter was hand-edited.
+  // S3 435–438 — Regenerate. Nothing to discard now, so no confirm.
   const onRegenClick = useCallback(() => {
     const r = recRef.current
     const cur = LRef.current
     if (!r || !cur) return
-    if (letterEditIsCurrent(r)) {
-      apiRef.current.confirmDialog(
-        'Regenerate?',
-        'Discard your manual edits and rebuild this letter from the current fields?',
-        () => {
-          regen(cur, r.id)
-          apiRef.current.toast('Letter rebuilt from the current fields.')
-        },
-      )
-    } else {
-      regen(cur, r.id)
-      apiRef.current.toast('Letter regenerated from the current fields.')
-    }
+    regen(cur, r.id)
+    apiRef.current.toast('Letter regenerated from the current fields.')
   }, [regen])
 
   // S3 439–442 — watermark toggle; independent of manual edits.
@@ -460,272 +513,226 @@ export default function LetterView(): React.JSX.Element | null {
 
   if (!rec) return null
 
-  // S3 280–286 — edit-status chip.
-  const edited = !!rec.letterHtml
-  const statusText =
-    status === 'saving'
-      ? 'Saving…'
-      : edited
-        ? status === 'saved'
-          ? '✓ Edits saved'
-          : '✎ Hand-edited'
-        : ''
-  const statusColor = status === 'saving' ? '#ffe6b3' : '#bff0dd'
-
   return (
     <div className="letter-overlay" id="letterOverlay">
-      <div className="letter-toolbar">
-        <strong>Offer Letter</strong>
-        <span id="letterName" style={{ opacity: 0.85 }}>
-          {rec.data.employeeName || 'New hire'}
-        </span>
-        <span
-          id="letterEditStatus"
-          style={{ fontSize: 12, opacity: 0.9, marginLeft: 8, color: statusColor }}
-        >
-          {statusText}
-        </span>
-        <div className="lt-actions">
-          <label className="wm-ctl" title="Show a SAMPLE watermark on this letter (print / PDF)">
-            <input
-              type="checkbox"
-              id="letterWmOn"
-              checked={!!(L && L.watermark && L.watermark.on)}
-              onChange={(e) => {
-                onWatermarkToggle(e.target.checked)
-              }}
-            />{' '}
-            Watermark
-          </label>
-          <button
-            type="button"
-            className="btn-light"
-            id="letterRegen"
-            title="Rebuild the letter from the current fields (replaces manual edits)"
-            onClick={onRegenClick}
-          >
-            Regenerate
-          </button>
-          <button type="button" className="btn-light" id="letterShare" onClick={onShare}>
-            Export / Share (HTML)
-          </button>
-          <button type="button" className="btn-light" id="letterDoc" onClick={onWord}>
-            Word (.doc)
-          </button>
-          <label className="email-pref">
-            Email in
-            <select
-              id="emailClientPref"
-              value={emailClient}
-              onChange={(e) => {
-                const v = e.target.value as EmailClientPref
-                setEmailClient(v)
-                setEmailPref(v)
-              }}
-            >
-              <option value="desktop">Desktop Outlook</option>
-              <option value="web">Outlook Web</option>
-            </select>
-          </label>
-          <button type="button" className="btn-light" id="letterEmail" onClick={onEmail}>
-            ✉ Email
-          </button>
-          <button type="button" className="btn-primary" id="letterPrint" onClick={onPrint}>
-            Print / Save as PDF
-          </button>
-          <button
-            type="button"
-            className="btn-ghost"
-            id="letterClose"
-            onClick={() => {
-              api.showView('pipeline')
-            }}
-          >
-            Back to Pipeline
-          </button>
-        </div>
-      </div>
       <div className="letter-body-wrap">
-        <div className="letter-options" id="letterOptions">
+        <nav className="rf-nav lp-rail" aria-label="Letter sections">
+          <ul>
+            {navRows.map((n) => (
+              <li key={n.id} className={n.depth === 1 ? 'rf-nav-sub' : undefined}>
+                <button
+                  type="button"
+                  className={'rf-nav-item' + (activeBlock === n.id ? ' active' : '')}
+                  aria-current={activeBlock === n.id ? 'true' : undefined}
+                  onClick={() => jumpToBlock(n.id)}
+                >
+                  <span className="rf-nav-label">{n.title}</span>
+                  {n.included === undefined ? null : (
+                    <span
+                      className={n.included ? 'lp-dot on' : 'lp-dot'}
+                      title={n.included ? 'In this letter' : 'Not included'}
+                    />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="letter-options" id="letterOptions" ref={optionsRef}>
           {L ? (
             <>
-              <h4>Letter</h4>
-              <InpOpt path="date" label="Letter date" val={L.date} type="date" onOpt={onOpt} />
-              <SelOpt
-                path="opening"
-                label="Opening style"
-                opts={[
-                  ['manager', 'Manager (leadership / agreed start)'],
-                  ['dated', 'Dated start (“beginning …”)'],
-                  ['licensed', 'Licensed (license transfer)'],
-                ]}
-                cur={L.opening}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="compIntro"
-                label="Compensation intro"
-                opts={[
-                  ['transition', 'To support your successful transition…'],
-                  ['simple', 'We are pleased to offer…'],
-                ]}
-                cur={L.compIntro}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="expectFamily"
-                label="What You Can Expect"
-                opts={[
-                  ['manager', 'Manager – empowered'],
-                  ['operations', 'Operations – benefit from'],
-                  ['licensed', 'Licensed – supportive/growth'],
-                ]}
-                cur={L.expectFamily}
-                onOpt={onOpt}
-              />
-              <h4>Classification (Base Salary)</h4>
-              <SelOpt
-                path="fullPart"
-                label="Full/Part time"
-                opts={[
-                  ['full-time', 'full-time'],
-                  ['part-time', 'part-time'],
-                ]}
-                cur={L.fullPart}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="exempt"
-                label="Exempt status"
-                opts={[
-                  ['non-exempt', 'non-exempt'],
-                  ['exempt', 'exempt'],
-                ]}
-                cur={L.exempt}
-                onOpt={onOpt}
-              />
-              <ChkOpt
-                path="taxesClause"
-                label="Include “all pay subject to withholding…” line"
-                checked={L.taxesClause}
-                onOpt={onOpt}
-              />
-              <h4>Sections</h4>
-              <ChkOpt
-                path="nmlsLine"
-                label="Next Steps: NMLS transfer line"
-                checked={L.nmlsLine}
-                onOpt={onOpt}
-              />
-              <ChkOpt
-                path="onboardingLine"
-                label="Next Steps: onboarding docs line"
-                checked={L.onboardingLine}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="pathAhead"
-                label="The Path Ahead"
-                opts={[
-                  ['thrilled', 'Thrilled / if you’re happy'],
-                  ['confirm', 'Excited / to confirm'],
-                  ['accept', 'Excited / to accept'],
-                ]}
-                cur={L.pathAhead}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="closing"
-                label="Closing line"
-                opts={[
-                  ['welcome', '…welcome.'],
-                  ['aboard', '…welcome aboard.'],
-                  ['team', '…welcome to the team.'],
-                ]}
-                cur={L.closing}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="signatory"
-                label="Signatory"
-                opts={[
-                  ['biaggi', 'Chris Biaggi – CEO'],
-                  ['kauffman', 'Jeff Kauffman – National Sales Manager'],
-                  ['kern', 'Ty Kern – CSO'],
-                  ['lin', 'Peter Lin – Senior VP of Strategy'],
-                ]}
-                cur={L.signatory}
-                onOpt={onOpt}
-              />
-              <h4>Compensation table (auto-included)</h4>
-              <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: '0 0 8px' }}>
-                Every component with a value is included automatically — salary, sign-on, guarantee,
-                per-file, production, override. Edit the wording below; clear a box to drop that
-                row.
-              </p>
-              <TxtOpt
-                path="rows.base.wyr"
-                label="Base Salary"
-                val={L.rows.base.wyr}
-                onOpt={onOpt}
-              />
-              <TxtOpt
-                path="rows.signon.wyr"
-                label="Sign-On Bonus"
-                val={L.rows.signon.wyr}
-                onOpt={onOpt}
-              />
-              <SelOpt
-                path="rows.guarantee.style"
-                label="Guarantee wording"
-                opts={[
-                  ['advance', 'Advance on commissions'],
-                  ['greater', 'Greater-of (bulleted)'],
-                ]}
-                cur={L.rows.guarantee.style}
-                onOpt={onOpt}
-              />
-              <InpOpt
-                path="rows.guarantee.amt"
-                label="Guarantee – per pay-period amount"
-                val={L.rows.guarantee.amt}
-                onOpt={onOpt}
-              />
-              <InpOpt
-                path="rows.guarantee.periods"
-                label="Guarantee – # pay periods"
-                val={L.rows.guarantee.periods}
-                onOpt={onOpt}
-              />
-              <TxtOpt
-                path="rows.guarantee.wyr"
-                label="Guaranteed Pay"
-                val={L.rows.guarantee.wyr}
-                onOpt={onOpt}
-              />
-              <TxtOpt
-                path="rows.perfile.wyr"
-                label="Per-File Bonus"
-                val={L.rows.perfile.wyr}
-                onOpt={onOpt}
-              />
-              <TxtOpt
-                path="rows.production.wyr"
-                label="Production Bonus"
-                val={L.rows.production.wyr}
-                onOpt={onOpt}
-              />
-              <TxtOpt
-                path="rows.override.wyr"
-                label="Override"
-                val={L.rows.override.wyr}
-                onOpt={onOpt}
-              />
-              <p style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '6px' }}>
-                Standard Commission and Benefits are added automatically for commissioned /
-                non-part-time roles. The AWM commission-plan % section appears whenever any Q28–34
-                percentages are filled. You can also click into the letter to fine-tune wording.
-              </p>
+              <PanelBlock {...PANEL_SECTIONS[0]}>
+                <InpOpt path="date" label="Letter date" val={L.date} type="date" onOpt={onOpt} />
+                <SelOpt
+                  path="opening"
+                  label="Opening style"
+                  opts={[
+                    ['manager', 'Manager (leadership / agreed start)'],
+                    ['dated', 'Dated start (“beginning …”)'],
+                    ['licensed', 'Licensed (license transfer)'],
+                  ]}
+                  cur={L.opening}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="compIntro"
+                  label="Compensation intro"
+                  opts={[
+                    ['transition', 'To support your successful transition…'],
+                    ['simple', 'We are pleased to offer…'],
+                  ]}
+                  cur={L.compIntro}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="expectFamily"
+                  label="What You Can Expect"
+                  opts={[
+                    ['manager', 'Manager – empowered'],
+                    ['operations', 'Operations – benefit from'],
+                    ['licensed', 'Licensed – supportive/growth'],
+                  ]}
+                  cur={L.expectFamily}
+                  onOpt={onOpt}
+                />
+              </PanelBlock>
+
+              <PanelBlock {...PANEL_SECTIONS[1]}>
+                <SelOpt
+                  path="fullPart"
+                  label="Full/Part time"
+                  opts={[
+                    ['full-time', 'full-time'],
+                    ['part-time', 'part-time'],
+                  ]}
+                  cur={L.fullPart}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="exempt"
+                  label="Exempt status"
+                  opts={[
+                    ['non-exempt', 'non-exempt'],
+                    ['exempt', 'exempt'],
+                  ]}
+                  cur={L.exempt}
+                  onOpt={onOpt}
+                />
+                <ChkOpt
+                  path="taxesClause"
+                  label="Include “all pay subject to withholding…” line"
+                  checked={L.taxesClause}
+                  onOpt={onOpt}
+                />
+              </PanelBlock>
+
+              <PanelBlock {...PANEL_SECTIONS[2]}>
+                <ChkOpt
+                  path="nmlsLine"
+                  label="Next Steps: NMLS transfer line"
+                  checked={L.nmlsLine}
+                  onOpt={onOpt}
+                />
+                <ChkOpt
+                  path="onboardingLine"
+                  label="Next Steps: onboarding docs line"
+                  checked={L.onboardingLine}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="pathAhead"
+                  label="The Path Ahead"
+                  opts={[
+                    ['thrilled', 'Thrilled / if you’re happy'],
+                    ['confirm', 'Excited / to confirm'],
+                    ['accept', 'Excited / to accept'],
+                  ]}
+                  cur={L.pathAhead}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="closing"
+                  label="Closing line"
+                  opts={[
+                    ['welcome', '…welcome.'],
+                    ['aboard', '…welcome aboard.'],
+                    ['team', '…welcome to the team.'],
+                  ]}
+                  cur={L.closing}
+                  onOpt={onOpt}
+                />
+                <SelOpt
+                  path="signatory"
+                  label="Signatory"
+                  opts={[
+                    ['biaggi', 'Chris Biaggi – CEO'],
+                    ['kauffman', 'Jeff Kauffman – National Sales Manager'],
+                    ['kern', 'Ty Kern – CSO'],
+                    ['lin', 'Peter Lin – Senior VP of Strategy'],
+                  ]}
+                  cur={L.signatory}
+                  onOpt={onOpt}
+                />
+              </PanelBlock>
+
+              <PanelBlock {...PANEL_SECTIONS[3]}>
+                <p className="lp-note">
+                  A row appears in the letter when its box has text, and disappears when you clear
+                  it. Each box is filled from the details tab when the letter is rebuilt.
+                </p>
+
+                {EDITABLE_ROWS.map((r) => {
+                  const on = rowIncluded(L, r.key)
+                  return (
+                    <div
+                      className={'rf-card lp-row' + (on ? ' on' : '')}
+                      id={rowAnchorId(r.key)}
+                      key={r.key}
+                    >
+                      <div className="rf-card-head">
+                        <h4>{r.label}</h4>
+                        <span className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}>
+                          {on ? 'In this letter' : 'Not included'}
+                        </span>
+                      </div>
+                      <TxtOpt
+                        path={r.path}
+                        label="What You Receive"
+                        val={L.rows[r.key].wyr}
+                        onOpt={onOpt}
+                      />
+                      {r.key === 'guarantee' && (
+                        <div className="lp-row-extra">
+                          <SelOpt
+                            path="rows.guarantee.style"
+                            label="How It Works wording"
+                            opts={[
+                              ['advance', 'Advance on commissions'],
+                              ['greater', 'Greater-of (bulleted)'],
+                            ]}
+                            cur={L.rows.guarantee.style}
+                            onOpt={onOpt}
+                          />
+                          <InpOpt
+                            path="rows.guarantee.amt"
+                            label="Per pay-period amount"
+                            val={L.rows.guarantee.amt}
+                            onOpt={onOpt}
+                          />
+                          <InpOpt
+                            path="rows.guarantee.periods"
+                            label="Number of pay periods"
+                            val={L.rows.guarantee.periods}
+                            onOpt={onOpt}
+                          />
+                        </div>
+                      )}
+                      <p className="lp-source">Rebuilt from {r.source}.</p>
+                    </div>
+                  )
+                })}
+
+                <p className="lp-note lp-note-auto">Added automatically — no wording to edit:</p>
+                {AUTO_ROWS.map((a) => {
+                  const on = a.included(rec.data)
+                  return (
+                    <div
+                      className={'rf-card lp-row lp-row-auto' + (on ? ' on' : '')}
+                      id={a.id}
+                      key={a.label}
+                    >
+                      <div className="rf-card-head">
+                        <h4>{a.label}</h4>
+                        <span className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}>
+                          {on ? 'In this letter' : 'Not included'}
+                        </span>
+                      </div>
+                      <p className="lp-source">{a.rule}</p>
+                    </div>
+                  )
+                })}
+              </PanelBlock>
             </>
           ) : null}
         </div>
@@ -737,9 +744,6 @@ export default function LetterView(): React.JSX.Element | null {
               ref={contentRef}
               className="letter-content"
               id="letterContent"
-              contentEditable
-              suppressContentEditableWarning
-              onInput={onContentInput}
               dangerouslySetInnerHTML={{ __html: htmlRef.current }}
             />
             <div className="letter-print-footer">
@@ -749,6 +753,97 @@ export default function LetterView(): React.JSX.Element | null {
               702.920.8421
             </div>
           </div>
+        </div>
+
+        {/* Third column. This was a full-width bar across the top, where seven
+            controls wrapped onto three rows at anything under a wide desktop and
+            ate vertical space the 11in sheet needed. As a column the actions
+            stack, group by what they do, and stop competing with the letter.
+            NOT an <aside>: `aside{display:none}` is a global rule in offers.css. */}
+        <div className="letter-actions">
+          <div className="la-head">
+            {/* The /offers/[id] page already names the record in its header; only
+                the SPA, where this column is the sole label, needs it repeated. */}
+            {standalone ? null : (
+              <span className="la-name" id="letterName">
+                {rec.data.employeeName || 'New hire'}
+              </span>
+            )}
+            <span className="la-note">
+              Built from the fields. Edit it with the options on the left, or on New Hire Details.
+            </span>
+          </div>
+
+          <div className="la-group">
+            <span className="la-label">This letter</span>
+            <button
+              type="button"
+              className="btn-light la-btn"
+              id="letterRegen"
+              title="Rebuild the letter from the current fields (replaces manual edits)"
+              onClick={onRegenClick}
+            >
+              Regenerate
+            </button>
+            <label className="la-check" title="Show a SAMPLE watermark on this letter (print / PDF)">
+              <input
+                type="checkbox"
+                id="letterWmOn"
+                checked={!!(L && L.watermark && L.watermark.on)}
+                onChange={(e) => {
+                  onWatermarkToggle(e.target.checked)
+                }}
+              />{' '}
+              Watermark
+            </label>
+          </div>
+
+          <div className="la-group">
+            <span className="la-label">Save a copy</span>
+            <button type="button" className="btn-primary la-btn" id="letterPrint" onClick={onPrint}>
+              Print / Save as PDF
+            </button>
+            <button type="button" className="btn-light la-btn" id="letterDoc" onClick={onWord}>
+              Word (.doc)
+            </button>
+            <button type="button" className="btn-light la-btn" id="letterShare" onClick={onShare}>
+              Offer packet (HTML)
+            </button>
+          </div>
+
+          <div className="la-group">
+            <span className="la-label">Email</span>
+            <select
+              className="la-select"
+              id="emailClientPref"
+              aria-label="Email client"
+              value={emailClient}
+              onChange={(e) => {
+                const v = e.target.value as EmailClientPref
+                setEmailClient(v)
+                setEmailPref(v)
+              }}
+            >
+              <option value="desktop">Desktop Outlook</option>
+              <option value="web">Outlook Web</option>
+            </select>
+            <button type="button" className="btn-light la-btn" id="letterEmail" onClick={onEmail}>
+              ✉ Email
+            </button>
+          </div>
+
+          {standalone ? null : (
+            <button
+              type="button"
+              className="btn-ghost la-btn la-back"
+              id="letterClose"
+              onClick={() => {
+                api.showView('pipeline')
+              }}
+            >
+              Back to Pipeline
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -197,24 +197,47 @@ main{border-left:none!important}
 .muted{color:var(--muted)}
 /* ================================================================
    OFFERS-APP ADDITIONS (not in the source app): the /offers/[id]
-   detail page, assignment + settings modals. Everything ABOVE this
+   offer workspace, the assignments editor, settings modals. Everything ABOVE this
    marker is verbatim port CSS — do not mix.
    Session bar, emulation chrome and login live in src/app/shell.css.
    ================================================================ */
 
 
 
-a.mini.row-page{display:inline-block;text-decoration:none}
+a.mini.row-edit{display:inline-block;text-decoration:none}
 
-.offer-detail{display:flex;gap:18px;align-items:flex-start;max-width:1360px;margin:0 auto;padding:16px 20px}
+.offer-detail{display:flex;gap:18px;align-items:flex-start;max-width:1680px;margin:0 auto;padding:16px 20px}
 .od-main{flex:1 1 auto;min-width:0}
-.od-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px}
+.od-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px;flex-wrap:wrap}
 .od-head h2{margin:0;font-size:17px;color:var(--navy)}
 .od-back{font-size:13px;color:var(--accent);text-decoration:none;white-space:nowrap}
 .od-back:hover{text-decoration:underline}
 .od-readonly{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:8px;
   padding:8px 12px;font-size:12.5px;margin-bottom:10px}
-.od-letter-locked{pointer-events:none;opacity:.85}
+.od-sub{font-size:12.5px;color:var(--muted)}
+.od-stage{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+  border-radius:20px;padding:2px 9px;background:#eef2f7;color:#475569}
+.od-stage-hired{background:#ecfdf5;color:var(--ok)}
+.od-stage-archived{background:#fff7ed;color:var(--warn)}
+.od-head-actions{margin-left:auto;display:flex;gap:7px;align-items:center}
+.od-letter-locked,.od-details-locked{pointer-events:none;opacity:.85}
+/* The sub-tab strip is the top edge of whichever pane is active, so both panes
+   drop their own top border and square off their top corners. */
+.offer-detail .subtabs{border:1px solid var(--line);border-bottom-color:var(--line);
+  border-radius:10px 10px 0 0;padding:0 14px}
+.od-letter,.od-details{border:1px solid var(--line);border-top:none;
+  border-radius:0 0 10px 10px;box-shadow:var(--shadow)}
+.od-letter{overflow:hidden}
+.od-details{background:var(--panel)}
+/* `.letter-overlay` sizes itself with a hardcoded offset tuned to the SPA's stack
+   (session bar + app header + tabbar + sub-tabs). This page's chrome is shorter,
+   so the offset is re-stated here rather than left to overflow. */
+.od-letter .letter-overlay{height:calc(100vh - 212px);min-height:540px}
+/* RequestForm renders a <main> that normally sits in the `.wrap` grid beside the
+   saved-requests rail. Here it is the whole pane. */
+.od-details main{border-left:none;padding:2px 22px 30px}
+.od-details .formhead{margin-top:14px}
+.od-details .form-actions{background:var(--panel)}
 .od-side{width:330px;flex:0 0 330px;display:flex;flex-direction:column;gap:14px;position:sticky;top:14px}
 .od-panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:12px 14px}
 .od-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -223,6 +246,8 @@ a.mini.row-page{display:inline-block;text-decoration:none}
   color:#334155;cursor:pointer}
 .od-mini:hover{background:#eef2f7}
 .od-mini:disabled{opacity:.55;cursor:default}
+.od-mini.ok{color:var(--ok);border-color:#bfe6cf}.od-mini.ok:hover{background:#eafaf0}
+.od-mini.warn{color:var(--warn);border-color:#f0d4bf}.od-mini.warn:hover{background:#fdf2ea}
 .od-save{background:var(--accent);border-color:var(--accent);color:#fff}
 .od-save:hover{background:var(--accent-2)}
 .od-dim{color:var(--muted);font-size:12.5px}
@@ -255,16 +280,245 @@ a.mini.row-page{display:inline-block;text-decoration:none}
 .od-changes li{font-size:11.5px;overflow-wrap:anywhere}
 .od-from{color:var(--danger);text-decoration:line-through}
 .od-to{color:var(--ok)}
-@media (max-width:980px){
+/* The letter workspace now wants 1380px of its own (see the width budget above).
+   With the 330px history rail, its gap and the page gutters beside it, that is
+   ~1790px of viewport before something gives. Below that the rail drops
+   underneath rather than pinching the sheet into a sideways scroll — the letter
+   is the point of this page, and the rail is reference material. */
+@media (max-width:1800px){
   .offer-detail{flex-direction:column}
+  /* `align-items:flex-start` is what keeps the rail from stretching to the
+     letter's height in ROW mode; in column mode that same rule shrink-wraps both
+     children to their content width, so each one has to claim the row itself. */
+  .od-main{width:100%}
   .od-side{width:100%;flex:1 1 auto;position:static}
 }
 
-/* --- offers additions: assignment modal --- */
+/* ================================================================
+   NEW HIRE DETAILS FORM — section navigation + cards.
+   The frozen `.grp`, `.fld`, `.q`, `.qn`, `.help`, `.req`, `.missing`
+   rules above are reused as-is; everything here is chrome around them.
+   Grouping is presentation-only (src/components/offers/form-sections.ts);
+   schema.ts GROUPS still drive the spreadsheet and the offer packet.
+   ================================================================ */
+
+.rf-body{display:grid;grid-template-columns:196px minmax(0,1fr);gap:26px;align-items:start}
+
+/* --- the section rail --- */
+.rf-nav{position:sticky;top:74px;max-height:calc(100vh - 96px);overflow-y:auto;
+  padding-right:2px}
+.rf-nav ul{list-style:none;margin:0;padding:0}
+.rf-nav-item{width:100%;display:flex;align-items:center;gap:8px;text-align:left;
+  background:transparent;border:0;border-left:2px solid transparent;
+  padding:7px 8px 7px 11px;font:inherit;font-size:13px;color:var(--muted);
+  cursor:pointer;border-radius:0 6px 6px 0}
+.rf-nav-item:hover{background:rgba(47,95,208,.06);color:var(--navy)}
+.rf-nav-item.active{border-left-color:var(--accent);background:rgba(47,95,208,.08);
+  color:var(--navy);font-weight:600}
+.rf-nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.rf-nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rf-nav-sub .rf-nav-item{padding-left:22px;font-size:12.5px}
+/* A count is a to-do, so it carries weight; a tick is an absence of work, so it
+   recedes. Same slot, deliberately unequal emphasis. */
+.rf-nav-count{flex:0 0 auto;min-width:18px;height:18px;border-radius:20px;
+  background:var(--req);color:#fff;font-size:11px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+.rf-nav-done{flex:0 0 auto;color:var(--ok);font-size:12px;opacity:.55}
+
+/* --- section shell ---------------------------------------------------------
+   One card, used by the New Hire Details form AND the offer-letter options, so
+   the two editors read as the same product. Flat and hairline-ruled: the ported
+   `.grp` gradient head and drop shadow are overridden here rather than edited,
+   which needs `.grp.rf-sec` — bare `.rf-sec` loses to `section.grp`'s
+   element+class specificity. */
+.grp.rf-sec,.lp-block{background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;box-shadow:none;margin-bottom:14px;overflow:hidden}
+.grp-head.rf-sec-head,.lp-block-head{background:none;border-bottom:1px solid var(--line);
+  padding:13px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  font-weight:600;color:var(--navy)}
+.rf-sec{scroll-margin-top:78px}
+.rf-sec-title{font-size:14px;font-weight:600}
+.rf-sec-status{margin-left:auto;font-weight:600;font-size:12px}
+.rf-need{color:var(--req)}
+.rf-complete{color:var(--ok);opacity:.8}
+.rf-blurb{margin:10px 0 2px;font-size:12.5px;color:var(--muted);max-width:68ch;line-height:1.5}
+.rf-sec-blurb{margin:12px 0 0}
+
+/* --- the "does this reach the candidate" marker --- */
+.rf-reach{font-size:11.5px;font-weight:500;border-radius:20px;padding:2px 9px;
+  white-space:nowrap}
+.rf-reach-letter{background:rgba(47,95,208,.10);color:var(--accent)}
+.rf-reach-internal{background:#eef1f6;color:var(--muted)}
+
+/* --- pay sub-cards: flatter than the section that holds them --- */
+.rf-card{border:1px solid var(--line);border-radius:10px;padding:2px 15px 8px;
+  margin:14px 0;background:#fafbfd;scroll-margin-top:78px}
+.rf-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 0 0}
+.rf-card-head h4{margin:0;font-size:13.5px;color:var(--navy)}
+.rf-card .fld:last-child{border-bottom:none}
+
+/* --- the Group F override, made visible where it bites --- */
+.rf-overridden{border-left:3px solid var(--warn);background:#fff7ed;
+  border-radius:0 8px 8px 0;padding:9px 12px;margin:10px 0 2px}
+.rf-overridden p{margin:0;font-size:12.5px;color:#7c2d12;line-height:1.5}
+.rf-overridden p+p{margin-top:5px}
+.rf-claim{display:block;margin-top:7px;font-size:12px;color:#7c2d12;
+  background:#fff7ed;border-radius:6px;padding:6px 9px;line-height:1.5}
+.rf-link{background:none;border:0;padding:0;font:inherit;color:var(--accent);
+  text-decoration:underline;cursor:pointer}
+.rf-link:hover{color:var(--accent-2)}
+
+/* Jump target acknowledgement — the one piece of motion in the form. */
+.rf-flash{animation:rf-flash 1.4s ease-out}
+@keyframes rf-flash{
+  0%,55%{background:rgba(47,95,208,.10);box-shadow:0 0 0 6px rgba(47,95,208,.10)}
+  100%{background:transparent;box-shadow:0 0 0 6px transparent}
+}
+@media (prefers-reduced-motion:reduce){
+  .rf-flash{animation:none;background:rgba(47,95,208,.10)}
+}
+
+/* The rail needs real estate to earn its place; below that the form is just
+   the sections, which still scroll fine. */
+@media (max-width:1080px){
+  .rf-body{grid-template-columns:minmax(0,1fr)}
+  .rf-nav{display:none}
+}
+@media print{.rf-nav{display:none}.rf-body{display:block}}
+
+/* ================================================================
+   OFFER LETTER ACTIONS — the third column.
+   Was `.letter-toolbar`, a full-width navy bar above the workspace. It
+   kept the navy so the workspace still reads as one object, but as a
+   column the actions stack instead of wrapping onto three rows.
+   ================================================================ */
+
+/* Three columns, overriding the two-column ported rule in letter.css rather
+   than editing it. Width budget the sheet actually needs:
+     options 312 + (8.5in sheet 816 + 2x18 gutter) 852 + actions 216 = 1380px.
+   Everything below is sized to keep that whole, because the sheet is a fixed
+   8.5in and any shortfall becomes a sideways scroll across the letter. */
+/* Scoped through `.letter-overlay` on purpose: letter.css is imported AFTER
+   offers.css, so a bare `.letter-body-wrap` here loses to the ported two-column
+   rule at equal specificity. This wins without editing the ported file. */
+.letter-overlay .letter-body-wrap{grid-template-columns:176px 312px minmax(0,1fr) 216px}
+.letter-overlay .letter-preview-area{padding:18px}
+
+/* The options rail — literally the details form's `.rf-nav`, so navigating the
+   two editors is the same gesture. Only the scroll container and the row-state
+   dot differ. */
+.lp-rail{position:static;max-height:none;overflow-y:auto;background:#fff;
+  border-right:1px solid var(--line);padding:14px 6px 14px 0}
+/* Row names are long ("Accelerated Commission") and the rail is narrow; let them
+   wrap onto a second line rather than truncating into guesswork. */
+.lp-rail .rf-nav-item{align-items:flex-start}
+.lp-rail .rf-nav-label{white-space:normal;overflow:visible;line-height:1.35}
+.lp-rail .lp-dot{margin-top:5px}
+.lp-dot{flex:0 0 auto;width:7px;height:7px;border-radius:50%;
+  border:1px solid var(--line);background:transparent}
+.lp-dot.on{background:var(--accent);border-color:var(--accent)}
+
+.letter-actions{background:var(--navy);color:#fff;overflow-y:auto;
+  padding:14px 14px 18px;display:flex;flex-direction:column;gap:17px}
+
+.la-head{display:flex;flex-direction:column;gap:5px}
+/* Only rule off the head when it actually carries something. */
+.la-head:not(:empty){padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.14)}
+.la-head:empty{display:none}
+.la-name{font-size:13.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.la-note{font-size:11px;color:#9db3c2;line-height:1.45}
+
+.la-group{display:flex;flex-direction:column;gap:7px}
+/* Group names, not labels on every control — the buttons already say what they
+   do, so these only answer "which pile is this in". */
+.la-label{font-size:11px;color:#9db3c2;font-weight:600}
+
+/* Full-width stacked controls. The ported `.btn-*` rules supply the colour and
+   the radius; only the box model changes in a column. */
+.letter-actions .la-btn{width:100%;justify-content:center;text-align:center;
+  padding:8px 10px;font-size:13px}
+.la-select{width:100%;padding:7px 8px;border-radius:7px;border:1px solid #2a3a5c;
+  font-size:12.5px;font-family:inherit;background:#fff;color:#1f2937}
+.la-check{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
+  background:rgba(255,255,255,.10);padding:7px 10px;border-radius:7px}
+.la-check input{accent-color:#fff;margin:0}
+.la-back{margin-top:auto}
+
+/* Under a wide desktop the three columns cannot all hold their ground, so the
+   actions return to a horizontal strip above the letter rather than squeezing
+   the 8.5in sheet. */
+/* The rail is the first thing to go: it is navigation, and the four cards it
+   points at are still reachable by scrolling. */
+@media (max-width:1560px){
+  .letter-overlay .letter-body-wrap{grid-template-columns:312px minmax(0,1fr) 216px}
+  .lp-rail{display:none}
+}
+@media (max-width:1180px){
+  .letter-overlay .letter-body-wrap{grid-template-columns:300px minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr)}
+  .letter-overlay .letter-actions{grid-row:1;grid-column:1 / -1;flex-direction:row;
+    flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;overflow:visible}
+  .la-head:not(:empty){flex-direction:row;align-items:baseline;gap:9px;padding:0;border-bottom:none}
+  .la-group{flex-direction:row;align-items:center;gap:7px}
+  .letter-actions .la-btn{width:auto}
+  .la-select{width:auto}
+  .la-back{margin-top:0}
+  .letter-overlay .letter-options{grid-row:2;grid-column:1}
+  .letter-overlay .letter-preview-area{grid-row:2;grid-column:2}
+  .lp-rail{display:none}
+}
+
+/* ================================================================
+   OFFER LETTER OPTIONS PANEL.
+   Lives inside the frozen `.letter-options` column (letter.css) — these
+   rules only add the block / row structure around the ported `.lo-row`,
+   `.lo-check` controls, which are untouched.
+   ================================================================ */
+
+/* NO `scroll-behavior:smooth` here. It makes every scrollTop assignment an
+   animated scroll, and browsers that decline programmatic smooth scrolling —
+   anyone with reduce-motion at the OS level — then get NO scroll at all, which
+   is how the jump chips silently died the first time. An instant jump always
+   lands, so the chips stay reliable. */
+
+/* Jump chips — the column scrolls independently, so it needs its own way back. */
+.lp-jump{display:flex;flex-wrap:wrap;gap:5px;position:sticky;top:-14px;z-index:2;
+  background:#fff;padding:2px 0 10px;margin:0 0 4px}
+.lp-jump button{font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);
+  background:#f1f5fa;border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer}
+.lp-jump button:hover{background:#e6edf8;color:var(--navy)}
+.lp-jump button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.lp-block{scroll-margin-top:10px}
+.lp-block-body{padding:12px 14px 14px}
+.lp-block-body .rf-blurb{margin:0 0 13px}
+/* `.letter-options h4` is ported CSS — uppercase, tracked out, muted. These are
+   names of things, not labels, so they read as names in both the section heads
+   and the row cards. */
+.letter-options .lp-block-head h4{margin:0;font-size:14px;text-transform:none;
+  letter-spacing:0;color:var(--navy);font-weight:600}
+.letter-options .rf-card-head h4{margin:0;font-size:13px;text-transform:none;
+  letter-spacing:0;color:var(--navy);font-weight:600}
+.lp-note{margin:0 0 11px;font-size:11.5px;color:var(--muted);line-height:1.45}
+.lp-note-auto{margin-top:15px;padding-top:11px;border-top:1px solid var(--line)}
+
+/* One card per compensation row, on the same `.rf-card` the details form uses.
+   A row that is in the letter is marked on its edge, so the column reads as
+   "what is in this letter" without reading a word. */
+.lp-row{scroll-margin-top:10px;border-left:3px solid transparent;padding-bottom:4px}
+.lp-row.on{border-left-color:var(--accent);background:var(--panel)}
+.lp-row .rf-card-head{padding-top:11px}
+.lp-row .lo-row{margin-bottom:8px}
+.lp-row .lo-row label{font-size:11.5px;color:var(--muted);font-weight:600}
+.lp-row-extra{border-top:1px solid var(--line);padding-top:9px;margin-bottom:2px}
+.lp-source{margin:0 0 8px;font-size:11px;color:var(--muted);line-height:1.4}
+.lp-row-auto .lp-source{margin-bottom:9px}
+
+/* --- offers additions: the assignments editor in the /offers/[id] rail --- */
 .assign-editor{min-width:300px}
 .assign-editor .od-assignees{margin-bottom:10px}
 .assign-edit-btn{margin-top:2px}
-a.am-page-link{text-decoration:none;display:inline-flex;align-items:center}
 
 /* --- dashboard additions: new-user modal roles --- */
 .nu-roles{display:flex;flex-direction:column;gap:7px}

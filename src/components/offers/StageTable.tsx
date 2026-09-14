@@ -3,6 +3,7 @@
 // Pipeline / Hired / Archived table.
 // Markup ← S1 342–393.  Logic ← S3 463–507, 555–580, 738–754.
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
 import { fmtShort } from '@/lib/offers/format'
@@ -16,7 +17,6 @@ import { exportOneXlsx } from '@/lib/offers/spreadsheet'
 import { getEmailPref } from '@/lib/offers/storage'
 import type { OfferRecord, Stage } from '@/lib/offers/types'
 
-import AssignModal from './AssignModal'
 import BulkToolbar from './BulkToolbar'
 import { useOffers } from './OffersProvider'
 
@@ -68,8 +68,6 @@ export default function StageTable({ stage }: StageTableProps) {
   const api = useOffers()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
-  /** Record whose assignment modal is open (row "Edit" button); null = closed. */
-  const [assignId, setAssignId] = useState<string | null>(null)
 
   const stageRecords = useMemo(
     () => api.records.filter((r) => stageOf(r) === stage),
@@ -117,12 +115,6 @@ export default function StageTable({ stage }: StageTableProps) {
       })
       return next
     })
-  }
-
-  function openDetails(id: string) {
-    api.openRecord(id)
-    api.showView('editor')
-    api.showSub('details')
   }
 
   function openLetter(id: string) {
@@ -177,16 +169,17 @@ export default function StageTable({ stage }: StageTableProps) {
 
   // S3 487–493
   function rowActions(id: string) {
+    // The offer workspace: letter + details form + assignments + history, on its
+    // own URL. This is the row's primary action.
     const edit = (
-      <button
+      <Link
         key="edit"
-        className="mini"
-        type="button"
-        title="Edit assigned users (and jump to details)"
-        onClick={() => setAssignId(id)}
+        className="mini row-edit"
+        href={'/offers/' + id}
+        title="Open this offer — letter, details, assigned users and history"
       >
         Edit
-      </button>
+      </Link>
     )
     const letter = (
       <button
@@ -210,13 +203,6 @@ export default function StageTable({ stage }: StageTableProps) {
         Excel
       </button>
     )
-    // Additive (not in the source app): the shareable per-offer page with
-    // assignments + change history.
-    const pageLink = (
-      <a key="page" className="mini row-page" href={'/offers/' + id} title="Open the offer page">
-        Page
-      </a>
-    )
     const del = (
       <button key="delete" className="mini del" type="button" title="Delete" onClick={() => deleteRow(id)}>
         Delete
@@ -226,7 +212,6 @@ export default function StageTable({ stage }: StageTableProps) {
       return [
         edit,
         letter,
-        pageLink,
         xls,
         <button
           key="hire"
@@ -250,7 +235,6 @@ export default function StageTable({ stage }: StageTableProps) {
       return [
         edit,
         letter,
-        pageLink,
         xls,
         <button
           key="unstage"
@@ -273,7 +257,6 @@ export default function StageTable({ stage }: StageTableProps) {
     return [
       edit,
       letter,
-      pageLink,
       xls,
       <button
         key="unstage"
@@ -412,20 +395,6 @@ export default function StageTable({ stage }: StageTableProps) {
           </div>
         )}
       </div>
-
-      <AssignModal
-        recordId={assignId}
-        name={(() => {
-          const r = assignId ? api.records.find((x) => x.id === assignId) : null
-          return r ? r.data.employeeName || r.data.preferredName || '' : ''
-        })()}
-        onClose={() => setAssignId(null)}
-        onEditDetails={() => {
-          const id = assignId
-          setAssignId(null)
-          if (id) openDetails(id)
-        }}
-      />
     </>
   )
 }
