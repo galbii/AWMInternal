@@ -129,6 +129,11 @@ export const env = {
         }
       : null,
 
+  // The public new-hire request form at /apply. Null = open to anyone who has
+  // the link; set a shared code and the form asks for it (compared in
+  // constant time by /api/apply). Rotate it by changing the value.
+  APPLY_ACCESS_CODE: optional('APPLY_ACCESS_CODE'),
+
   // Null when unset — Payload then falls back to logging emails to the
   // console rather than sending, which is what we want in local dev.
   RESEND: resendApiKey

@@ -56,6 +56,7 @@ const TAB_IDS: TabId[] = [
   'highlight',
   'hierarchy',
   'builder',
+  'users',
 ]
 
 const isTabId = (v: string | null): v is TabId => Boolean(v) && TAB_IDS.includes(v as TabId)

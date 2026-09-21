@@ -17,6 +17,7 @@
 import type { Payload } from 'payload'
 
 import { hasRole, type Role } from '@/access/roles'
+import { userApps } from '@/lib/apps/registry'
 import type { User } from '@/payload-types'
 
 /** What ANY signed-in user may see about ANY other user. */
@@ -33,11 +34,15 @@ export interface PublicProfile {
 export interface ProfileView extends PublicProfile {
   /** Owner and admin/dev only — absent for everyone else. */
   email?: string
+  /** Owner and admin/dev only: the membership-managed apps on this person's list. */
+  apps?: string[]
   isSelf: boolean
   /** Owner or admin/dev, and never while emulating. */
   canEdit: boolean
   /** Admin/dev only. Nobody can change their own roles. */
   canEditRoles: boolean
+  /** Admin/dev only (their own list too — it changes nothing for a manager). */
+  canEditApps: boolean
   /**
    * Passkeys are self-service ONLY. An admin editing someone else's profile
    * must not be able to enrol a credential on that account — that would be a
@@ -107,9 +112,11 @@ export function toProfileView(
   return {
     ...base,
     ...(privileged && typeof target.email === 'string' ? { email: target.email } : {}),
+    ...(privileged ? { apps: userApps(target) } : {}),
     isSelf,
     canEdit: privileged && !isEmulating,
     canEditRoles: isAdmin && !isSelf && !isEmulating,
+    canEditApps: isAdmin && !isEmulating,
     canManagePasskeys: isSelf && !isEmulating,
   }
 }

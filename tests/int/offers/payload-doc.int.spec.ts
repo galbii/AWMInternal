@@ -91,4 +91,17 @@ describe('payload-doc mappers', () => {
     expect('pos' in toOfferDoc(rec)).toBe(false)
     expect(toOfferDoc(rec, 7).pos).toBe(7)
   })
+
+  it('never writes the server-owned applicant link from the client blob', () => {
+    const rec: OfferRecord = {
+      id: 'rlink1234ab',
+      data: { employeeName: 'A', email: 'a@example.com' },
+      status: 'draft',
+      created: '2026-09-06T10:00:00.000Z',
+      updated: '2026-09-06T10:00:00.000Z',
+    }
+    // The linkApplicant hook owns `applicant`; a partial update that omits it
+    // leaves the link alone, which is exactly what the sync route relies on.
+    expect('applicant' in toOfferDoc(rec, 1)).toBe(false)
+  })
 })

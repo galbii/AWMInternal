@@ -401,3 +401,20 @@
 .kern .hl-delta.up{color:#4ade80} .kern .hl-delta.down{color:#ff6b7d} .kern .hl-delta.flat{color:var(--k-muted)}
 .kern .hl-prev{font-size:11px;color:var(--k-muted);margin-top:3px}
 .kern .proj-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#04121b;background:var(--k-accent);border-radius:5px;padding:1px 5px;vertical-align:middle}
+
+/* The shared per-app Users view (shell.css .am-*) rendered inside Kern's own
+   palette: re-map the shell tokens it reads onto the .kern ones. */
+.kern .am{--sh-ink:var(--k-ink);--sh-muted:var(--k-muted);--sh-line:var(--k-line);
+  --sh-field:var(--k-panel2);--sh-soft:var(--k-hover);--sh-card:var(--k-panel);
+  --sh-chip-bg:var(--k-chip);--sh-chip-fg:var(--k-accent)}
+.kern .am-btn-primary{color:#03060e}
+
+/* Motion: a tab's content rises in when it is opened (KernManager keys
+   <main> by tab, so the animation replays per switch); tabs give under the
+   pointer. Gated on reduced motion like every other app. */
+@media (prefers-reduced-motion:no-preference){
+  .kern main{animation:k-in .24s cubic-bezier(.22,.68,.35,1) both}
+  .kern .tab{transition:background .14s ease,color .14s ease,border-color .14s ease,transform .12s ease}
+  .kern .tab:active{transform:translateY(1px)}
+}
+@keyframes k-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}

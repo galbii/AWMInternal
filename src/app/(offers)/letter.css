@@ -1,52 +1,54 @@
-/* Offer & New Hire Request Manager v1.6 -- offer letter stylesheet.
- * Ported verbatim from source-1-markup-css.html (S1 lines 152-234).
- * Plain global CSS (NOT a CSS module): generated letter HTML references these
- * class names as strings, so they must stay byte-identical to the source.
+/* Offer & New Hire Request Manager — offer letter stylesheet.
+ *
+ * TWO HALVES, two rules:
+ *
+ *  1. CHROME (everything above the ".letter-sheet" marker): the overlay, the
+ *     sub-tabs, the stage toolbar/filter grid, the options panel. Restyled in
+ *     the 2026-09 redesign to the shared AWM tokens (see offers.css). Class
+ *     names stay frozen — components and offers.css overrides reference them.
+ *
+ *  2. THE LETTER DOCUMENT (".letter-sheet" to the end): ported verbatim from
+ *     source-1-markup-css.html (S1 lines 152-234) and FROZEN. Generated letter
+ *     HTML references these class names as strings, exports/PDF/print depend
+ *     on these exact metrics, and the sheet stays white paper in both themes.
+ *     Do not edit below the marker.
  */
 
-/* ===== Offer Letter ===== */
-.letter-overlay{display:flex;flex-direction:column;background:#5b6675;height:calc(100vh - 150px);min-height:520px}
-.subtabs{display:flex;gap:2px;background:#eef2f9;border-bottom:1px solid var(--line);padding:0 20px}
-.subtab{background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;padding:11px 16px;font-weight:600;font-size:13.5px;cursor:pointer}
-.subtab:hover{color:var(--navy)}
-.subtab.active{color:var(--navy);border-bottom-color:var(--accent)}
+/* ===== letter workspace chrome ===== */
+.letter-overlay{display:flex;flex-direction:column;background:var(--awm-desk);height:calc(100vh - 150px);min-height:520px}
+.subtabs{display:flex;gap:4px;background:var(--awm-card);border-bottom:1px solid var(--awm-line);padding:0 20px}
+.subtab{background:transparent;color:var(--awm-slate);border:none;border-radius:0;border-bottom:2px solid transparent;
+  margin-bottom:-1px;padding:12px 14px;font-weight:600;font-size:13.5px;cursor:pointer}
+.subtab:hover{color:var(--awm-ink)}
+.subtab:focus-visible{outline:none;box-shadow:inset var(--awm-focus)}
+.subtab.active{color:var(--awm-ink);border-bottom-color:var(--awm-blue)}
 .subview{display:none}
 .subview.active{display:block}
-.stage-toolbar{display:flex;gap:8px;align-items:center;padding:16px 24px 6px;flex-wrap:wrap}
-.stage-toolbar .st-spacer{flex:1}
-.mass-sig{display:flex;gap:6px;align-items:center}
-.mass-sig .ms-lbl{font-size:12px;color:var(--muted);font-weight:600}
-.mass-sig select{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;background:#fff;max-width:230px}
-.stage-filters{display:grid;grid-template-columns:36px 19% 16% 22% 1fr auto;align-items:center;padding:4px 24px 12px}
-.stage-filters .f-name,.stage-filters .f-branch,.stage-filters .f-title{width:calc(100% - 8px);max-width:none;box-sizing:border-box}
-.stage-table{table-layout:fixed;min-width:900px}
+/* (The old .stage-toolbar / .mass-sig / .stage-filters rules are gone: the
+   pipeline's controls live in offers.css now — .stage-controls / .sel-bar.) */
+.stage-table{table-layout:fixed;min-width:860px}
 .stage-table .c-chk{width:30px}
 .stage-table th:nth-child(2),.stage-table td:nth-child(2){width:14%}
 .stage-table th:nth-child(3),.stage-table td:nth-child(3){width:10%}
 .stage-table th:nth-child(4),.stage-table td:nth-child(4){width:14%}
 .stage-table th:nth-child(5),.stage-table td:nth-child(5){width:11%}
 .stage-table th:nth-child(6),.stage-table td:nth-child(6){width:84px}
-.stage-table th:nth-child(7),.stage-table td:nth-child(7){width:334px}   /* Actions: fixed home so buttons never overflow */
+.stage-table th:nth-child(7),.stage-table td:nth-child(7){width:242px}   /* Actions: fixed home so buttons never overflow */
 .stage-table td{word-break:break-word}
 .stage-table .c-act .mini{padding:4px 7px;font-size:11.5px;margin-left:4px}
-.letter-toolbar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
-.letter-toolbar strong{font-size:15px}
-.letter-toolbar .lt-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.email-pref{font-size:12px;opacity:.92;display:flex;align-items:center;gap:5px;color:#fff}
-.email-pref select{padding:5px 6px;border-radius:6px;border:1px solid #2a3a5c;font-size:12px}
-.wm-ctl{display:flex;align-items:center;gap:6px;font-size:13px;background:rgba(255,255,255,.12);padding:5px 10px;border-radius:7px}
-.wm-ctl input{accent-color:#fff}
-.letter-toolbar select,.letter-toolbar input[type=date]{padding:6px 8px;border-radius:6px;border:1px solid #2a3a5c;font-size:13px}
 .letter-body-wrap{flex:1;display:grid;grid-template-columns:290px 1fr;overflow:hidden}
-.letter-options{background:#fff;border-right:1px solid var(--line);overflow:auto;padding:14px 16px}
-.letter-options h4{margin:14px 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.letter-options{background:var(--awm-card);border-right:1px solid var(--awm-line);overflow:auto;padding:14px 16px}
+.letter-options h4{margin:14px 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--awm-slate)}
 .letter-options h4:first-child{margin-top:0}
 .lo-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
-.lo-row label{font-size:12.5px;font-weight:600;color:#243244}
-.lo-row select,.lo-row input[type=text],.lo-row input[type=date]{padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit}
+.lo-row label{font-size:12.5px;font-weight:600;color:var(--awm-ink)}
+.lo-row select,.lo-row input[type=text],.lo-row input[type=date]{padding:7px 9px;border:1px solid var(--awm-line);
+  border-radius:7px;font-size:13px;font-family:inherit;background:var(--awm-card);color:var(--awm-ink)}
 .lo-check{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px;cursor:pointer}
-.lo-check input{accent-color:var(--accent);width:15px;height:15px}
-.letter-preview-area{overflow:auto;padding:26px;background:#5b6675}
+.lo-check input{accent-color:var(--awm-blue);width:15px;height:15px}
+.letter-preview-area{overflow:auto;padding:26px;background:var(--awm-desk)}
+
+/* ===== THE LETTER DOCUMENT — frozen port CSS. DO NOT EDIT BELOW. ===== */
 .letter-sheet{position:relative;background:#fff;width:8.5in;min-height:11in;margin:0 auto;box-shadow:0 6px 30px rgba(0,0,0,.35);padding:0.6in 0.75in 0.9in}
 .letter-content{font-family:'Calibri','Segoe UI',Arial,sans-serif;font-size:11pt;color:#111;line-height:1.42;position:relative;z-index:2}
 .letter-table{width:100%;border-collapse:collapse}

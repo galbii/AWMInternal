@@ -74,6 +74,7 @@ export interface Config {
     users: User;
     'offer-requests': OfferRequest;
     'offer-events': OfferEvent;
+    applicants: Applicant;
     passkeys: Passkey;
     redirects: Redirect;
     forms: Form;
@@ -87,6 +88,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    applicants: {
+      offers: 'offer-requests';
+    };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
     };
@@ -99,6 +103,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     'offer-requests': OfferRequestsSelect<false> | OfferRequestsSelect<true>;
     'offer-events': OfferEventsSelect<false> | OfferEventsSelect<true>;
+    applicants: ApplicantsSelect<false> | ApplicantsSelect<true>;
     passkeys: PasskeysSelect<false> | PasskeysSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
@@ -482,6 +487,10 @@ export interface User {
    */
   username?: string | null;
   roles: ('dev' | 'admin' | 'user')[];
+  /**
+   * Apps this person can open. Admins and developers open every app regardless.
+   */
+  apps?: ('offers' | 'kern')[] | null;
   /**
    * Prevent dev "view as" from emulating this account.
    */
@@ -886,8 +895,61 @@ export interface OfferRequest {
       }[]
     | null;
   assignedUsers?: (string | User)[] | null;
+  /**
+   * Linked automatically from the new hire's email (or name) on every save.
+   */
+  applicant?: (string | null) | Applicant;
   createdBy?: (string | null) | User;
   updatedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * One row per person. Identity fields mirror their latest saved offer; only Notes is edited here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applicants".
+ */
+export interface Applicant {
+  id: string;
+  key: string;
+  /**
+   * Mirrored from Q1 of the latest saved offer.
+   */
+  name: string;
+  /**
+   * Mirrored from Q2.
+   */
+  preferredName?: string | null;
+  /**
+   * Mirrored from Q3.
+   */
+  email?: string | null;
+  /**
+   * Mirrored from Q4.
+   */
+  phone?: string | null;
+  /**
+   * Mirrored from Q5.
+   */
+  address?: string | null;
+  /**
+   * Mirrored from Q6.
+   */
+  nmls?: string | null;
+  /**
+   * Hand-written. Never overwritten by an offer save.
+   */
+  notes?: string | null;
+  /**
+   * The offer these identity fields were last mirrored from.
+   */
+  lastOffer?: (string | null) | OfferRequest;
+  offers?: {
+    docs?: (string | OfferRequest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1185,6 +1247,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'offer-events';
         value: string | OfferEvent;
+      } | null)
+    | ({
+        relationTo: 'applicants';
+        value: string | Applicant;
       } | null)
     | ({
         relationTo: 'passkeys';
@@ -1538,6 +1604,7 @@ export interface UsersSelect<T extends boolean = true> {
   name?: T;
   username?: T;
   roles?: T;
+  apps?: T;
   emulationBlocked?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1583,6 +1650,7 @@ export interface OfferRequestsSelect<T extends boolean = true> {
         id?: T;
       };
   assignedUsers?: T;
+  applicant?: T;
   createdBy?: T;
   updatedBy?: T;
   updatedAt?: T;
@@ -1611,6 +1679,24 @@ export interface OfferEventsSelect<T extends boolean = true> {
   targetRole?: T;
   windowEndsAt?: T;
   editCount?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "applicants_select".
+ */
+export interface ApplicantsSelect<T extends boolean = true> {
+  key?: T;
+  name?: T;
+  preferredName?: T;
+  email?: T;
+  phone?: T;
+  address?: T;
+  nmls?: T;
+  notes?: T;
+  lastOffer?: T;
+  offers?: T;
   updatedAt?: T;
   createdAt?: T;
 }

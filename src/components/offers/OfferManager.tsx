@@ -1,13 +1,42 @@
 'use client'
 
-// The app shell: header toolbar (S1 305–332 minus the data-file button, banner
-// and reconnect overlay), tab bar (S1 334–340) with live counts (S3 576–578),
-// and the five view sections (S1 342–430, S3 616–622).
+// The app shell. Ported from S1 305–430 / S3 576–622, restructured 2026-09:
 //
-// Every view stays mounted and is shown/hidden by the `.view`/`.subview` classes,
-// exactly as the source does — that is what keeps the form's state (and its
-// pending autosave) alive across a tab switch.
+//  - The header + tab strip became a LEFT SIDEBAR (`.om-side`). `header.app`
+//    is now the sidebar's masthead and `nav.tabbar` its vertical view list —
+//    both class names kept on purpose (the e2e suite and the print rules
+//    address them by name). Pipeline / Hired / Archived / All / Analysis, with
+//    Editor appearing only while a request is open, exactly as the tab did.
+//  - The toolbar's "+ New Request" and "More ▾" moved to the corner action hub
+//    (`ActionHub`), which unfolds on hover or tap.
+//  - "All" is a new cross-stage table (StageTable with stage="all").
+//
+// Every view stays mounted and is shown/hidden by the `.view`/`.subview`
+// classes, exactly as the source does — that is what keeps the form's state
+// (and its pending autosave) alive across a view switch.
 
+import type { LucideIcon } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  BarChart3,
+  DatabaseBackup,
+  FileDown,
+  FilePen,
+  FileSpreadsheet,
+  FileText,
+  Kanban,
+  LayoutList,
+  Link2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Share2,
+  Sheet,
+  UserCheck,
+  Users,
+} from 'lucide-react'
+import Image from 'next/image'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { safeFileBase } from '@/lib/offers/format'
@@ -28,6 +57,9 @@ import type { EditorSub, OfferRecord, Stage, View } from '@/lib/offers/types'
 
 import Modal from '@/components/shell/Modal'
 
+import ActionHub, { type HubGroup } from './ActionHub'
+import AppMembers from '@/components/shell/AppMembers'
+
 import AnalysisView from './AnalysisView'
 import LetterView from './LetterView'
 import { useOffers } from './OffersProvider'
@@ -36,6 +68,45 @@ import RequestForm from './RequestForm'
 import StageTable from './StageTable'
 
 const stageOf = (r: OfferRecord): Stage => r.stage || 'pipeline'
+
+/** localStorage key for the collapsed-rail preference (a new key; the frozen `onhr_*` set is untouched). */
+const SIDEBAR_KEY = 'onhr_sidebar_collapsed'
+
+type TableView = Exclude<View, 'analysis' | 'users' | 'editor'>
+
+interface NavItem {
+  view: TableView
+  label: string
+  icon: LucideIcon
+}
+
+/** The funnel, in funnel order, then the cross-stage total. */
+const STAGE_NAV: NavItem[] = [
+  { view: 'pipeline', label: 'Pipeline', icon: Kanban },
+  { view: 'hired', label: 'Hired', icon: UserCheck },
+  { view: 'archived', label: 'Archived', icon: Archive },
+  { view: 'all', label: 'All', icon: LayoutList },
+]
+
+/** The title row above each view's content, now that the header no longer names the page. */
+const VIEW_HEAD: Record<Exclude<View, 'editor'>, { title: string; blurb: string }> = {
+  pipeline: { title: 'Pipeline', blurb: 'Offers out and awaiting a decision.' },
+  hired: { title: 'Hired', blurb: 'Accepted offers, ready for onboarding.' },
+  archived: { title: 'Archived', blurb: 'Declined, withdrawn or expired requests.' },
+  all: { title: 'All requests', blurb: 'Every request, across every stage.' },
+  analysis: { title: 'Analysis', blurb: 'Acceptance rates and monthly volume.' },
+  users: { title: 'Users', blurb: 'Who can open the Offer & New Hire Manager.' },
+}
+
+function ViewHead({ view }: { view: Exclude<View, 'editor'> }) {
+  const h = VIEW_HEAD[view]
+  return (
+    <div className="om-view-head">
+      <h2>{h.title}</h2>
+      <p className="om-view-blurb">{h.blurb}</p>
+    </div>
+  )
+}
 
 export default function OfferManager() {
   const {
@@ -53,36 +124,51 @@ export default function OfferManager() {
     toast,
   } = useOffers()
 
-  const [menuOpen, setMenuOpen] = useState(false)
   const [codeOpen, setCodeOpen] = useState(false)
   const [codeText, setCodeText] = useState('')
+  const [collapsed, setCollapsed] = useState(false)
 
-  const dropdownRef = useRef<HTMLDivElement | null>(null)
   const fileImportRef = useRef<HTMLInputElement | null>(null)
   const fileRestoreRef = useRef<HTMLInputElement | null>(null)
 
-  // S3 430 — any click outside the dropdown closes the menu.
+  // The rail preference is read after mount so the server and first client
+  // render agree (expanded); a collapsed user sees one frame of the full rail.
   useEffect(() => {
-    if (!menuOpen) return
-    const onDocClick = (e: MouseEvent) => {
-      const el = dropdownRef.current
-      if (el && e.target instanceof Node && el.contains(e.target)) return
-      setMenuOpen(false)
+    try {
+      if (window.localStorage.getItem(SIDEBAR_KEY) === '1') setCollapsed(true)
+    } catch {
+      /* storage unavailable — stay expanded */
     }
-    document.addEventListener('click', onDocClick)
-    return () => document.removeEventListener('click', onDocClick)
-  }, [menuOpen])
+  }, [])
 
-  // S3 576–578.
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c
+      try {
+        window.localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+      } catch {
+        /* preference simply does not persist */
+      }
+      return next
+    })
+  }, [])
+
+  // S3 576–578, plus the cross-stage total for "All".
   const counts = useMemo(() => {
-    const c = { pipeline: 0, hired: 0, archived: 0 }
+    const c: Record<TableView, number> = { pipeline: 0, hired: 0, archived: 0, all: records.length }
     records.forEach((r) => {
       c[stageOf(r)] += 1
     })
     return c
   }, [records])
 
-  /* ---------------- toolbar handlers ---------------- */
+  const currentName = useMemo(() => {
+    const rec = currentId ? records.find((r) => r.id === currentId) : undefined
+    const d = rec ? rec.data : {}
+    return (d.employeeName || '').trim() || (d.preferredName || '').trim() || 'New Request'
+  }, [currentId, records])
+
+  /* ---------------- action handlers (formerly the header toolbar) ---------------- */
 
   const onTemplate = useCallback(async () => {
     await downloadTemplate()
@@ -218,12 +304,83 @@ export default function OfferManager() {
     toast('Imported ' + (sub.data.employeeName || 'request') + '.')
   }, [addRecords, codeText, showView, toast])
 
-  const menuAction = useCallback((fn: () => void | Promise<void>) => {
-    return () => {
-      setMenuOpen(false) // S3 429
-      void fn()
-    }
-  }, [])
+  /* ---------------- the corner hub's contents ---------------- */
+
+  const hubGroups: HubGroup[] = useMemo(
+    () => [
+      {
+        label: 'Import',
+        actions: [
+          {
+            id: 'import-xlsx',
+            label: 'Import spreadsheet',
+            hint: '.xlsx, .xls or .csv',
+            icon: FileSpreadsheet,
+            run: () => fileImportRef.current?.click(),
+          },
+          {
+            id: 'import-code',
+            label: 'Import from code or link',
+            hint: 'Paste an intake submission',
+            icon: Link2,
+            run: () => setCodeOpen(true),
+          },
+          {
+            id: 'template',
+            label: 'Download template',
+            hint: 'Blank .xlsx to fill in',
+            icon: FileDown,
+            run: onTemplate,
+          },
+        ],
+      },
+      {
+        label: 'Export',
+        actions: [
+          {
+            id: 'export-xlsx',
+            label: 'Export all to Excel',
+            hint: 'One .xlsx workbook',
+            icon: Sheet,
+            run: onExportXlsx,
+          },
+          {
+            id: 'export-csv',
+            label: 'Export all to CSV',
+            icon: FileText,
+            run: onExportCsv,
+          },
+          {
+            id: 'share',
+            label: 'Share current request',
+            hint: 'Offer packet as .html',
+            icon: Share2,
+            run: onShare,
+          },
+        ],
+      },
+      {
+        label: 'Backup',
+        actions: [
+          {
+            id: 'backup',
+            label: 'Back up all requests',
+            hint: 'Saves a .json file',
+            icon: DatabaseBackup,
+            run: onBackup,
+          },
+          {
+            id: 'restore',
+            label: 'Restore from backup',
+            hint: 'Adds records, never replaces',
+            icon: ArchiveRestore,
+            run: () => fileRestoreRef.current?.click(),
+          },
+        ],
+      },
+    ],
+    [onBackup, onExportCsv, onExportXlsx, onShare, onTemplate],
+  )
 
   const viewCls = (v: View) => (view === v ? 'view active' : 'view')
   const tabCls = (v: View) => (view === v ? 'tab active' : 'tab')
@@ -258,86 +415,168 @@ export default function OfferManager() {
 
   return (
     <>
-      <header className="app">
-        <h1>Offer &amp; New Hire Request Manager</h1>
-        <span className="ver">v1.6 · build 0820-1921</span>
-        <div className="spacer"></div>
-        <div className="toolbar">
-          <button className="btn-ghost" onClick={() => newRecord()}>
-            + New Request
-          </button>
-          <button className="btn-ghost" onClick={() => fileImportRef.current?.click()}>
-            Import Spreadsheet
-          </button>
-          <button className="btn-ghost" onClick={() => void onTemplate()}>
-            Download Template
-          </button>
-          <div className="dropdown" ref={dropdownRef}>
-            <button className="btn-ghost" onClick={() => setMenuOpen((o) => !o)}>
-              Export / Backup <span className="caret">▾</span>
-            </button>
-            <div className={menuOpen ? 'menu open' : 'menu'}>
-              <button onClick={menuAction(onExportXlsx)}>Export All (.xlsx)</button>
-              <button onClick={menuAction(onExportCsv)}>Export (.csv)</button>
-              <button onClick={menuAction(onShare)}>Share Current</button>
-              <div className="menu-sep"></div>
-              <button onClick={menuAction(onBackup)}>Backup (.json)</button>
-              <button onClick={menuAction(() => fileRestoreRef.current?.click())}>Restore</button>
-              <div className="menu-sep"></div>
-              <button onClick={menuAction(() => setCodeOpen(true))}>Import from Code / Link</button>
-            </div>
+      <div className={collapsed ? 'om-shell om-collapsed' : 'om-shell'}>
+        {/* A <div>, not <aside>: offers.css hides every <aside> (the ported
+            saved-request rail), and this sidebar must not inherit that. */}
+        <div className="om-side">
+          <div className="om-side-inner">
+            <header className="app">
+              <Image
+                className="om-brand"
+                src="/brand/awm-logo.png"
+                alt=""
+                width={34}
+                height={34}
+                priority
+              />
+              <button
+                type="button"
+                className="om-collapse"
+                onClick={toggleCollapsed}
+                aria-pressed={collapsed}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {collapsed ? (
+                  <PanelLeftOpen size={17} strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose size={17} strokeWidth={1.75} aria-hidden="true" />
+                )}
+              </button>
+              <h1>Offer &amp; New Hire Request Manager</h1>
+            </header>
+
+            <nav className="tabbar" aria-label="Views">
+              {STAGE_NAV.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.view}
+                    type="button"
+                    className={tabCls(item.view)}
+                    aria-current={view === item.view ? 'page' : undefined}
+                    title={collapsed ? item.label : undefined}
+                    onClick={() => showView(item.view)}
+                  >
+                    <Icon className="om-tab-icon" size={17} strokeWidth={1.75} aria-hidden="true" />
+                    <span className="om-tab-text">{item.label}</span>
+                    <span className="tab-count">{counts[item.view]}</span>
+                  </button>
+                )
+              })}
+
+              <div className="om-nav-sep" role="separator" />
+
+              <button
+                type="button"
+                className={tabCls('analysis')}
+                aria-current={view === 'analysis' ? 'page' : undefined}
+                title={collapsed ? 'Analysis' : undefined}
+                onClick={() => showView('analysis')}
+              >
+                <BarChart3
+                  className="om-tab-icon"
+                  size={17}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <span className="om-tab-text">Analysis</span>
+              </button>
+
+              {/* Per-app membership (2026-09): who can open this app, managed
+                  here rather than only in the /users directory. */}
+              <button
+                type="button"
+                className={tabCls('users')}
+                aria-current={view === 'users' ? 'page' : undefined}
+                title={collapsed ? 'Users' : undefined}
+                onClick={() => showView('users')}
+              >
+                <Users className="om-tab-icon" size={17} strokeWidth={1.75} aria-hidden="true" />
+                <span className="om-tab-text">Users</span>
+              </button>
+
+              {/* S1 340: the Editor tab exists only while a request is open. */}
+              {view === 'editor' ? (
+                <>
+                  <div className="om-nav-sep" role="separator" />
+                  <button
+                    type="button"
+                    className={tabCls('editor')}
+                    aria-current="page"
+                    title={collapsed ? 'Editor: ' + currentName : undefined}
+                    onClick={() => showView('editor')}
+                  >
+                    <FilePen
+                      className="om-tab-icon"
+                      size={17}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                    <span className="om-tab-text">
+                      Editor
+                      <span className="om-tab-sub">{currentName}</span>
+                    </span>
+                  </button>
+                </>
+              ) : null}
+            </nav>
           </div>
         </div>
-        <input
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          ref={fileImportRef}
-          onChange={(e) => void onImportFile(e)}
-        />
-        <input
-          type="file"
-          accept=".json"
-          ref={fileRestoreRef}
-          onChange={(e) => void onRestoreFile(e)}
-        />
-      </header>
 
-      <nav className="tabbar">
-        <button className={tabCls('pipeline')} onClick={() => showView('pipeline')}>
-          Pipeline ({counts.pipeline})
-        </button>
-        <button className={tabCls('hired')} onClick={() => showView('hired')}>
-          Hired ({counts.hired})
-        </button>
-        <button className={tabCls('archived')} onClick={() => showView('archived')}>
-          Archived ({counts.archived})
-        </button>
-        <button className={tabCls('analysis')} onClick={() => showView('analysis')}>
-          Analysis
-        </button>
-        <button
-          className={tabCls('editor')}
-          style={{ display: view === 'editor' ? undefined : 'none' }}
-          onClick={() => showView('editor')}
-        >
-          Editor
-        </button>
-      </nav>
+        <div className="om-content">
+          {/* StageTable renders its own BulkToolbar for the pipeline stage. */}
+          <section className={viewCls('pipeline')}>
+            <ViewHead view="pipeline" />
+            <StageTable stage="pipeline" />
+          </section>
+          <section className={viewCls('hired')}>
+            <ViewHead view="hired" />
+            <StageTable stage="hired" />
+          </section>
+          <section className={viewCls('archived')}>
+            <ViewHead view="archived" />
+            <StageTable stage="archived" />
+          </section>
+          <section className={viewCls('all')}>
+            <ViewHead view="all" />
+            <StageTable stage="all" />
+          </section>
+          <section className={viewCls('analysis')}>
+            <ViewHead view="analysis" />
+            <AnalysisView />
+          </section>
+          {/* No ViewHead: the shared panel carries its own title and blurb. */}
+          <section className={viewCls('users')}>
+            <AppMembers appId="offers" />
+          </section>
+          <section className={viewCls('editor')}>{editorContent}</section>
+        </div>
+      </div>
 
-      {/* StageTable renders its own BulkToolbar for the pipeline stage. */}
-      <section className={viewCls('pipeline')}>
-        <StageTable stage="pipeline" />
-      </section>
-      <section className={viewCls('hired')}>
-        <StageTable stage="hired" />
-      </section>
-      <section className={viewCls('archived')}>
-        <StageTable stage="archived" />
-      </section>
-      <section className={viewCls('analysis')}>
-        <AnalysisView />
-      </section>
-      <section className={viewCls('editor')}>{editorContent}</section>
+      <ActionHub
+        primary={{
+          id: 'new',
+          label: 'New Request',
+          hint: 'Start a new hire request',
+          icon: Plus,
+          run: () => newRecord(),
+        }}
+        groups={hubGroups}
+      />
+
+      <input
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        ref={fileImportRef}
+        onChange={(e) => void onImportFile(e)}
+      />
+      <input
+        type="file"
+        accept=".json"
+        ref={fileRestoreRef}
+        onChange={(e) => void onRestoreFile(e)}
+      />
 
       {/* S3 774 — Import from Code / Link */}
       <Modal

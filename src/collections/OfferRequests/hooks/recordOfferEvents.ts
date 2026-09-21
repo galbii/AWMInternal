@@ -130,7 +130,15 @@ export const recordOfferEvents: CollectionAfterChangeHook = async ({
 
   try {
     if (operation === 'create') {
-      await write({ kind: 'created', summary: `Created ${offerTitle}` })
+      // A submission from the public form (/api/apply) has no signed-in actor;
+      // the route passes who sent it in context so History still says.
+      const apply = (req.context as { apply?: { name?: string; email?: string } } | undefined)
+        ?.apply
+      const who = apply ? [apply.name, apply.email && `(${apply.email})`].filter(Boolean).join(' ') : ''
+      await write({
+        kind: 'created',
+        summary: who ? `Submitted from the request form by ${who}` : `Created ${offerTitle}`,
+      })
       return doc
     }
 

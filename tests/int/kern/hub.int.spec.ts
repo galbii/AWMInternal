@@ -1,15 +1,16 @@
 // The hub wiring for the Kern app.
 //
-// The registry `roles` field is a UX filter, not a security boundary — it
-// decides what a user SEES on the hub. requireApp('kern') gates the routes.
-// These tests pin the visibility rules so a registry edit can't silently
-// expose or hide the app.
+// The registry decides what a user SEES on the hub and what requireApp('kern')
+// lets through — a UX filter, not a security boundary. Since 2026-09 the app
+// is MEMBERSHIP-MANAGED: admins/devs always open it, everyone else needs it on
+// their `apps` list. These tests pin the visibility rules so a registry edit
+// can't silently expose or hide the app.
 
 import { describe, expect, test } from 'bun:test'
 
 import { APPS, appsByGroup, appsFor, canUseApp, getApp } from '@/lib/apps/registry'
 
-const user = (roles: string[]) => ({ id: '1', roles })
+const user = (roles: string[], apps: string[] = []) => ({ id: '1', roles, apps })
 
 describe('Kern Org Manager on the hub', () => {
   test('is registered, and its href matches the route that exists', () => {
@@ -27,10 +28,17 @@ describe('Kern Org Manager on the hub', () => {
     expect(canUseApp(user(['admin']), getApp('kern')!)).toBe(true)
   })
 
-  test('a plain user does not — but still sees offers, which lists no roles', () => {
-    const ids = appsFor(user(['user'])).map((a) => a.id)
-    expect(ids).not.toContain('kern')
-    expect(ids).toContain('offers')
+  test('a plain user sees it only once it is on their apps list', () => {
+    expect(appsFor(user(['user'])).map((a) => a.id)).not.toContain('kern')
+    expect(appsFor(user(['user'], ['offers'])).map((a) => a.id)).not.toContain('kern')
+    expect(appsFor(user(['user'], ['kern'])).map((a) => a.id)).toContain('kern')
+    expect(canUseApp(user(['user'], ['kern']), getApp('kern')!)).toBe(true)
+  })
+
+  test('offers works the same way — membership, not roles', () => {
+    expect(getApp('offers')!.roles).toBeUndefined()
+    expect(appsFor(user(['user'])).map((a) => a.id)).not.toContain('offers')
+    expect(appsFor(user(['user'], ['offers'])).map((a) => a.id)).toContain('offers')
   })
 
   test('a signed-out visitor sees nothing at all', () => {

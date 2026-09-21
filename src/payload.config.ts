@@ -5,6 +5,7 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { Applicants } from './collections/Applicants'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { OfferEvents } from './collections/OfferEvents'
@@ -62,7 +63,7 @@ export default buildConfig({
   db: mongooseAdapter({
     url: env.DATABASE_URL,
   }),
-  collections: [Pages, Posts, Media, Categories, Users, OfferRequests, OfferEvents, Passkeys],
+  collections: [Pages, Posts, Media, Categories, Users, OfferRequests, OfferEvents, Applicants, Passkeys],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, SiteSettings],
   plugins,

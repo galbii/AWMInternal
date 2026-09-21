@@ -11,9 +11,12 @@ import { expect, test, type Page } from '@playwright/test'
 // DB). Without them the suite skips rather than fails, so `bun run test:e2e`
 // stays green on machines without a seeded login.
 
-const HUB_URL = 'http://localhost:3000/'
-const APP_URL = 'http://localhost:3000/offers'
-const KERN_URL = 'http://localhost:3000/kern'
+// E2E_BASE_URL lets the suite target a server on another port (the default
+// matches playwright.config.ts's webServer).
+const BASE = (process.env.E2E_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+const HUB_URL = BASE + '/'
+const APP_URL = BASE + '/offers'
+const KERN_URL = BASE + '/kern'
 const EMAIL = process.env.E2E_EMAIL || ''
 const PASSWORD = process.env.E2E_PASSWORD || ''
 
@@ -24,9 +27,9 @@ async function signIn(page: Page): Promise<void> {
   await page.locator('.signin-box input[type="email"]').fill(EMAIL)
   await page.locator('.signin-box input[type="password"]').fill(PASSWORD)
   await page.locator('.signin-box button[type="submit"]').click()
-  // Sign-in always lands on the hub, not back on the app that triggered the
-  // login redirect — go there next explicitly.
-  await page.waitForURL(HUB_URL)
+  // Sign-in honours `?next=` (deep links land back on the app) but falls back
+  // to the hub — accept either, then go to the app explicitly.
+  await page.waitForURL((u) => !String(u).includes('/login'))
   await page.goto(APP_URL)
 }
 
@@ -49,12 +52,14 @@ test.describe('Offer & New Hire Request Manager @ /offers', () => {
     await expect(page.locator('header.app h1')).toHaveText('Offer & New Hire Request Manager')
     await expect(page.locator('.session-bar .sb-user')).toContainText('Signed in as')
 
-    // Pipeline / Hired / Archived / Analysis are always present; Editor is hidden
-    // until a record is open, so assert "at least four".
+    // The sidebar (`nav.tabbar`, restyled vertical) always lists Pipeline /
+    // Hired / Archived / All / Analysis; Editor appears only while a record is
+    // open, so assert "at least five" and check by label, not position.
     const tabs = page.locator('nav.tabbar button')
-    expect(await tabs.count()).toBeGreaterThanOrEqual(4)
+    expect(await tabs.count()).toBeGreaterThanOrEqual(5)
     await expect(tabs.nth(0)).toContainText('Pipeline')
-    await expect(tabs.nth(3)).toContainText('Analysis')
+    await expect(tabs.filter({ hasText: 'All' })).toHaveCount(1)
+    await expect(tabs.filter({ hasText: 'Analysis' })).toHaveCount(1)
 
     expect(errors).toEqual([])
   })
@@ -63,36 +68,43 @@ test.describe('Offer & New Hire Request Manager @ /offers', () => {
     await signIn(page)
 
     const name = 'Playwright Smoke ' + Date.now().toString(36)
-    // Two "+ New Request" buttons exist once records are present (header +
-    // record-list panel) — target the header one.
-    await page.getByRole('banner').getByRole('button', { name: '+ New Request' }).click()
+    // "New Request" lives in the corner action hub: open the disc, then pick
+    // the hero row (a menuitem whose accessible name includes its hint line).
+    await page.getByRole('button', { name: 'Quick actions' }).click()
+    await page.getByRole('menuitem', { name: /New Request/ }).click()
     await page.locator('[data-fid="employeeName"] input').fill(name)
 
     // Autosave is debounced at 600ms (S2 618–636) — let it commit before
     // leaving the editor view, then the pipeline table is the signal.
     await page.waitForTimeout(1200)
     await page.locator('nav.tabbar button').first().click()
-    // All three stage tables are mounted (hidden tabs included) — the pipeline
+    // All four stage tables are mounted (hidden views included) — the pipeline
     // table is the first.
     const pipelineBody = page.locator('table.stage-table tbody').first()
     await expect(pipelineBody).toContainText(name, { timeout: 5000 })
 
     // Clean up so re-runs don't accumulate smoke rows (records now persist
-    // server-side, not in this browser's localStorage).
+    // server-side, not in this browser's localStorage). Delete lives behind
+    // the row's "More actions" (⋯) menu.
     page.on('dialog', (d) => void d.accept())
     const row = pipelineBody.locator('tr', { hasText: name })
-    await row.getByRole('button', { name: 'Delete' }).click()
+    await row.getByRole('button', { name: 'More actions' }).click()
+    await row.getByRole('button', { name: 'Delete…' }).click()
     // The app uses its own confirm modal, not window.confirm.
     const modalContinue = page.getByRole('button', { name: 'Continue' })
     if (await modalContinue.isVisible().catch(() => false)) await modalContinue.click()
     await expect(pipelineBody).not.toContainText(name, { timeout: 5000 })
+    // The provider persists AFTER the optimistic state update (fire-and-forget
+    // POST). Give that request time to land before the browser closes, or the
+    // delete never reaches the server and smoke rows accumulate in the DB.
+    await page.waitForTimeout(1500)
   })
 })
 
 // The Kern Org Manager (src/app/(kern)) at /kern. Phase 1 keeps its org
-// document in localStorage, so this smoke test asserts the shell, the 16-tab
-// bar, and that a chart-bearing tab mounts ECharts without throwing — it does
-// not mutate anything.
+// document in localStorage, so this smoke test asserts the shell, the tab bar
+// (the source's 16 plus Users), and that a chart-bearing tab mounts ECharts
+// without throwing — it does not mutate anything.
 test.describe('Kern Org Manager @ /kern', () => {
   test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD to run the app smoke test.')
 
@@ -101,7 +113,7 @@ test.describe('Kern Org Manager @ /kern', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test('renders the shell and all 16 tabs', async ({ page }) => {
+  test('renders the shell and all 17 tabs', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(String(e)))
 
@@ -112,10 +124,12 @@ test.describe('Kern Org Manager @ /kern', () => {
     await expect(page.locator('.kern header h1')).toHaveText('Kern Org Manager')
     await expect(page.locator('.session-bar .sb-user')).toContainText('Signed in as')
 
+    // The source's 16 tabs, plus the per-app Users view (2026-09).
     const tabs = page.locator('.kern nav.tabs .tab')
-    await expect(tabs).toHaveCount(16)
+    await expect(tabs).toHaveCount(17)
     await expect(tabs.nth(0)).toContainText('Branches')
     await expect(tabs.nth(15)).toContainText('Org Builder')
+    await expect(tabs.nth(16)).toContainText('Users')
 
     // The seed loads through the storage seam, so the branch table has rows.
     await expect(page.locator('.kern table.tbl-center tbody tr').first()).toBeVisible()
@@ -143,6 +157,56 @@ test.describe('Kern Org Manager @ /kern', () => {
     await signIn(page)
     await page.goto(`${KERN_URL}?tab=hierarchy`)
     await expect(page.locator('.kern nav.tabs .tab.active')).toContainText('Hierarchy')
+  })
+})
+
+// The public request form needs no session, so this block always runs.
+test.describe('Public new-hire request form @ /apply', () => {
+  const APPLY_URL = BASE + '/apply'
+
+  test('renders the form without signing in', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(String(e)))
+    await page.goto(APPLY_URL)
+    await expect(page).toHaveURL(/\/apply$/)
+    await expect(page).toHaveTitle('New hire request')
+    await expect(page.locator('.apply-hero h1')).toHaveText('Request a new hire')
+    await expect(page.locator('[data-fid="employeeName"] input')).toBeVisible()
+    // HR's custom letter-wording card is not a requester's business.
+    await expect(page.locator('#sec-pay-wording')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Send request' })).toBeVisible()
+    expect(errors).toEqual([])
+  })
+
+  test('will not send with required fields empty', async ({ page }) => {
+    await page.goto(APPLY_URL)
+    await page.getByRole('button', { name: 'Send request' }).click()
+    await expect(page.locator('.apply-error')).toBeVisible()
+    await expect(page.locator('.fld.missing').first()).toBeVisible()
+    // Still on the form — nothing was created.
+    await expect(page.locator('.apply-done')).toHaveCount(0)
+  })
+})
+
+// The Users app (src/app/(users)) at /users — admin/dev only. The redirect
+// needs no credentials; the directory itself does.
+test.describe('Users @ /users', () => {
+  const USERS_URL = BASE + '/users'
+
+  test('gates unauthenticated visitors at /login with a return path', async ({ page }) => {
+    await page.goto(USERS_URL)
+    await expect(page).toHaveURL(/\/login\?next=%2Fusers/)
+  })
+
+  test('renders the directory for an admin', async ({ page }) => {
+    test.skip(!EMAIL || !PASSWORD, 'Set E2E_EMAIL and E2E_PASSWORD (an admin) to run this.')
+    await signIn(page)
+    await page.goto(USERS_URL)
+    // A non-admin account is bounced to the hub — accept that outcome too.
+    if (!page.url().includes('/users')) return
+    await expect(page.locator('.us-head h1')).toHaveText('Users')
+    await expect(page.locator('table.us-table tbody tr').first()).toBeVisible()
+    await expect(page.locator('.us-you')).toHaveCount(1)
   })
 })
 

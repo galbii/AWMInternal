@@ -2,6 +2,7 @@ import type { CollectionBeforeChangeHook, CollectionConfig } from 'payload'
 
 import { authenticated } from '../../access/authenticated'
 import { adminOrDev, adminOrDevFieldAccess, selfOrAdminOrDev } from '../../access/roles'
+import { membershipApps } from '../../lib/apps/registry'
 import {
   deriveUsername,
   slugifyUsername,
@@ -129,6 +130,25 @@ export const Users: CollectionConfig = {
         { label: 'User', value: 'user' },
       ],
       // Only admins/devs may grant roles — otherwise any user could promote themselves.
+      access: {
+        create: adminOrDevFieldAccess,
+        update: adminOrDevFieldAccess,
+      },
+    },
+    {
+      // Per-app membership (2026-09). Which membership-managed apps this person
+      // may open; admins/developers open every app regardless. The options
+      // come from the registry, so a new app is grantable the moment it is
+      // registered. Edited in each app's own Users view, /users, or a profile.
+      name: 'apps',
+      type: 'select',
+      hasMany: true,
+      defaultValue: [],
+      saveToJWT: true,
+      options: membershipApps().map((a) => ({ label: a.name, value: a.id })),
+      admin: {
+        description: 'Apps this person can open. Admins and developers open every app regardless.',
+      },
       access: {
         create: adminOrDevFieldAccess,
         update: adminOrDevFieldAccess,

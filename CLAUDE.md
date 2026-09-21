@@ -13,6 +13,8 @@ underneath and is untouched by app work.
 | `/` | The hub — app launcher, filtered by the viewer's roles |
 | `/offers` | **Offer & New Hire Request Manager** (the first and largest app) |
 | `/offers/[id]` | Per-offer letter page + history/assignments sidebar |
+| `/apply` | **Public** new-hire request form (no sign-in) → creates a pipeline record via `/api/apply` |
+| `/users` | **Users app** (admin/dev): the account directory — create, roles, view-as block, delete |
 | `/login` | Sign in (honours `?next=`) |
 | `/admin` | Payload CMS |
 
@@ -47,8 +49,9 @@ src/app/(hub)/            → the hub at "/" + /login (own root layout;
                             shell.css + hub.css)
 src/app/(offers)/         → the Offer Manager at "/offers" and "/offers/[id]"
                             (own root layout; shell.css THEN offers.css +
-                            letter.css — plain global CSS, verbatim from the
-                            source app; NOT Tailwind, NOT CSS modules)
+                            letter.css — plain global CSS, restyled 2026-09 to
+                            the hub's AWM design language with FROZEN class
+                            names; NOT Tailwind, NOT CSS modules)
 src/app/(frontend)/       → CMS site (slugs, posts, search) — template code
 src/app/(payload)/        → /admin — generated Payload UI
 src/app/shell.css         → SHARED chrome CSS: tokens, reset, session bar,
@@ -91,17 +94,26 @@ src/app/(myapp)/
   icon: '🧾', status: 'live', group: 'Operations', roles: ['admin','dev'] }
 ```
 
-The hub renders it automatically, filtered by `roles` (omit `roles` for "any
-signed-in user"). Use `status: 'planned'` to show a dimmed "Coming soon" card
-before the routes exist.
+The hub renders it automatically. Omit `roles` and the app is
+**membership-managed**: admins/devs always open it, everyone else needs its id
+on their `users.apps` list (granted inside the app's own Users view, in
+`/users`, or on a profile). Set `roles` and it is **role-gated** instead (the
+Users app) — membership can never grant it. Use `status: 'planned'` to show a
+dimmed "Coming soon" card before the routes exist.
 
 Rules for a new app:
 
-- **The registry `roles` field is a UX filter, not a security boundary.** It
-  decides what a user *sees*. `requireApp()` gates the routes, and every route
+- **The registry is a UX filter, not a security boundary.** `canUseApp()`
+  decides what a user *sees* and what `requireApp()` lets through; every route
   handler must still resolve `getViewer()` itself and pass
   `{ user: viewer, overrideAccess: false }` to Payload — exactly as
   `/api/offer-records` does.
+- **Give a membership-managed app a Users view.** Render the shared
+  `<AppMembers appId="myapp" />` (`src/components/shell/AppMembers.tsx`, fed by
+  `/api/app-members`) somewhere in its navigation, as offers (sidebar entry)
+  and kern (last tab) do, so the people who can open the app are managed from
+  inside it. Its styles are the `.am-*` block in `shell.css`; an app with its
+  own palette re-maps the `--sh-*` tokens under its scope (see `kern.css`).
 - **Never import across apps.** `src/lib/offers/*` and
   `src/components/offers/*` belong to the offers app. Anything genuinely shared
   moves to `src/lib/apps/`, `src/lib/auth/`, or `src/components/shell/` first.
@@ -129,6 +141,8 @@ Rules for a new app:
 | `pdf.ts` | Letter → paginated PDF via jspdf+html2canvas (client-only, dynamic imports) |
 | `zip.ts` | Hand-rolled STORE zip writer (mass-export bundles) |
 | `intake.ts` | Intake code/link encode/decode |
+| `summary.ts` | The `/offers/[id]` header facts + completion chip + `relativeTime` |
+| `applicant.ts` | Applicant identity (key on email, else name) + snapshot for the `applicants` collection |
 | `storage.ts` | **THE persistence seam** — see below |
 
 ### `src/components/offers/` — UI
@@ -136,9 +150,15 @@ Rules for a new app:
 `OffersProvider` owns all state and implements the `OffersApi` context
 (records, currentId, view/sub navigation, toasts, confirm dialogs, autosave
 flush, intake polling). Every component consumes `useOffers()`; **nothing
-mutates records around the API**. `OfferManager` is the shell (header, tabs,
-view switching). Views: `RequestForm`+`fields/*`+`RecordList` (editor),
-`StageTable`×3 + `BulkToolbar` (pipeline/hired/archived), `AnalysisView`,
+mutates records around the API**. `OfferManager` is the shell: since 2026-09 a
+LEFT SIDEBAR (`header.app` masthead + `nav.tabbar` vertical list — class names
+kept for the e2e suite and print rules) with Pipeline / Hired / Archived / All /
+Analysis (+ Editor while a request is open), and a corner **action hub**
+(`ActionHub`, the `.ah-*` disc bottom-right) holding New Request plus the
+import/export/backup actions that used to be the header toolbar. Views:
+`RequestForm`+`fields/*`+`RecordList` (editor), `StageTable`×4 + `BulkToolbar`
+(pipeline/hired/archived, plus `stage="all"` — every record with a Stage
+column, row moves following each row's own stage), `AnalysisView`,
 `LetterView` (contenteditable letter sheet — an imperative island rendered
 once via `dangerouslySetInnerHTML`; never re-render it while the user types).
 
@@ -178,11 +198,23 @@ app's registry roles. `/login` posts to Payload's `/api/users/login` and
 honours a same-origin `?next=`. `users.roles` =
 `dev | admin | user`; the FIRST user ever created gets all roles (bootstrap
 hook). `admin` and `dev` carry IDENTICAL permissions (view-as, user
-management); `user` is everyone else. `src/lib/auth/viewer.ts` resolves
+management, and they open EVERY app); `user` is everyone else, and a user
+opens only the membership-managed apps on `users.apps` (a `hasMany` select
+whose options come from the registry, admin-only field access). Every write
+to that list goes through `withApps()` (`src/lib/apps/membership.ts`, tested)
+so it stays de-duplicated, in registry order and free of unknown ids — the
+in-app Users view (`/api/app-members`), the directory (`/api/directory`) and
+the profile (`/api/profile`) all do. Accounts that predate the field have NO
+list and see an empty hub: `bun run backfill:apps` (`--dry-run`, `--apps
+offers,kern`) gives them one, Mongo-direct like the other backfills.
+`src/lib/auth/viewer.ts` resolves
 `{ actor, viewer }` — an admin/dev can
 "view as" another user via the `awm-emulate` cookie; emulation is READ-ONLY
 (write routes reject it) and all reads run
 `{ user: viewer, overrideAccess: false }` so real access control applies.
+While emulating there is NO second banner: the session bar itself switches
+mode (amber strip, the emulated user's avatar, "Viewing as …", an inline
+"Exit view-as" pill) and a thin fixed `.emu-frame` outlines the window.
 
 **Passkeys (WebAuthn):** sign-in accepts a passkey as well as a password.
 Credentials live in the `passkeys` collection; the flows run through
@@ -219,22 +251,49 @@ NOT authenticate: auth needs Payload and a database, far too heavy for
 middleware. Keep the `api/` exclusion in its matcher — route handlers answer
 401/403 rather than redirecting.
 
+**Session bar look & fold (2026-09-21):** the bar is BRAND BLUE with white
+type (`.session-bar` in shell.css) so it separates from the white sidebar and
+the dark cards alike; emulation turns the whole bar amber-brown. A chevron at
+its far right folds it into a 12px strip with a restore tab; the choice is the
+`awm-bar` cookie (`src/lib/bar.ts`), read in `AppShell` so the fold survives
+reloads without a jump. The offers activity rail (`OfferSidebar`) folds too, to
+a vertical tab, via `onhr_activity_rail` in localStorage and a
+`.od-body:has(.od-side-closed)` grid rule, so `OfferDetail` stays unaware.
+
+**Users app (`/users`):** the admin directory, built exactly like any other
+hub app (`src/app/(users)/`, registry entry with `roles: ['admin','dev']`,
+`requireApp('users')`). Its root layout imports `(hub)/hub.css` for the tokens
+and role chips plus its own `users.css`. The list is read with
+`overrideAccess: true` and projected through `src/lib/users/directory.ts` —
+an ADMIN projection (includes email and `emulationBlocked`), never to be
+reused for anything a regular user can reach. Writes go through
+`/api/directory` (PATCH roles / emulationBlocked, DELETE), which re-checks
+admin/dev, refuses emulation, and never lets you change your own roles or
+delete yourself. Creating accounts still uses Payload's `/api/users` via
+`NewUserModal`, now opened from this page (the account menu links here as
+"Manage users").
+
 **Profiles (`/u/<username>`):** every user has a `username` handle on the
 `users` collection, and `/u/<handle>` is their profile + settings page (in the
 `(hub)` group, so it is available from every app). `/u/me` resolves to your
-own. The session bar's "Settings" opens `SettingsModal` (shared chrome:
-preferences like the theme, plus a link to the profile page); identity and
-passkeys stay on `/u/<handle>` because they need real URLs and server checks.
+own. The session bar (2026-09: one 46px line — `◈ Apps / <app name ⌄>` on the
+left, where the app's name is the switcher, and an avatar **account menu** on
+the right; both are `ShellMenu` popovers, `.shm-*` in shell.css) holds
+Settings, Profile, Sign out and, for admin/dev, View-as + New user. "Settings"
+opens `SettingsModal` (shared chrome: preferences like the theme, plus a link to
+the profile page); identity and passkeys stay on `/u/<handle>` because they
+need real URLs and server checks.
 
 **Theme (light/dark/system):** the preference is the `awm-theme` cookie
 (`src/lib/theme.ts` owns the contract). Every app's ROOT layout reads it via
 `cookies()` and stamps `data-theme` on `<html>` — 'system' stamps nothing and
-`prefers-color-scheme` decides in CSS. The dark ramp lives in NEW token names
-(`--awm-*` themed surfaces in `hub.css`, `--sh-*`/`--md-*` chrome tokens in
-`shell.css`). Never flip a token the frozen `offers.css` re-declares
-(`--navy`, `--line`, …): offers/kern app CONTENT stays light on purpose
-(parity + printed letters); only the shared chrome (modals) follows the theme
-inside those apps.
+`prefers-color-scheme` decides in CSS. The dark ramp lives in `--awm-*` tokens
+(`hub.css`, and since the 2026-09 offers redesign the same ramp in
+`offers.css`) plus the `--sh-*`/`--md-*` chrome tokens in `shell.css`. Offers
+CONTENT follows the theme; the LETTER SHEET does not — it is white paper in
+both themes, and `offers.css` re-pins light tokens under `@media print` so a
+dark session still prints ink on paper. Kern content stays on its own
+`.kern`-scoped tokens.
 
 - **`src/lib/users/profile.ts` is a security boundary.** `users.read` is
   `selfOrAdminOrDev`, so a normal user cannot read a colleague's document at
@@ -264,9 +323,91 @@ inside those apps.
 **Brand & sign-in design:** `public/brand/awm-logo.png` is the logo of record.
 `--awm-blue` (`#00629f`) in `(hub)/hub.css` is sampled from that artwork, not
 approximated — the mark, the horizon curve and the primary button are the same
-blue on purpose. The `(hub)` group sets Public Sans via `next/font`; the
-offers app deliberately keeps its verbatim port CSS and system font stack.
+blue on purpose. The `(hub)` and `(offers)` groups both set Public Sans (plus
+Source Serif for one display accent) via `next/font`; the letter sheet keeps
+its own Calibri stack because the document's typography is part of the port.
 The sign-in page's horizon SVG is the logo's own swoosh redrawn full-bleed.
+
+**Assignments in the list views:** the stage tables carry an "Assigned"
+column (avatar stack) fed by `/api/offer-assignments` through
+`AssignmentsProvider` — a context BESIDE the frozen `OfferRecord`, never a
+field on it, so records still round-trip byte-for-byte. Admin/dev click the
+stack (or the selection bar's Assign) to open `AssignPopover`; edits POST
+`{ ids, add, remove }` and the route re-derives each offer's array from its
+CURRENT rows via the pure `applyAssignmentEdit` (`src/lib/offers/assignments.ts`,
+tested) so roles survive. "Assigned to me" filters on the VIEWER's id. Roles are
+still set per offer on `/offers/[id]`.
+
+**The public request form (`/apply`):** lives in `(offers)` but OUTSIDE its
+`(authed)` segment, so anyone with the link can open it. It renders the same
+`FORM_SECTIONS` through the shared `FieldBlock` (extracted from `RequestForm` —
+keep the two in step) minus the `pay-wording` card, and POSTs to `/api/apply`,
+which whitelists fields against `schema.ts`, requires the same required fields,
+honours an optional shared `APPLY_ACCESS_CODE` (env, constant-time compare),
+drops honeypot hits silently, and creates a COMPLETE pipeline record at the top
+of the list with `overrideAccess: true` (there is no user to evaluate). The
+submitter's name/email travel in `context.apply`, which `recordOfferEvents`
+writes into the "Created" event. Submissions appear in the Offer Manager on its
+next load — there is no live push.
+
+**The `/offers/[id]` workspace (2026-09 layout):** a STICKY SUMMARY BAR on
+top (`.od-bar`: back link, avatar + the name in the serif, position · branch,
+stage + completion chips, the stage actions and the two sub-tabs — the
+BASICS, which is all it shows by default; a "Details" toggle unfolds a WHO
+row — the applicant's email/phone/NMLS/address, chips linking their other
+offers, and the assigned stack — and a WHAT row — the letter's key terms;
+the fold is remembered per browser under `onhr_detail_header`), the letter
+or form beside a sticky
+ACTIVITY RAIL on the right (`.od-side`: the Recent activity feed and nothing
+else), and the letter's actions as a STICKY FOOTER (`.od-foot`, the one piece
+of dark chrome). Things to know:
+
+- `useOfferTimeline` (`detail/useOfferTimeline.ts`) is the page's ONE fetch of
+  `/api/offer-timeline`; the bar (applicant, assignments) and the rail (events)
+  are fed from it, and it refetches itself a few seconds after the record
+  changes. Nothing fetched sits above the letter island.
+- The WHAT row is `offerFacts(rec, resolveLetter(rec))`
+  (`src/lib/offers/summary.ts`, tested) — it reads the SAME resolved config
+  the letter is built from, so it can never disagree with the sheet. Keep it
+  that way; don't hand-derive terms in the component.
+- The assigned stack is a button; it opens a light `.od-pop` popover hosting
+  the existing `AssignmentsEditor` (roles are still edited per offer here).
+  Contact facts come from the LIVE record, so they follow edits on the details
+  tab instantly; the `applicants` row only adds the other-offers chips.
+- The footer's controls are NOT rendered by `OfferDetail`. Their handlers
+  need LetterView's refs, so LetterView takes `actionsSlotId` and PORTALS its
+  action bar (`.la-bar`, same button ids as the SPA's `.letter-actions`
+  column) into the footer slot. The SPA editor still renders the column.
+- `OfferDetail` measures the bar and footer into `--od-bar-h` / `--od-foot-h`
+  (and `--od-top`, the session bar above) so the letter pane fills exactly
+  what the chrome leaves and the rails (`.od-side`, the form's `.rf-nav`)
+  stick below the bar. The activity rail is the SAME on both tabs and stays
+  on the right down to 1100px (it also folds to a 44px tab); below the full
+  width budget the LETTER gives, never the rail — through two independent
+  knobs: the letter's LEFT columns (section rail, options width, stacking)
+  follow VIEWPORT breakpoints and never move when the rail folds, while the
+  sheet PREVIEW scales with `zoom` by the room the preview really has
+  (`.letter-preview-area` is a size container, `@container od-preview`), so
+  folding the rail just grows the sheet. Screen only: print never sees the
+  zoom, and `@media print` switches the containment off so the sheet's
+  absolute positioning still resolves against the page. Every export stays
+  a true 8.5in.
+
+**Applicants:** `applicants` is one row per PERSON across all their offers,
+related to `offer-requests` both ways (`offer-requests.applicant` relationship
++ an `applicants.offers` join). Nobody types these in: the `linkApplicant`
+beforeChange hook (`src/collections/OfferRequests/hooks/linkApplicant.ts`)
+keys the person on the form's email, else name (`src/lib/offers/applicant.ts`,
+tested), mirrors group A onto the row from the latest saved offer, and points
+`applicant` at it — only on writes that carry `data` (never assignment/reorder
+updates), best-effort like the audit hook. `notes` is the one hand-written
+field. `toOfferDoc` never writes `applicant` (tested), so the client blob can't
+clobber the link. The workspace header shows the LIVE record's contact fields
+and, once linked, chips for the person's other offers (via `/api/offer-timeline`).
+Offers saved before the collection existed link on their next save, or all at
+once with `bun run backfill:applicants` (`--dry-run`; Mongo-direct, like the
+usernames backfill). `applicants` keeps REST open (the admin picker and join
+table read through it), gated by the usual access rules.
 
 **History & assignments:** every change to an offer is audited into
 `offer-events` by `afterChange` hooks on `offer-requests` — field edits and
@@ -305,11 +446,27 @@ zone — get explicit sign-off, and update `letter.int.spec.ts`.
 **Add a signatory:** `SIGNATORY` map in `letter.ts` (key + name + title) —
 flows to options panel, bulk-assign, and `swapSigInHtml` automatically.
 
+**Motion:** every animation across the dashboard sits inside a
+`@media (prefers-reduced-motion:no-preference)` block, so reduced-motion
+users get the same UI instantly; keep it that way. Durations stay under
+~350ms on the sidebar's easing `cubic-bezier(.22,.68,.35,1)`. `shell.css`
+holds the shared keyframes (`sh-rise`, `sh-fade`) and the press feel of the
+shared buttons; each app's sheet has its own MOTION block (offers: view rise
++ staggered rows + the sub-tab underline slide + the `/offers/[id]` rail
+fold, Details reveal and popover; kern: `<main key={tab}>` so the tab
+content rises per switch; users: rows + menu; hub: profile sections).
+The Details fold on `/offers/[id]` is a `grid-template-rows: 0fr → 1fr`
+reveal whose inner box stops clipping once open (allow-discrete overflow)
+so the assigned popover can hang below the bar.
+
 **Styling:** the app's look lives in `src/app/(offers)/offers.css` +
-`letter.css` — plain CSS, verbatim class names from the source (generated
-letter HTML references them as strings). Don't Tailwind-ify; don't rename
-classes. `letter.css` includes `@media print` rules the PDF/print path
-depends on. (Tailwind + `@/utilities/ui` `cn()` still apply to CMS-side code.)
+`letter.css` — plain CSS, restyled (2026-09) to the hub's `--awm-*` token
+language, themed light/dark. CLASS NAMES are still frozen: generated
+letter/table HTML and the e2e suite reference them as strings. Don't
+Tailwind-ify; don't rename classes. `letter.css` is two halves: chrome (may
+be restyled) above the `.letter-sheet` marker, and the FROZEN letter document
++ `@media print` rules below it — the PDF/print path depends on those exact
+metrics. (Tailwind + `@/utilities/ui` `cn()` still apply to CMS-side code.)
 
 ## Gotchas
 
@@ -318,10 +475,12 @@ depends on. (Tailwind + `@/utilities/ui` `cn()` still apply to CMS-side code.)
 - **`/offers` is the Offer Manager now, not `/`.** Anything that hardcoded the
   root as "the app" is wrong. Check `OfferDetail`'s back-link and the e2e spec
   when touching routing.
-- **`shell.css` deliberately duplicates the tokens, reset, buttons and modal
-  rules that also live in the frozen top half of `offers.css`.** That copy is
-  intentional: `offers.css` lines 1–197 are verbatim port CSS and must not be
-  edited, but the hub needs the same primitives. Change both or neither.
+- **`shell.css` and `offers.css` both declare a button base and `.btn-*`
+  rules on purpose** — shell for the modals every app shares, offers (loaded
+  after) restyling them for its own chrome. The offers modal rules are GONE:
+  the shared themed `.modal` in shell.css is the only copy now. `offers.css`
+  also aliases the ported token names (`--navy`, `--line`, …) onto the
+  `--awm-*` ramp so inline styles and letter.css chrome stay themed.
 - LetterView's hand-edit invalidation: editing any form field sets
   `letterStale`; the letter rebuilds (discarding hand edits, with a toast)
   only when the letter subview is opened. Don't trigger resolve/regen from

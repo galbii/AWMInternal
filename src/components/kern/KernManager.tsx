@@ -29,6 +29,8 @@ import RosterView from './tabs/RosterView'
 import TenureView from './tabs/TenureView'
 import TitlesView from './tabs/TitlesView'
 
+import AppMembers from '@/components/shell/AppMembers'
+
 /** K 209-213 — tab order is the source's. */
 const TABS: { id: TabId; label: string }[] = [
   { id: 'branches', label: 'Branches' },
@@ -47,6 +49,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'highlight', label: 'Highlight' },
   { id: 'hierarchy', label: 'Hierarchy' },
   { id: 'builder', label: 'Org Builder' },
+  // Not in the source: per-app membership (2026-09), the shared Users view.
+  { id: 'users', label: 'Users' },
 ]
 
 /** K 221 — the analytics tabs carry no count badge. */
@@ -58,6 +62,7 @@ const NO_COUNT: Partial<Record<TabId, true>> = {
   monthly: true,
   tenure: true,
   credit: true,
+  users: true,
 }
 
 export default function KernManager() {
@@ -101,7 +106,9 @@ export default function KernManager() {
         ))}
       </nav>
 
-      <main>
+      {/* Keyed by tab: the content remounts on a switch, so kern.css's rise
+          plays for the tab that just opened. */}
+      <main key={tab}>
         <TabView tab={tab} openBranchId={openBranchId} />
       </main>
 
@@ -134,6 +141,8 @@ function TabView({ tab, openBranchId }: { tab: TabId; openBranchId: string | nul
       return <EmployeesView />
     case 'roster':
       return <RosterView />
+    case 'users':
+      return <AppMembers appId="kern" />
     case 'data':
       return <DataView />
     case 'credit':

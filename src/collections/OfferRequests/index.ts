@@ -12,6 +12,7 @@ import type { CollectionConfig } from 'payload'
 
 import { authenticated } from '../../access/authenticated'
 import { adminOrDev, adminOrDevFieldAccess } from '../../access/roles'
+import { linkApplicant } from './hooks/linkApplicant'
 import { recordOfferDeletion, recordOfferEvents } from './hooks/recordOfferEvents'
 import { syncOfferMeta } from './hooks/syncOfferMeta'
 
@@ -41,7 +42,7 @@ export const OfferRequests: CollectionConfig = {
   // (versions snapshot every 600ms autosave, record no actor, and copy the
   // multi-KB letterHtml per snapshot).
   hooks: {
-    beforeChange: [syncOfferMeta],
+    beforeChange: [syncOfferMeta, linkApplicant],
     afterChange: [recordOfferEvents],
     afterDelete: [recordOfferDeletion],
   },
@@ -149,6 +150,21 @@ export const OfferRequests: CollectionConfig = {
       hasMany: true,
       index: true,
       admin: { readOnly: true, hidden: true },
+    },
+
+    // The person this offer is for — one `applicants` row per human across
+    // all their offers. Owned by the linkApplicant hook (keyed on the form's
+    // email, else name); never set from the client blob, never edited by hand.
+    {
+      name: 'applicant',
+      type: 'relationship',
+      relationTo: 'applicants',
+      index: true,
+      admin: {
+        readOnly: true,
+        position: 'sidebar',
+        description: "Linked automatically from the new hire's email (or name) on every save.",
+      },
     },
 
     {

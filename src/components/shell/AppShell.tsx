@@ -8,11 +8,13 @@
 // Callers resolve the viewer themselves via requireApp()/requireSession() and
 // pass it in; this component makes no auth call of its own.
 
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import React from 'react'
 
 import { hasRole } from '@/access/roles'
 import { appsFor, getApp } from '@/lib/apps/registry'
+import { BAR_COOKIE, parseBarPref } from '@/lib/bar'
 import type { Viewer } from '@/lib/auth/viewer'
 
 import AppSwitcher from './AppSwitcher'
@@ -59,29 +61,44 @@ export default async function AppShell({
   // created before usernames existed and not yet backfilled.
   const profileHref = v.actor.username ? `/u/${v.actor.username}` : '/u/me'
 
+  // Folded or not is a cookie so the first paint already agrees with the user.
+  const barMinimized = parseBarPref((await cookies()).get(BAR_COOKIE)?.value) === 'min'
+
   return (
     <>
       <SessionBar
         actorLabel={v.actor.name || v.actor.email}
+        actorEmail={v.actor.email}
         viewerLabel={v.viewer.name || v.viewer.email}
         canManage={canManage}
         isEmulating={v.isEmulating}
         users={users}
         profileHref={profileHref}
+        initialMinimized={barMinimized}
         leading={
           <div className="as-switcher">
             {/* Next forces a hard navigation between route groups with
                 different root layouts, so this crosses into (hub) correctly. */}
             <Link className="as-home" href="/">
-              ◈ Apps
+              <span className="as-glyph" aria-hidden="true">
+                ◈
+              </span>
+              Apps
             </Link>
-            {current && <span className="as-current">{current.name}</span>}
-            {available.length > 1 && (
-              <AppSwitcher
-                apps={available.map((a) => ({ id: a.id, name: a.name, href: a.href }))}
-                currentAppId={appId}
-              />
-            )}
+            {/* On the hub itself the page IS the app list, so the breadcrumb
+                stops at "Apps"; inside an app, the app's name is the switcher. */}
+            {current ? (
+              <>
+                <span className="as-sep" aria-hidden="true">
+                  /
+                </span>
+                <AppSwitcher
+                  apps={available.map((a) => ({ id: a.id, name: a.name, href: a.href }))}
+                  currentAppId={appId}
+                  currentName={current.name}
+                />
+              </>
+            ) : null}
           </div>
         }
       />

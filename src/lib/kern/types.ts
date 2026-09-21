@@ -278,6 +278,7 @@ export type TabId =
   | 'highlight'
   | 'hierarchy'
   | 'builder'
+  | 'users'
 
 export type MetricKey = 'dollars' | 'units'
 /** K 1289 — the Analysis/Highlight grouping levels, coarsest to finest. */

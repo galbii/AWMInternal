@@ -232,7 +232,9 @@ describe('hub wiring', () => {
     const app = getApp('kern')
     expect(app).toBeDefined()
     expect(app!.href).toBe('/kern')
-    expect(app!.roles).toEqual(['admin', 'dev'])
+    // Membership-managed since 2026-09: no role gate — admins/devs always open
+    // it, everyone else needs it on their apps list (tests/int/kern/hub.int.spec.ts).
+    expect(app!.roles).toBeUndefined()
   })
 
   test('orphan branches are reachable in the Hierarchy "Unassigned" bucket', () =>

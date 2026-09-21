@@ -7,9 +7,7 @@
 // S2 900–907 / 920–922, action buttons S2 925–945.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import BaseWageField from '@/components/offers/fields/BaseWageField'
-import BonusField from '@/components/offers/fields/BonusField'
-import RadioField from '@/components/offers/fields/RadioField'
+import FieldBlock from '@/components/offers/fields/FieldBlock'
 import {
   FORM_SECTIONS,
   fieldById,
@@ -22,7 +20,7 @@ import {
 } from '@/components/offers/form-sections'
 import { useOffers } from '@/components/offers/OffersProvider'
 import { fmtDollarStr } from '@/lib/offers/format'
-import { DOLLAR_FIELD_IDS, missingRequired } from '@/lib/offers/schema'
+import { missingRequired } from '@/lib/offers/schema'
 import { removeRecordOnServer } from '@/lib/offers/storage'
 import type { FieldDef, OfferData } from '@/lib/offers/types'
 
@@ -216,65 +214,19 @@ export default function RequestForm({ standalone, onDeleted }: RequestFormProps)
     )
   }
 
-  /* ---- rendering (S2 350–387) ---- */
-  const renderControl = (f: FieldDef) => {
-    const value = data[f.id] || ''
-    if (f.type === 'textarea') {
-      return <textarea value={value} onChange={(e) => setField(f.id, e.target.value)} />
-    }
-    if (f.type === 'radio' || f.type === 'radio_other') {
-      return <RadioField field={f} value={value} onChange={(v) => setField(f.id, v)} />
-    }
-    const inputType: 'text' | 'email' | 'tel' | 'date' =
-      f.type === 'email' || f.type === 'tel' || f.type === 'date' ? f.type : 'text'
-    return (
-      <input
-        type={inputType}
-        value={value}
-        onChange={(e) => setField(f.id, e.target.value)}
-        onBlur={DOLLAR_FIELD_IDS.includes(f.id) ? () => onDollarBlur(f.id) : undefined}
-      />
-    )
-  }
-
-  const renderField = (f: FieldDef, extra?: React.ReactNode) => {
-    const cls = 'fld' + (missingIds.includes(f.id) ? ' missing' : '')
-    if (f.type === 'bonus' || f.type === 'base') {
-      return (
-        <div className={cls} data-fid={f.id} key={f.id}>
-          <label className="q">
-            <span className="qn">{f.q}.</span>
-            {f.label}
-          </label>
-          <span className="help">{f.help || ''}</span>
-          {f.type === 'bonus' ? (
-            <BonusField
-              field={f}
-              data={data}
-              onChange={setField}
-              onDollarBlur={onDollarBlur}
-              onClearFields={clearFields}
-            />
-          ) : (
-            <BaseWageField field={f} data={data} onChange={setField} onDollarBlur={onDollarBlur} />
-          )}
-          {extra}
-        </div>
-      )
-    }
-    return (
-      <div className={cls} data-fid={f.id} key={f.id}>
-        <label className="q">
-          <span className="qn">{f.q}.</span>
-          {f.label}
-          {f.req && <span className="req">*</span>}
-        </label>
-        {f.help && <span className="help">{f.help}</span>}
-        {renderControl(f)}
-        {extra}
-      </div>
-    )
-  }
+  /* ---- rendering (S2 350–387) — the per-question markup lives in FieldBlock ---- */
+  const renderField = (f: FieldDef, extra?: React.ReactNode) => (
+    <FieldBlock
+      key={f.id}
+      field={f}
+      data={data}
+      missing={missingIds.includes(f.id)}
+      onChange={setField}
+      onDollarBlur={onDollarBlur}
+      onClearFields={clearFields}
+      extra={extra}
+    />
+  )
 
   /* ---- section / card rendering ---- */
 

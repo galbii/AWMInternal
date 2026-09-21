@@ -15,6 +15,7 @@ import { hasRole, type Role } from '@/access/roles'
 import PasskeyManager from '@/components/shell/PasskeyManager'
 import ProfileEditor from '@/components/shell/ProfileEditor'
 import { requireSession } from '@/lib/apps/guard'
+import { membershipApps } from '@/lib/apps/registry'
 import { findUserByHandle, toProfileView } from '@/lib/users/profile'
 
 export const dynamic = 'force-dynamic'
@@ -73,6 +74,23 @@ export default async function ProfilePage({
                   {ROLE_LABEL[r]}
                 </span>
               ))}
+            </p>
+          )}
+          {profile.apps && (
+            <p className="profile-roles" aria-label="Apps">
+              {hasRole(target, 'admin', 'dev') ? (
+                <span className="profile-role profile-role-quiet">All apps</span>
+              ) : profile.apps.length === 0 ? (
+                <span className="profile-role profile-role-quiet">No apps yet</span>
+              ) : (
+                membershipApps()
+                  .filter((a) => profile.apps?.includes(a.id))
+                  .map((a) => (
+                    <span className="profile-role profile-role-quiet" key={a.id}>
+                      {a.name}
+                    </span>
+                  ))
+              )}
             </p>
           )}
           {joined && <p className="profile-joined">Joined {joined}</p>}

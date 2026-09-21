@@ -2,7 +2,7 @@
 
 // The editable half of /u/<username>. Replaces the old "My settings" modal.
 //
-// Three INDEPENDENT sections — profile, password, roles — each with its own
+// Four INDEPENDENT sections — profile, password, roles, apps — each with its own
 // save button and its own status line. That is deliberate: a failed password
 // change must never discard a typed name, and saving a name must never require
 // re-entering a password.
@@ -14,6 +14,8 @@
 import React, { useEffect, useState } from 'react'
 
 import type { Role } from '@/access/roles'
+import { withApps } from '@/lib/apps/membership'
+import { membershipApps } from '@/lib/apps/registry'
 import type { ProfileView } from '@/lib/users/profile'
 
 interface ProfileEditorProps {
@@ -35,6 +37,9 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'user', label: 'User' },
 ]
+
+/** The membership-managed apps a person can be granted. */
+const APP_OPTIONS = membershipApps()
 
 interface CheckResponse {
   available: boolean
@@ -263,6 +268,32 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
     setRolesBusy(false)
   }
 
+  // ---- Apps section --------------------------------------------------------
+  const [apps, setApps] = useState<string[]>(profile.apps ?? [])
+  const [appsBusy, setAppsBusy] = useState(false)
+  const [appsStatus, setAppsStatus] = useState<Status>(IDLE)
+  const isManager = profile.roles.includes('admin') || profile.roles.includes('dev')
+
+  const toggleApp = (id: string, on: boolean): void => {
+    setAppsStatus(IDLE)
+    setApps((prev) => withApps(prev, on ? [id] : [], on ? [] : [id]))
+  }
+
+  const saveApps = async (): Promise<void> => {
+    if (appsBusy) return
+    setAppsStatus(IDLE)
+    setAppsBusy(true)
+    const result = await patchProfile({ id: profile.id, apps })
+    if (!result.ok) {
+      setAppsStatus({ kind: 'error', message: result.message })
+      setAppsBusy(false)
+      return
+    }
+    setApps(result.profile.apps ?? [])
+    setAppsStatus({ kind: 'saved', message: 'App access saved' })
+    setAppsBusy(false)
+  }
+
   const statusLine = (status: Status): React.JSX.Element => (
     <div className="pe-status" aria-live="polite">
       {status.kind === 'saved' ? status.message : null}
@@ -431,8 +462,8 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
         <section className="pe-section" aria-busy={rolesBusy}>
           <h2 className="pe-title">Roles</h2>
           <p className="pe-desc">
-            Roles decide which apps this person can open. Developer and Admin carry the same
-            permissions.
+            Developer and Admin manage users and can open every app; they carry the same
+            permissions. A User opens only the apps granted below.
           </p>
 
           <div className="pe-roles">
@@ -466,6 +497,51 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
             </button>
             {statusLine(rolesStatus)}
           </div>
+        </section>
+      )}
+
+      {profile.canEditApps && (
+        <section className="pe-section" aria-busy={appsBusy}>
+          <h2 className="pe-title">Apps</h2>
+          <p className="pe-desc">
+            {isManager
+              ? 'Admins and developers open every app, so this list changes nothing for them.'
+              : 'Which apps this person can open. Each app also manages its own users from inside.'}
+          </p>
+
+          <div className="pe-roles">
+            {APP_OPTIONS.map((app) => (
+              <div className="pe-role" key={app.id}>
+                <input
+                  id={`pe-app-${app.id}`}
+                  type="checkbox"
+                  checked={isManager || apps.includes(app.id)}
+                  disabled={appsBusy || isManager}
+                  onChange={(e) => toggleApp(app.id, e.target.checked)}
+                />
+                <label className="pe-label" htmlFor={`pe-app-${app.id}`}>
+                  {app.name}
+                </label>
+              </div>
+            ))}
+          </div>
+          {!isManager && apps.length === 0 && (
+            <p className="pe-hint">With no apps, this person sees an empty hub.</p>
+          )}
+
+          {!isManager && (
+            <div className="pe-actions">
+              <button
+                className="pe-save"
+                type="button"
+                onClick={() => void saveApps()}
+                disabled={appsBusy}
+              >
+                {appsBusy ? 'Saving…' : 'Save apps'}
+              </button>
+              {statusLine(appsStatus)}
+            </div>
+          )}
         </section>
       )}
     </>

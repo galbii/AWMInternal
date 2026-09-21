@@ -5,6 +5,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "backfill:applicants": "cross-env NODE_OPTIONS=--no-deprecation bun run scripts/backfill-applicants.ts",
+    "backfill:apps": "cross-env NODE_OPTIONS=--no-deprecation bun run scripts/backfill-apps.ts",
     "backfill:usernames": "cross-env NODE_OPTIONS=--no-deprecation bun run scripts/backfill-usernames.ts",
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbopack",

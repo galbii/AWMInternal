@@ -1,0 +1,151 @@
+/* AWM Internal — USERS APP (/users).
+ *
+ * Tokens, the page ground and the role chips come from (hub)/hub.css, which
+ * this app's root layout imports ahead of this sheet. Everything here is
+ * prefixed .us- and stays inside this app.
+ */
+
+.us{max-width:1120px;margin:0 auto;padding:34px 24px 80px}
+
+.us-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.us-head h1{
+  margin:0;font-family:var(--awm-serif);font-size:26px;font-weight:600;
+  letter-spacing:-.01em;line-height:1.15;color:var(--awm-ink);
+}
+.us-blurb{margin:5px 0 0;font-size:13.5px;color:var(--awm-slate)}
+
+/* Buttons: the AWM blue, not shell.css's generic accent. */
+.us-btn,.us-btn-primary{
+  display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  border:1px solid var(--awm-line);background:var(--awm-card);color:var(--awm-ink);
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.us-btn:hover{background:var(--awm-mist)}
+.us-btn-primary{background:var(--awm-blue);border-color:var(--awm-blue);color:#fff}
+.us-btn-primary:hover{background:var(--awm-blue-lift);border-color:var(--awm-blue-lift)}
+.us-btn:focus-visible,.us-btn-primary:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.us-btn:disabled,.us-btn-primary:disabled{opacity:.6;cursor:default}
+
+.us-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.us-search{
+  width:260px;max-width:100%;padding:8px 11px;border:1px solid var(--awm-line);border-radius:8px;
+  font:inherit;font-size:13px;background:var(--awm-card);color:var(--awm-ink);
+}
+.us-search:focus{outline:none;border-color:var(--awm-blue);box-shadow:var(--awm-focus)}
+.us-chip{
+  padding:7px 12px;border-radius:99px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  background:var(--awm-card);color:var(--awm-slate);border:1px solid var(--awm-line);
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.us-chip:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.us-chip[aria-pressed='true']{background:var(--awm-chip-bg);color:var(--awm-chip-fg);border-color:transparent}
+.us-count{margin-left:auto;font-size:12.5px;color:var(--awm-slate)}
+
+.us-error{
+  margin:0 0 12px;padding:9px 12px;border-radius:9px;font-size:13px;
+  background:#fdf0ef;border:1px solid #f3c3bd;color:#a3231b;
+}
+:root[data-theme='dark'] .us-error{background:rgba(190,60,50,.14);border-color:rgba(240,120,110,.35);color:#f5a9a2}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .us-error{background:rgba(190,60,50,.14);border-color:rgba(240,120,110,.35);color:#f5a9a2}
+}
+
+.us-table-wrap{overflow-x:auto;padding-bottom:40px}
+.us-table{
+  width:100%;min-width:840px;border-collapse:separate;border-spacing:0;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;overflow:hidden;
+}
+.us-table th,.us-table td{
+  padding:11px 14px;border-bottom:1px solid var(--awm-line);text-align:left;
+  font-size:13.5px;vertical-align:middle;
+}
+.us-table th{background:var(--awm-mist);color:var(--awm-slate);font-weight:600;font-size:12.5px}
+.us-table tbody tr:last-child td{border-bottom:none}
+.us-table tbody tr:hover td{background:var(--awm-field)}
+.us-table .c-act{text-align:right;white-space:nowrap;width:120px}
+
+.us-person{display:flex;align-items:center;gap:10px;min-width:0}
+.us-av{
+  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,var(--awm-blue-bright),var(--awm-blue));color:#fff;
+  font-size:11px;font-weight:700;letter-spacing:.02em;
+}
+.us-who{min-width:0;display:flex;flex-direction:column;gap:1px}
+.us-name{font-weight:600;color:var(--awm-ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.us-name:hover{color:var(--awm-link);text-decoration:underline}
+.us-handle{font-size:12px;color:var(--awm-slate)}
+.us-you{
+  display:inline-block;margin-left:6px;padding:0 6px;border-radius:99px;
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:1.7;
+  background:var(--awm-mist);color:var(--awm-slate);vertical-align:1px;
+}
+.us-email{color:var(--awm-link);text-decoration:none}
+.us-email:hover{text-decoration:underline}
+.us-roles{display:flex;gap:5px;flex-wrap:wrap}
+.us-flag{
+  display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;
+  background:var(--awm-amber-bg,#fff7ed);color:var(--awm-amber-fg,#7c2d12);
+}
+.us-dim{color:var(--awm-slate)}
+.us-empty{padding:40px;text-align:center;color:var(--awm-slate)}
+
+/* Row actions: the ⋯ button and its popover (fixed, so the table never clips it). */
+.us-more{
+  padding:4px 9px;border-radius:7px;border:1px solid var(--awm-line);background:var(--awm-card);
+  color:var(--awm-ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+}
+.us-more:hover{background:var(--awm-mist)}
+.us-more:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.us-view{font-size:12.5px;font-weight:600;color:var(--awm-link);text-decoration:none}
+.us-view:hover{text-decoration:underline}
+.us-menu{
+  position:fixed;z-index:95;min-width:210px;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  box-shadow:0 10px 30px -12px rgba(2,20,33,.35),0 24px 60px -24px rgba(2,20,33,.4);
+  padding:6px;display:flex;flex-direction:column;gap:1px;
+}
+.us-menu button,.us-menu a{
+  display:block;width:100%;text-align:left;padding:8px 11px;border-radius:8px;border:0;
+  background:transparent;color:var(--awm-ink);font:inherit;font-size:13px;font-weight:500;
+  text-decoration:none;cursor:pointer;
+}
+.us-menu button:hover,.us-menu a:hover{background:var(--awm-mist)}
+.us-menu button:focus-visible,.us-menu a:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.us-menu button:disabled{opacity:.5;cursor:default}
+.us-menu-sep{height:1px;background:var(--awm-line);margin:4px 6px}
+.us-menu-danger{color:#a3231b}
+.us-menu-danger:hover{background:#fdf0ef}
+:root[data-theme='dark'] .us-menu-danger{color:#f5a9a2}
+:root[data-theme='dark'] .us-menu-danger:hover{background:rgba(190,60,50,.14)}
+
+@media (max-width:640px){
+  .us{padding:24px 16px 60px}
+  .us-search{width:100%}
+  .us-count{margin-left:0;width:100%}
+}
+
+/* Motion: the head and table settle in, rows one after another; the row
+   menu pops. Gated on reduced motion like every other app. */
+@media (prefers-reduced-motion:no-preference){
+  .us-head,.us-toolbar{animation:us-in .36s cubic-bezier(.22,.68,.35,1) both}
+  .us-table{animation:us-in .36s cubic-bezier(.22,.68,.35,1) both;animation-delay:60ms}
+  .us-table tbody tr{animation:us-fade .3s ease both}
+  .us-table tbody tr:nth-child(2){animation-delay:30ms}
+  .us-table tbody tr:nth-child(3){animation-delay:60ms}
+  .us-table tbody tr:nth-child(4){animation-delay:90ms}
+  .us-table tbody tr:nth-child(5){animation-delay:120ms}
+  .us-table tbody tr:nth-child(6){animation-delay:150ms}
+  .us-table tbody tr:nth-child(7){animation-delay:180ms}
+  .us-table tbody tr:nth-child(8){animation-delay:210ms}
+  .us-table tbody tr:nth-child(9){animation-delay:240ms}
+  .us-table tbody tr:nth-child(10){animation-delay:270ms}
+  .us-table tbody td{transition:background .14s ease}
+  .us-menu{animation:us-pop .16s cubic-bezier(.22,.68,.35,1) both;transform-origin:100% 0}
+  .us-more{transition:background .14s ease,color .14s ease,transform .12s ease}
+  .us-more:active{transform:translateY(1px)}
+}
+@keyframes us-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes us-fade{from{opacity:0}to{opacity:1}}
+@keyframes us-pop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}

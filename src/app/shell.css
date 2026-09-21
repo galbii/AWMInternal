@@ -25,50 +25,127 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
  * The sign-in page has its own .signin-* styles in (hub)/hub.css; only
  * .login-error survives here because the user/new-user modals reuse it.
  *
- * The bar is CHROME and deliberately stays dark in both themes — the same
- * deep AWM navy as the sign-in brand panel, capped with a thin brand-blue
- * light strip. Controls are hairline ghosts that light up brand-blue. */
-.session-bar{position:relative;display:flex;align-items:center;gap:14px;padding:9px 20px;
-  background:linear-gradient(180deg,#041c2c,#082741);color:#9db3c2;
-  font-size:12.5px;border-bottom:1px solid rgba(46,163,217,.22)}
+ * The bar is CHROME and stays the same in both themes: since 2026-09-21 it
+ * is the BRAND BLUE (the logo's sampled #00629f) with white type, so it
+ * stands apart from the white sidebar in light mode and the dark cards in
+ * dark mode, and reads at a glance. Two quiet clusters on one 46px line —
+ * the app breadcrumb on the left (the app's NAME is the switcher) and one
+ * account menu on the right (avatar, name, chevron). Both open the same dark
+ * popover (.shm-*, ShellMenu.tsx). No outlined buttons live in the bar.
+ * A chevron at the far right folds it into a 12px strip (.sb-min). */
+.session-bar{position:relative;display:flex;align-items:center;gap:10px;height:46px;padding:0 10px 0 10px;
+  background:linear-gradient(180deg,#0b76b8,#00629f);color:rgba(255,255,255,.8);
+  font-size:13.5px;border-bottom:1px solid rgba(2,20,33,.25);white-space:nowrap;
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset}
 .session-bar::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,#00629f,#2ea3d9 38%,rgba(46,163,217,.05) 80%)}
-.session-bar .sb-user strong{color:#fff;font-weight:600}
+  background:linear-gradient(90deg,rgba(255,255,255,.6),rgba(255,255,255,.22) 40%,rgba(255,255,255,0) 82%)}
 .sb-spacer{flex:1}
-.sb-viewas{display:flex;align-items:center;gap:7px;color:#9db3c2}
-.sb-viewas select{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid rgba(148,180,203,.3);
-  background:#0a2438;color:#e8f1f7;transition:border-color .16s ease}
-.sb-viewas select:hover{border-color:#2ea3d9}
-.sb-viewas select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
-.sb-signout{font-size:12px;font-weight:600;padding:5px 13px;border-radius:7px;
-  border:1px solid rgba(148,180,203,.3);background:transparent;color:#dbe7ef;cursor:pointer;
-  transition:border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
-.sb-signout:hover{border-color:#2ea3d9;color:#fff;background:rgba(46,163,217,.12);
-  box-shadow:0 0 14px -5px rgba(46,163,217,.55)}
-.sb-signout:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
-.sb-signout:disabled{opacity:.55;cursor:default;box-shadow:none}
 
-/* ===== app switcher (AppShell / AppSwitcher) ===== */
-.as-switcher{display:flex;align-items:center;gap:10px;padding-right:14px;margin-right:2px;
-  border-right:1px solid rgba(148,180,203,.22);background:transparent;color:#9db3c2;font-size:12.5px}
-.as-home{color:#cfe2ef;text-decoration:none;font-weight:700;letter-spacing:.02em;
-  transition:color .16s ease,text-shadow .16s ease}
-.as-home:hover{color:#fff;text-shadow:0 0 12px rgba(46,163,217,.65)}
-.as-home:focus-visible{outline:none;border-radius:4px;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
-.as-current{color:#fff;font-weight:600;display:flex;align-items:center;gap:8px}
-.as-current::before{content:"/";color:rgba(148,180,203,.45);font-weight:400}
-.as-select{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid rgba(148,180,203,.3);
-  background:#0a2438;color:#e8f1f7;transition:border-color .16s ease}
-.as-select:hover{border-color:#2ea3d9}
-.as-select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,163,217,.3)}
+/* ---- folded: a 12px strip and one restore tab hanging from it ---- */
+.session-bar.sb-min{height:12px;padding:0;justify-content:flex-end;overflow:visible;z-index:60}
+.sb-restore{position:absolute;right:14px;top:100%;display:inline-flex;align-items:center;gap:5px;
+  height:22px;padding:0 8px 0 3px;border:0;border-radius:0 0 10px 10px;
+  background:#00629f;color:#fff;cursor:pointer;
+  box-shadow:0 6px 16px -8px rgba(0,98,159,.7);transition:background .14s ease}
+.sb-restore:hover{background:#0b76b8}
+.sb-restore:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.session-bar.emulating .sb-restore{background:#b45309}
+.session-bar.emulating .sb-restore:hover{background:#d97706}
+.sb-avatar-xs{width:16px;height:16px;font-size:8px}
+.sb-fold{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  padding:0;border:0;border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;
+  transition:background .14s ease,color .14s ease}
+.sb-fold:hover{background:rgba(255,255,255,.14);color:#fff}
+.sb-fold:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
+/* ---- left: ◈ Apps / <app name ⌄> ---- */
+.as-switcher{display:flex;align-items:center;gap:6px;min-width:0}
+.as-home{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:6px 8px;border-radius:7px;
+  color:rgba(255,255,255,.92);text-decoration:none;font-weight:600;letter-spacing:.01em;
+  transition:color .16s ease,background .16s ease}
+.as-glyph{color:#fff;font-size:13px;line-height:1}
+.as-home:hover{color:#fff;background:rgba(255,255,255,.14)}
+.as-home:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.as-sep{color:rgba(255,255,255,.4);flex:0 0 auto}
+.as-current{color:#fff;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:6px 4px}
+.as-app{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:min(46vw,420px);
+  padding:6px 7px 6px 8px;border-radius:7px;border:0;background:transparent;color:#fff;
+  font:inherit;font-weight:600;cursor:pointer;transition:background .16s ease}
+.as-app-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.as-app:hover,.as-app[aria-expanded='true']{background:rgba(255,255,255,.14)}
+.as-app:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+
+/* ---- right: the account menu trigger ---- */
+.sb-account{display:inline-flex;align-items:center;gap:9px;padding:4px 7px 4px 4px;border-radius:99px;
+  border:0;background:transparent;color:#fff;font:inherit;font-weight:500;cursor:pointer;
+  transition:background .16s ease,color .16s ease}
+.sb-account:hover,.sb-account[aria-expanded='true']{background:rgba(255,255,255,.14);color:#fff}
+.sb-account:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+/* A white disc with blue initials: the one thing on the bar that is not blue. */
+.sb-avatar{flex:0 0 auto;width:26px;height:26px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#fff;color:#00629f;
+  font-size:11px;font-weight:700;letter-spacing:.02em;
+  box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.sb-user{min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.sb-user strong{color:inherit;font-weight:600}
+@media (max-width:640px){ .sb-user{display:none} .sb-account{padding-right:5px} }
+
+/* ---- the shared dark popover (ShellMenu.tsx) ---- */
+.shm{position:relative;display:inline-flex;min-width:0}
+.shm-chev{flex:0 0 auto;color:rgba(255,255,255,.7);transition:transform .16s ease}
+.shm [aria-expanded='true'] .shm-chev{transform:rotate(180deg)}
+.shm-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:120;
+  min-width:228px;max-width:min(92vw,360px);
+  background:#0a2438;color:#dbe7ef;border:1px solid rgba(148,180,203,.22);border-radius:11px;
+  box-shadow:0 18px 44px -14px rgba(0,0,0,.65),0 2px 8px rgba(0,0,0,.25);
+  padding:5px;display:flex;flex-direction:column;gap:1px;white-space:normal;text-align:left;
+  opacity:0;visibility:hidden;transform:translateY(-4px);
+  transition:opacity .14s ease,transform .16s cubic-bezier(.22,.68,.35,1),visibility 0s linear .16s}
+.shm-end .shm-panel{left:auto;right:0}
+.shm.open .shm-panel{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.shm-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:8px 10px;border-radius:7px;border:0;background:transparent;
+  color:#dbe7ef;font:inherit;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;
+  transition:background .12s ease,color .12s ease}
+.shm-item:hover{background:rgba(46,163,217,.14);color:#fff}
+.shm-item:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
+.shm-item:disabled{opacity:.55;cursor:default}
+.shm-item[aria-checked='true']{color:#fff}
+.shm-item[aria-checked='true']::after{content:"";margin-left:auto;width:6px;height:6px;border-radius:50%;
+  background:#2ea3d9;box-shadow:0 0 8px rgba(46,163,217,.8)}
+.shm-item-quiet{color:#9db3c2}
+.shm-sep{height:1px;background:rgba(148,180,203,.16);margin:4px 6px}
+.shm-head{padding:8px 10px 6px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.shm-name{color:#fff;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+.shm-sub{color:#9db3c2;font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.shm-field{display:flex;flex-direction:column;gap:5px;padding:6px 10px 8px}
+.shm-label{font-size:11.5px;font-weight:600;color:#9db3c2}
+.shm-select{font:inherit;font-size:12.5px;padding:6px 8px;border-radius:7px;width:100%;
+  border:1px solid rgba(148,180,203,.3);background:#071a2a;color:#e8f1f7;transition:border-color .16s ease}
+.shm-select:hover{border-color:#2ea3d9}
+.shm-select:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
+@media (prefers-reduced-motion:reduce){ .shm-panel,.shm-chev{transition:none} }
+
+/* ---- "view as", folded into the same bar (no second banner) ----
+ * The strip and the avatar turn amber, the label reads "Viewing as", and the
+ * Exit pill sits inline. The fixed frame keeps the whole window visibly
+ * marked read-only without taking any height. */
+.session-bar.emulating{background:linear-gradient(180deg,#c2410c,#9a3412);border-bottom-color:rgba(60,20,0,.35)}
+.session-bar.emulating::before{background:linear-gradient(90deg,rgba(255,255,255,.65),rgba(255,255,255,.2) 40%,rgba(255,255,255,0) 82%)}
+.sb-avatar-emu{background:#fff;color:#b45309;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+.sb-mode{color:rgba(255,255,255,.78);font-weight:500;margin-right:4px}
+.sb-exit{display:inline-flex;align-items:center;flex:0 0 auto;padding:5px 11px;border-radius:99px;
+  border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.12);color:#fff;
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,color .16s ease}
+.sb-exit:hover{background:rgba(255,255,255,.24);border-color:#fff;color:#fff}
+.sb-exit:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.sb-exit:disabled{opacity:.55;cursor:default}
 .emu-frame{position:fixed;inset:0;pointer-events:none;z-index:9998;
-  box-shadow:inset 0 0 0 4px var(--warn)}
-.emu-banner{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:10px;
-  background:#fff7ed;color:#7c2d12;border-bottom:2px solid var(--warn);padding:8px 20px;font-size:13px}
-.emu-exit{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
-  border:1px solid var(--warn);background:#fff;color:#7c2d12;font-weight:600}
-.emu-exit:hover{background:#ffedd5}
+  box-shadow:inset 0 0 0 3px var(--warn)}
 
 .login-error{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:8px 10px;font-size:12.5px}
 
@@ -176,6 +253,12 @@ button:active{transform:translateY(1px)}
 .usm-form input:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
 .usm-divider{margin-top:4px;padding-top:10px;border-top:1px solid var(--sh-line);font-size:11.5px;
   font-weight:700;color:var(--sh-muted);letter-spacing:.3px}
+/* Role checkboxes in the same modal. Lived in (offers)/offers.css until the
+ * 2026-09 offers redesign — but NewUserModal renders in EVERY app, so the
+ * rules belong here with the rest of its form styling. */
+.nu-roles{display:flex;flex-direction:column;gap:7px}
+.nu-role{display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;color:var(--sh-ink)}
+.nu-role input{margin-top:2px}
 
 /* ==================================================================
    THEME SEAM — shared chrome tokens.
@@ -301,3 +384,82 @@ button:active{transform:translateY(1px)}
 }
 @keyframes vt-out{ to{ opacity:0 } }
 @keyframes vt-in{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+
+/* ==================================================================
+   SHARED MOTION. Two keyframes every app may reuse (a rise and a fade),
+   and the press feel of the shared buttons. Always inside a
+   prefers-reduced-motion:no-preference block — reduced-motion users get
+   the same UI, instantly.
+   ================================================================== */
+@keyframes sh-rise{ from{ opacity:0; transform:translateY(6px) } to{ opacity:1; transform:none } }
+@keyframes sh-fade{ from{ opacity:0 } to{ opacity:1 } }
+@media (prefers-reduced-motion:no-preference){
+  .btn-primary,.btn-light,.btn-ghost,.btn-danger{
+    transition:background .14s ease,color .14s ease,border-color .14s ease,transform .12s ease,box-shadow .14s ease}
+  .btn-primary:active,.btn-light:active,.btn-ghost:active,.btn-danger:active{transform:translateY(1px)}
+}
+
+/* ===== per-app Users view (AppMembers.tsx) =====
+ * Rendered INSIDE each membership-managed app (the offers sidebar's Users
+ * view, the Kern "Users" tab), so it reads the shared --sh-* tokens rather
+ * than any one app's palette. Kern re-maps those tokens under .kern .am. */
+.am{max-width:920px}
+.am-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.am-title{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--sh-ink)}
+.am-blurb{margin:4px 0 0;font-size:13px;color:var(--sh-muted);max-width:60ch}
+.am-add{display:flex;gap:8px;align-items:center}
+.am-select{font:inherit;font-size:13px;padding:8px 10px;border-radius:8px;min-width:260px;max-width:100%;
+  border:1px solid var(--sh-line);background:var(--sh-field);color:var(--sh-ink)}
+.am-select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,98,159,.22);border-color:var(--sh-chip-fg)}
+.am-btn-primary{font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--sh-chip-fg);background:var(--sh-chip-fg);color:#fff}
+.am-btn-primary:hover{filter:brightness(1.08)}
+.am-btn-primary:disabled{opacity:.55;cursor:default;filter:none}
+.am-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.am-search{font:inherit;font-size:13px;padding:8px 11px;border-radius:8px;width:260px;max-width:100%;
+  border:1px solid var(--sh-line);background:var(--sh-field);color:var(--sh-ink)}
+.am-search:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,98,159,.22);border-color:var(--sh-chip-fg)}
+.am-count{margin-left:auto;font-size:12.5px;color:var(--sh-muted)}
+.am-error{margin:0 0 12px;padding:9px 12px;border-radius:9px;font-size:13px;
+  background:rgba(190,60,50,.12);border:1px solid rgba(240,120,110,.4);color:#c0392b}
+.am-list{list-style:none;margin:0;padding:0;border:1px solid var(--sh-line);border-radius:12px;
+  background:var(--sh-card);overflow:hidden}
+.am-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--sh-line);min-width:0}
+.am-row:last-child{border-bottom:none}
+.am-row-implicit{background:var(--sh-soft)}
+.am-av{flex:0 0 auto;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:600;letter-spacing:.02em;background:var(--sh-chip-bg);color:var(--sh-chip-fg)}
+.am-who{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.am-line{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap}
+.am-name{font-size:13.5px;font-weight:600;color:var(--sh-ink);text-decoration:none}
+.am-name:hover{text-decoration:underline}
+.am-handle{font-size:12px;color:var(--sh-muted)}
+.am-email{font-size:12.5px;color:var(--sh-chip-fg);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.am-email:hover{text-decoration:underline}
+.am-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.am-tag{font-size:11px;font-weight:600;letter-spacing:.02em;border-radius:99px;padding:2px 9px;white-space:nowrap;
+  background:var(--sh-chip-bg);color:var(--sh-chip-fg)}
+.am-tag-quiet{background:transparent;border:1px solid var(--sh-line);color:var(--sh-muted);font-weight:500}
+.am-remove{font:inherit;font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--sh-line);background:transparent;color:var(--sh-muted)}
+.am-remove:hover{color:#c0392b;border-color:rgba(192,57,43,.45)}
+.am-remove:disabled{opacity:.5;cursor:default}
+.am-empty{margin:12px 0 0;font-size:13px;color:var(--sh-muted)}
+@media (max-width:640px){
+  .am-row{flex-wrap:wrap}
+  .am-tags{width:100%;justify-content:flex-start;padding-left:44px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .am-list{animation:sh-rise .28s cubic-bezier(.22,.68,.35,1) both}
+  .am-row{animation:sh-fade .3s ease both}
+  .am-row:nth-child(2){animation-delay:30ms}
+  .am-row:nth-child(3){animation-delay:60ms}
+  .am-row:nth-child(4){animation-delay:90ms}
+  .am-row:nth-child(5){animation-delay:120ms}
+  .am-row:nth-child(6){animation-delay:150ms}
+  .am-row:nth-child(7){animation-delay:180ms}
+  .am-row:nth-child(8){animation-delay:210ms}
+  .am-row{transition:background .14s ease}
+  .am-remove,.am-btn-primary{transition:background .14s ease,color .14s ease,border-color .14s ease,transform .12s ease}
+  .am-remove:active,.am-btn-primary:active{transform:translateY(1px)}
+}

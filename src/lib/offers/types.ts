@@ -107,7 +107,10 @@ export interface IntakeSubmission {
 
 export type EmailClientPref = 'desktop' | 'web'
 
-export type View = 'pipeline' | 'hired' | 'archived' | 'analysis' | 'editor'
+// 'all' (2026-09) is the cross-stage table added with the sidebar navigation
+// and 'users' (2026-09) the app's membership view (<AppMembers>, shared
+// chrome); every other member is the ported tab set.
+export type View = 'pipeline' | 'hired' | 'archived' | 'all' | 'analysis' | 'users' | 'editor'
 export type EditorSub = 'letter' | 'details'
 
 export interface ImportResult {

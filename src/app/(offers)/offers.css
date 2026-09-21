@@ -1,382 +1,1010 @@
-/* Offer & New Hire Request Manager v1.6 -- app stylesheet.
- * Ported verbatim from source-1-markup-css.html (S1 lines 8-151, 235-290).
- * Plain global CSS (NOT a CSS module): generated letter/table HTML references
- * these class names as strings, so they must stay byte-identical to the source.
+/* Offer & New Hire Request Manager — app stylesheet.
+ *
+ * 2026-09 redesign: the app now wears the same AWM design language as the hub
+ * and sign-in page (see (hub)/hub.css) — the logo's sampled blue, hairline
+ * borders, mist fills, Public Sans with one serif accent, themed light/dark.
+ *
+ * TWO THINGS ARE STILL FROZEN:
+ *  1. CLASS NAMES. Generated letter/table HTML and the e2e suite reference
+ *     them as strings — restyle rules freely, never rename a class.
+ *  2. THE LETTER DOCUMENT. Everything inside .letter-sheet (letter.css) and
+ *     the print rules stay byte-identical to the ported source: the sheet is
+ *     a legal document preview, and it stays white paper in both themes.
+ *
+ * Plain global CSS on purpose (NOT a CSS module, NOT Tailwind).
  */
 
 :root{
-  --navy:#1b2a4a; --navy-2:#24365c; --accent:#2f5fd0; --accent-2:#3a72f0;
-  --bg:#eef1f6; --panel:#ffffff; --line:#dde3ec; --muted:#64748b;
-  --ok:#1f9d55; --warn:#c2410c; --danger:#c0392b; --req:#e11d48;
-  --shadow:0 1px 3px rgba(16,32,64,.08),0 4px 16px rgba(16,32,64,.06);
+  /* Brand constants — same values as (hub)/hub.css; the brand does not theme. */
+  --awm-blue:#00629f;
+  --awm-blue-lift:#0b76b8;
+  --awm-blue-deep:#013a5e;
+  --awm-blue-bright:#2ea3d9;
+  --awm-navy:#041c2c;
+  --awm-serif:var(--font-serif), Georgia, 'Times New Roman', serif;
+  --awm-focus:0 0 0 3px rgba(0,98,159,.22);
+
+  /* Themed surfaces — light values; the dark blocks below swap ONLY tokens. */
+  --awm-page:#f5f8fa;
+  --awm-card:#ffffff;
+  --awm-field:#f4f7fa;
+  --awm-mist:#edf4f9;
+  --awm-ink:#10202b;
+  --awm-slate:#5e6e7b;
+  --awm-line:#dbe3ea;
+  --awm-chip-bg:#e6f1f8;
+  --awm-chip-fg:#00629f;
+  --awm-link:#00629f;
+  --awm-desk:#3f5164;         /* the letter preview "desk" behind the sheet */
+
+  /* Status — themed, so tables/badges stay legible on dark. */
+  --awm-ok:#1f7a4d;      --awm-ok-bg:#e4f3ea;      --awm-ok-line:#bfe3cd;
+  --awm-warn:#9a5b04;    --awm-warn-bg:#f9efdc;    --awm-warn-line:#ecd3a8;
+  --awm-danger:#a3231b;  --awm-danger-bg:#fdf0ef;  --awm-danger-line:#f3c3bd;
+  --awm-amber-bg:#fff7ed; --awm-amber-fg:#7c2d12;  --awm-amber-line:#fed7aa;
+  --awm-req:#c9184a;
+
+  /* Legacy aliases. Inline styles and letter.css still read the ported token
+     names; aliasing them onto the ramp keeps every straggler themed. */
+  --navy:var(--awm-ink); --navy-2:#1b3444;
+  --accent:var(--awm-blue); --accent-2:var(--awm-blue-lift);
+  --bg:var(--awm-page); --panel:var(--awm-card);
+  --line:var(--awm-line); --muted:var(--awm-slate);
+  --ok:var(--awm-ok); --warn:var(--awm-warn);
+  --danger:var(--awm-danger); --req:var(--awm-req);
+  --shadow:0 1px 2px rgba(2,20,33,.05);
 }
+:root[data-theme='dark']{
+  color-scheme:dark;
+  --awm-page:#0a141c; --awm-card:#101e28; --awm-field:#0c1a24;
+  --awm-mist:rgba(46,163,217,.1); --awm-ink:#e6eef4; --awm-slate:#8fa3b0;
+  --awm-line:rgba(148,180,203,.2);
+  --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
+  --awm-link:#5fbbe4;
+  --awm-desk:#0b1620;
+  --awm-focus:0 0 0 3px rgba(46,163,217,.32);
+  --awm-ok:#63cf95;     --awm-ok-bg:rgba(60,180,120,.14);   --awm-ok-line:rgba(99,207,149,.3);
+  --awm-warn:#e5b567;   --awm-warn-bg:rgba(194,120,40,.14); --awm-warn-line:rgba(230,160,80,.32);
+  --awm-danger:#f5a9a2; --awm-danger-bg:rgba(190,60,50,.14);--awm-danger-line:rgba(240,120,110,.35);
+  --awm-amber-bg:rgba(194,120,40,.14); --awm-amber-fg:#f3c78f; --awm-amber-line:rgba(230,160,80,.35);
+  --awm-req:#ff7a9c;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']){
+    color-scheme:dark;
+    --awm-page:#0a141c; --awm-card:#101e28; --awm-field:#0c1a24;
+    --awm-mist:rgba(46,163,217,.1); --awm-ink:#e6eef4; --awm-slate:#8fa3b0;
+    --awm-line:rgba(148,180,203,.2);
+    --awm-chip-bg:rgba(46,163,217,.16); --awm-chip-fg:#5fbbe4;
+    --awm-link:#5fbbe4;
+    --awm-desk:#0b1620;
+    --awm-focus:0 0 0 3px rgba(46,163,217,.32);
+    --awm-ok:#63cf95;     --awm-ok-bg:rgba(60,180,120,.14);   --awm-ok-line:rgba(99,207,149,.3);
+    --awm-warn:#e5b567;   --awm-warn-bg:rgba(194,120,40,.14); --awm-warn-line:rgba(230,160,80,.32);
+    --awm-danger:#f5a9a2; --awm-danger-bg:rgba(190,60,50,.14);--awm-danger-line:rgba(240,120,110,.35);
+    --awm-amber-bg:rgba(194,120,40,.14); --awm-amber-fg:#f3c78f; --awm-amber-line:rgba(230,160,80,.35);
+    --awm-req:#ff7a9c;
+  }
+}
+/* Printing the details form from a dark session must still put ink on paper. */
+@media print{
+  :root{
+    color-scheme:light;
+    --awm-page:#ffffff; --awm-card:#ffffff; --awm-field:#ffffff; --awm-mist:#f2f5f8;
+    --awm-ink:#10202b; --awm-slate:#5e6e7b; --awm-line:#c9d2da;
+    --awm-chip-bg:#eef3f7; --awm-chip-fg:#00629f; --awm-link:#00629f;
+  }
+}
+
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  background:var(--bg);color:#1f2937;font-size:14px;line-height:1.45}
-header.app{background:linear-gradient(180deg,var(--navy),var(--navy-2));color:#fff;padding:14px 20px;
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:static;box-shadow:var(--shadow)}
-header.app h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
-header.app .ver{font-size:11px;opacity:.7;font-weight:500;background:rgba(255,255,255,.12);padding:2px 8px;border-radius:20px}
-.spacer{flex:1}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.email-link{color:#1391C4;text-decoration:none}
+body{
+  font-family:var(--font-awm), 'Public Sans', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background:var(--awm-page);
+  color:var(--awm-ink);
+  font-size:14px;
+  line-height:1.45;
+}
+
+/* ==================================================================
+   APP SHELL — the sidebar and the content beside it.
+
+   2026-09: the header + tab strip became a LEFT SIDEBAR. `header.app`
+   is the sidebar's masthead (logo badge, collapse toggle, the serif
+   title — still the page's one display moment) and `nav.tabbar` is the
+   vertical view list. Both class names are kept: the e2e suite and the
+   print rules address them by name. The toolbar's controls moved to
+   the corner action hub (.ah-*, further down).
+
+   The sidebar COLUMN stretches the full page height, so its surface
+   never ends early beside a long table, while its INNER block sticks to
+   the viewport — the robust shape for a sidebar under a top bar whose
+   exact height this sheet does not own (session bar, view-as banner).
+   ================================================================== */
+body:has(.om-shell){min-height:100dvh;display:flex;flex-direction:column}
+.om-shell{flex:1 0 auto;display:flex;align-items:stretch}
+.om-side{
+  width:244px;flex:0 0 244px;
+  background:var(--awm-card);border-right:1px solid var(--awm-line);
+  transition:width .2s cubic-bezier(.22,.68,.35,1),flex-basis .2s cubic-bezier(.22,.68,.35,1);
+}
+.om-side-inner{
+  position:sticky;top:0;max-height:100dvh;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;
+}
+.om-content{flex:1 1 auto;min-width:0}
+
+/* --- masthead --- */
+header.app{
+  display:grid;grid-template-columns:1fr auto;align-items:center;
+  gap:12px 8px;padding:16px 12px 10px 16px;
+}
+.om-brand{display:block;width:34px;height:34px;border-radius:9px;
+  box-shadow:0 8px 18px -10px rgba(1,58,94,.55)}
+.om-collapse{
+  padding:5px;border-radius:7px;background:transparent;color:var(--awm-slate);
+  border:1px solid transparent;
+}
+.om-collapse:hover{background:var(--awm-mist);color:var(--awm-ink)}
+header.app h1{
+  grid-column:1 / -1;
+  margin:0;
+  font-family:var(--awm-serif);
+  font-size:16px;font-weight:600;line-height:1.28;letter-spacing:-.006em;
+  color:var(--awm-ink);text-wrap:balance;
+}
+
+.email-link{color:var(--awm-link);text-decoration:none}
 .email-link:hover{text-decoration:underline}
 .c-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Dropdown menu (the row ⋯ menus, the selection bar's signer picker). */
 .dropdown{position:relative}
-.caret{font-size:11px;opacity:.85;margin-left:2px}
-.menu{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 30px rgba(16,32,64,.24);min-width:210px;display:none;flex-direction:column;z-index:70;padding:6px}
+.caret{font-size:11px;opacity:.7;margin-left:2px}
+.menu{
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--awm-card);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+  box-shadow:0 10px 30px -12px rgba(2,20,33,.35),0 24px 60px -24px rgba(2,20,33,.4);
+  min-width:220px;display:none;flex-direction:column;z-index:70;padding:6px;
+}
 .menu.open{display:flex}
-.menu button{background:transparent;color:#243244;text-align:left;padding:9px 12px;border-radius:6px;font-weight:600;width:100%}
-.menu button:hover{background:#f2f6ff}
-.menu .menu-sep{height:1px;background:var(--line);margin:5px 6px}
-button{font-family:inherit;font-size:13px;cursor:pointer;border:none;border-radius:7px;padding:8px 13px;
-  font-weight:600;transition:.12s;display:inline-flex;align-items:center;gap:6px}
+.menu button{
+  background:transparent;color:var(--awm-ink);text-align:left;
+  padding:9px 12px;border-radius:8px;font-weight:500;width:100%;
+}
+.menu button:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.menu .menu-sep{height:1px;background:var(--awm-line);margin:5px 6px}
+.menu.menu-left{left:0;right:auto}
+.menu button.menu-danger{color:var(--awm-danger)}
+.menu button.menu-danger:hover{background:var(--awm-danger-bg)}
+
+/* ==================================================================
+   BUTTONS — the hub's button language. .btn-ghost is for DARK panels
+   only (the letter-actions rail); on light chrome use .btn-light.
+   ================================================================== */
+button{
+  font-family:inherit;font-size:13px;cursor:pointer;border:none;border-radius:8px;
+  padding:8px 14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;
+  transition:background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease;
+}
 button:active{transform:translateY(1px)}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent-2)}
+button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.btn-primary{background:var(--awm-blue);color:#fff}
+.btn-primary:hover{background:var(--awm-blue-lift)}
+.btn-primary:disabled{opacity:.6;cursor:default}
+.btn-light{background:var(--awm-card);color:var(--awm-ink);border:1px solid var(--awm-line)}
+.btn-light:hover{background:var(--awm-mist);border-color:var(--awm-line)}
 .btn-ghost{background:rgba(255,255,255,.12);color:#fff}
 .btn-ghost:hover{background:rgba(255,255,255,.22)}
-.btn-light{background:#fff;color:var(--navy);border:1px solid var(--line)}
-.btn-light:hover{background:#f4f7fc}
-.btn-danger{background:#fff;color:var(--danger);border:1px solid #f0c9c4}
-.btn-danger:hover{background:#fdf2f1}
-.wrap{display:grid;grid-template-columns:320px 1fr;gap:0;min-height:calc(100vh - 56px)}
-aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-self:start}
-.aside-head{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
-.search{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px}
-.reclist{overflow:auto;max-height:70vh;padding:8px}
-.rec{padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fff;transition:.1s}
-.rec:hover{border-color:var(--accent);box-shadow:var(--shadow)}
-.rec.active{border-color:var(--accent);background:#f2f6ff}
-.rec .nm{font-weight:600;color:var(--navy)}
-.rec .sub{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rec .badge{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:20px;margin-top:6px;font-weight:600}
-.b-complete{background:#e3f6ec;color:var(--ok)}
-.b-draft{background:#fdeee2;color:var(--warn)}
-.aside-foot{padding:10px 12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
-main{padding:0 26px 60px;border-left:1px solid var(--line)}
-.formhead{display:flex;align-items:center;gap:12px;margin:18px 0 6px;flex-wrap:wrap}
-.formhead h2{margin:0;font-size:20px;color:var(--navy)}
-.save-status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
-.dot.saving{background:var(--warn)}
-.form-actions{display:flex;gap:8px;align-items:center;margin:0 0 18px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:12px 0;z-index:20;box-shadow:0 8px 12px -8px rgba(16,32,64,.22);border-bottom:1px solid var(--line)}
-section.grp{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:18px;overflow:hidden;box-shadow:var(--shadow)}
-.grp-head{background:linear-gradient(180deg,#f4f7fc,#eef2f9);padding:11px 18px;border-bottom:1px solid var(--line);
-  font-weight:700;color:var(--navy);font-size:14px;display:flex;align-items:center;gap:10px}
-.grp-head .gn{background:var(--navy);color:#fff;border-radius:6px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.btn-danger{background:var(--awm-card);color:var(--awm-danger);border:1px solid var(--awm-danger-line)}
+.btn-danger:hover{background:var(--awm-danger-bg)}
+
+/* ==================================================================
+   SIDEBAR NAV — Pipeline / Hired / Archived / All, a rule, Analysis,
+   and Editor while a request is open. Quiet slate rows; the active one
+   earns the chip fill and a 3px brand notch on its left edge — the old
+   tab's 2px rule, stood upright.
+   ================================================================== */
+.tabbar{
+  display:flex;flex-direction:column;gap:2px;
+  padding:4px 10px 16px;background:transparent;border:none;
+}
+.tab{
+  position:relative;display:flex;align-items:center;gap:10px;width:100%;
+  margin:0;padding:9px 10px 9px 13px;
+  background:transparent;color:var(--awm-slate);border:none;border-radius:9px;
+  font-weight:600;font-size:13.5px;text-align:left;cursor:pointer;
+  transition:background .14s ease,color .14s ease;
+}
+.tab:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.tab:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.tab.active{background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.tab.active::before{
+  content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--awm-blue);
+}
+.om-tab-icon{flex:0 0 auto;color:var(--awm-slate);transition:color .14s ease}
+.tab:hover .om-tab-icon{color:var(--awm-ink)}
+.tab.active .om-tab-icon{color:var(--awm-chip-fg)}
+.om-tab-text{
+  flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px;
+  white-space:nowrap;overflow:hidden;
+}
+.om-tab-sub{font-size:11.5px;font-weight:500;color:var(--awm-slate);
+  overflow:hidden;text-overflow:ellipsis}
+.tab-count{
+  flex:0 0 auto;margin-left:auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;padding:1px 7px;border-radius:99px;
+  font-size:11.5px;font-weight:600;line-height:1.5;font-variant-numeric:tabular-nums;
+  background:var(--awm-mist);color:var(--awm-slate);
+}
+.tab.active .tab-count{background:var(--awm-card);color:var(--awm-chip-fg)}
+.om-nav-sep{height:1px;background:var(--awm-line);margin:8px 6px}
+.view{display:none}
+.view.active{display:block}
+
+/* --- collapsed rail: icons only, counts as small badges on the icon --- */
+.om-collapsed .om-side{width:68px;flex-basis:68px}
+.om-collapsed header.app{grid-template-columns:1fr;justify-items:center;padding:14px 8px 8px;gap:6px}
+.om-collapsed header.app h1,
+.om-collapsed .om-tab-text{display:none}
+.om-collapsed .tabbar{padding:4px 8px 16px}
+.om-collapsed .tab{justify-content:center;padding:11px 0}
+.om-collapsed .tab-count{
+  position:absolute;top:3px;right:9px;margin:0;
+  min-width:17px;height:17px;padding:0 4px;font-size:9.5px;line-height:17px;
+  box-shadow:0 0 0 1.5px var(--awm-card);
+}
+.om-collapsed .om-nav-sep{margin:8px 10px}
+
+/* --- the title row above each view's content --- */
+.om-view-head{padding:22px 24px 0;display:flex;flex-direction:column;gap:3px}
+.om-view-head h2{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1.2;color:var(--awm-ink)}
+.om-view-blurb{margin:0;font-size:12.5px;color:var(--awm-slate)}
+
+/* ==================================================================
+   EDITOR LAYOUT. The ported saved-request rail (aside/.rec) has been
+   hidden since the source app grew tabs — the pipeline table is the
+   list now. The rule stays so the mounted markup stays invisible.
+   ================================================================== */
+.wrap{display:block;min-height:calc(100vh - 56px)}
+aside{display:none}
+main{padding:0 28px 96px}
+
+.formhead{display:flex;align-items:baseline;gap:14px;margin:20px 0 8px;flex-wrap:wrap}
+.formhead h2{
+  margin:0;font-size:19px;font-weight:600;letter-spacing:-.008em;color:var(--awm-ink);
+}
+.save-status{font-size:12.5px;color:var(--awm-slate);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--awm-ok)}
+.dot.saving{background:var(--awm-warn)}
+
+/* Sticky action bar. Heights here are load-bearing: .rf-nav's sticky top and
+   .rf-sec's scroll-margin-top are tuned to this bar — change them together. */
+.form-actions{
+  display:flex;gap:8px;align-items:center;margin:0 0 18px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:20;
+  background:var(--awm-page);
+  padding:12px 0;
+  border-bottom:1px solid var(--awm-line);
+}
+
+/* ==================================================================
+   FORM SECTIONS — hairline cards, flat heads.
+   ================================================================== */
+section.grp{
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  margin-bottom:14px;overflow:hidden;
+}
+.grp-head{
+  background:none;border-bottom:1px solid var(--awm-line);
+  padding:13px 18px;font-weight:600;color:var(--awm-ink);font-size:14px;
+  display:flex;align-items:center;gap:10px;
+}
 .grp-body{padding:6px 18px 16px}
-.fld{padding:12px 0;border-bottom:1px dashed #eef1f6}
+.fld{padding:12px 0;border-bottom:1px solid var(--awm-line)}
 .fld:last-child{border-bottom:none}
-.fld label.q{display:block;font-weight:600;margin-bottom:7px;color:#243244}
-.fld .qn{color:var(--muted);font-weight:700;margin-right:6px}
-.req{color:var(--req);margin-left:3px}
-.help{font-size:12px;color:var(--muted);font-weight:400;margin-top:2px;display:block}
+.fld label.q{display:block;font-weight:600;margin-bottom:7px;color:var(--awm-ink)}
+.fld .qn{color:var(--awm-slate);font-weight:600;margin-right:6px}
+.req{color:var(--awm-req);margin-left:3px}
+.help{font-size:12.5px;color:var(--awm-slate);font-weight:400;margin-top:2px;display:block}
+
 input[type=text],input[type=email],input[type=tel],input[type=date],textarea,select{
-  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit;background:#fff;color:#1f2937}
+  width:100%;padding:9px 11px;border:1px solid var(--awm-line);border-radius:8px;
+  font-size:13.5px;font-family:inherit;background:var(--awm-field);color:var(--awm-ink);
+  transition:border-color .14s ease,box-shadow .14s ease,background .14s ease;
+}
 textarea{min-height:64px;resize:vertical}
-input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,95,208,.12)}
-.fld.missing input,.fld.missing textarea,.fld.missing .radios{border-color:var(--req)!important;box-shadow:0 0 0 3px rgba(225,29,72,.10)}
+input:focus,textarea:focus,select:focus{
+  outline:none;background:var(--awm-card);border-color:var(--awm-blue);box-shadow:var(--awm-focus);
+}
+.fld.missing input,.fld.missing textarea,.fld.missing .radios{
+  border-color:var(--awm-req)!important;box-shadow:0 0 0 3px rgba(201,24,74,.12);
+}
 .radios{display:flex;flex-direction:column;gap:6px;border:1px solid transparent;border-radius:8px;padding:2px}
 .radios.inline{flex-direction:row;flex-wrap:wrap;gap:14px}
 .radio{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 0}
-.radio input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.radio input,.rowchk,#chkAllPipeline{accent-color:var(--awm-blue)}
+.radio input{width:16px;height:16px;cursor:pointer}
 .other-wrap{display:flex;align-items:center;gap:8px}
-.other-wrap .other-lbl{color:#243244}
+.other-wrap .other-lbl{color:var(--awm-ink)}
 .other-wrap input[type=text]{max-width:280px}
-.other-input{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit}
+.other-input{
+  padding:8px 10px;border:1px solid var(--awm-line);border-radius:8px;
+  font-size:13.5px;font-family:inherit;background:var(--awm-field);color:var(--awm-ink);
+}
 .other-wrap-long{flex-wrap:wrap;align-items:flex-start}
 textarea.other-long{flex-basis:100%;width:100%;max-width:560px;min-height:46px;resize:vertical;line-height:1.4}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;
-  padding:11px 18px;border-radius:9px;font-size:13.5px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:100;opacity:0;pointer-events:none;transition:.25s}
+
+/* ==================================================================
+   TOAST — brand-navy pill, constant in both themes (it is chrome).
+   ================================================================== */
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:var(--awm-navy);color:#e8f1f7;
+  border:1px solid rgba(46,163,217,.35);
+  padding:11px 18px;border-radius:10px;font-size:13.5px;
+  box-shadow:0 12px 34px -10px rgba(0,0,0,.5);
+  z-index:100;opacity:0;pointer-events:none;transition:.25s;
+}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
-.toast.err{background:var(--danger)}
-.modal-bg{position:fixed;inset:0;background:rgba(16,26,48,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-.modal-bg.show{display:flex}
-.modal{background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
-.modal h3{margin:0;padding:16px 20px;background:var(--navy);color:#fff;font-size:16px}
-.modal .body{padding:18px 20px;max-height:60vh;overflow:auto}
-.modal .foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#f8fafc}
-.imp-row{font-size:13px;padding:4px 0;border-bottom:1px dashed #eef1f6}
-.missing-list{color:var(--warn);font-size:12.5px}
-.empty{text-align:center;color:var(--muted);padding:40px 16px}
-.empty svg{opacity:.4}
-.file-note{font-size:12px;color:var(--muted);margin-top:4px}
+.toast.err{background:#57130e;border-color:rgba(240,120,110,.4);color:#ffe1dd}
+
+/* The modal now comes from shell.css (themed --md-* chrome) — the ported
+   copy that used to live here is gone on purpose. */
+
+.empty{text-align:center;color:var(--awm-slate);padding:40px 16px}
+.count-pill{background:var(--awm-chip-bg);color:var(--awm-chip-fg);border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600}
 input[type=file]{display:none}
+
+/* ==================================================================
+   BONUS / BASE-WAGE sub-editors inside the form.
+   ================================================================== */
 .bonus{display:flex;flex-direction:column;gap:8px;margin-top:4px}
-.bonus-item{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fbfcfe}
-.bchk{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;font-weight:600;color:#243244}
-.bchk input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
-.bonus-item.open{background:#fff;border-color:#c9d7f5;box-shadow:var(--shadow)}
-.bonus-item.open .bchk{color:var(--navy)}
+.bonus-item{border:1px solid var(--awm-line);border-radius:10px;overflow:hidden;background:var(--awm-field)}
+.bchk{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;font-weight:600;color:var(--awm-ink)}
+.bchk input{width:16px;height:16px;accent-color:var(--awm-blue);cursor:pointer}
+.bonus-item.open{background:var(--awm-card);border-color:var(--awm-blue)}
+.bonus-item.open .bchk{color:var(--awm-ink)}
 .bonus-fields{display:none;padding:0 14px 14px 40px;gap:14px;flex-wrap:wrap}
 .bonus-item.open .bonus-fields{display:flex}
 .bf{display:flex;flex-direction:column;gap:4px;min-width:150px}
-.bf-lbl{font-size:11.5px;color:var(--muted);font-weight:600}
-.bf input,.bf textarea{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit}
+.bf-lbl{font-size:11.5px;color:var(--awm-slate);font-weight:600}
+.bf input,.bf textarea{
+  padding:8px 10px;border:1px solid var(--awm-line);border-radius:8px;
+  font-size:13.5px;font-family:inherit;background:var(--awm-card);color:var(--awm-ink);
+}
 .bf textarea{resize:vertical;min-height:38px}
-.bf input:focus,.bf textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,95,208,.12)}
+.bf input:focus,.bf textarea:focus{outline:none;border-color:var(--awm-blue);box-shadow:var(--awm-focus)}
 .prod-inputs,.guar-inputs{display:flex;gap:12px;flex-wrap:wrap}
 .guar-grid{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;width:100%}
-.guar-breakdown{min-width:200px;flex:1;border-left:2px solid #e6ebf3;padding-left:14px}
-.gb-empty{font-size:12px;color:var(--muted);font-style:italic}
-.gb-row{display:flex;justify-content:space-between;gap:20px;font-size:13px;padding:3px 0;border-bottom:1px dashed #eef1f6}
-.gb-row span:first-child{color:var(--muted)}
-.gb-row span:last-child{font-weight:700;color:var(--navy)}
-.gb-total{border-bottom:none;border-top:1px solid var(--line);margin-top:2px;padding-top:5px}
-.gb-total span:last-child{color:var(--accent)}
-.gb-note{font-size:11px;color:var(--warn);margin-top:4px}
-.prod-preview{width:100%;background:#f2f6ff;border:1px solid #d3e0fb;border-radius:8px;padding:9px 12px;font-size:13px;color:var(--navy);display:none}
+.guar-breakdown{min-width:200px;flex:1;border-left:2px solid var(--awm-line);padding-left:14px}
+.gb-empty{font-size:12px;color:var(--awm-slate);font-style:italic}
+.gb-row{display:flex;justify-content:space-between;gap:20px;font-size:13px;padding:3px 0;border-bottom:1px dashed var(--awm-line)}
+.gb-row span:first-child{color:var(--awm-slate)}
+.gb-row span:last-child{font-weight:600;color:var(--awm-ink)}
+.gb-total{border-bottom:none;border-top:1px solid var(--awm-line);margin-top:2px;padding-top:5px}
+.gb-total span:last-child{color:var(--awm-link)}
+.gb-note{font-size:11px;color:var(--awm-warn);margin-top:4px}
+.prod-preview,.bw-preview{
+  width:100%;background:var(--awm-chip-bg);border:1px solid var(--awm-line);
+  border-radius:8px;padding:9px 12px;font-size:13px;color:var(--awm-ink);display:none;
+}
+.bw-preview{margin-top:8px}
 .bw-inputs{display:flex;flex-wrap:wrap;gap:10px}
 .bw-inputs .bf{flex:1;min-width:120px}
-.bw-preview{margin-top:8px;background:#f2f6ff;border:1px solid #d3e0fb;border-radius:8px;padding:9px 12px;font-size:13px;color:var(--navy);display:none}
 .unit-input{display:flex;align-items:center;gap:6px}
 .unit-input input{max-width:120px}
-.unit{font-size:12px;color:var(--muted);font-weight:700}
-.bf-note{width:100%;font-size:11.5px;color:var(--muted);font-style:italic;align-self:center}
-.count-pill{background:var(--accent);color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;font-weight:700}
-@media(max-width:860px){.wrap{grid-template-columns:1fr}main{border-left:none}}
-@media print{header.app,aside,.form-actions,.grp-head .gn,.tabbar,.subtabs{display:none}main{max-height:none}}
+.unit{font-size:12px;color:var(--awm-slate);font-weight:600}
+.bf-note{width:100%;font-size:11.5px;color:var(--awm-slate);font-style:italic;align-self:center}
 
-/* ===== Tabs / Pipeline / Analysis ===== */
-aside{display:none}
-.wrap{grid-template-columns:1fr!important}
-main{border-left:none!important}
-.tabbar{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 16px;flex-wrap:wrap}
-.tab{background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;border-radius:0;padding:12px 16px;font-weight:600;font-size:14px;cursor:pointer}
-.tab:hover{color:var(--navy)}
-.tab.active{color:var(--navy);border-bottom-color:var(--accent)}
-.view{display:none}
-.view.active{display:block}
-.stage-head{display:flex;gap:10px;align-items:center;padding:16px 24px 10px;flex-wrap:wrap}
-.stage-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.wm-toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--navy);font-weight:600;background:#fff;border:1px solid var(--line);padding:7px 10px;border-radius:7px;cursor:pointer}
-.wm-toggle input{accent-color:var(--accent);width:15px;height:15px}
-.wm-sel{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit}
-.stage-search{max-width:340px;width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:7px;font-size:13px}
-.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.filters label{font-size:12px;color:var(--muted);font-weight:600}
-.f-name{padding:8px 11px;border:1px solid var(--line);border-radius:7px;font-size:13px;width:190px}
-.f-branch,.f-title{padding:8px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff;width:180px;max-width:180px}
+/* ==================================================================
+   STAGE TABLES — one hairline card per table, mist header band.
+   Column sizing lives in letter.css (ported) and still applies.
+
+   `.stage-controls` is the ONE slot between the tabs and the table:
+   the filter row by default, the selection bar while rows are checked.
+   Same slot, so nothing jumps when the swap happens.
+   ================================================================== */
+.stage-controls{padding:14px 24px 12px}
+
+/* --- filters (the default occupant) ---
+   min-height matches the selection bar exactly, so the swap between the
+   two never moves the table below. */
+.stage-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:50px}
+.f-name,.f-branch,.f-title{
+  padding:8px 11px;border:1px solid var(--awm-line);border-radius:8px;font-size:13px;
+  font-family:inherit;background:var(--awm-card);color:var(--awm-ink);
+}
+.f-name{width:220px}
+.f-branch,.f-title{width:auto;max-width:220px}
 .f-clear{padding:7px 12px;font-size:13px}
-.stage-table-wrap{padding:0 24px 44px;overflow-x:auto}
-.stage-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
-.stage-table th,.stage-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px;vertical-align:middle}
-.stage-table th{background:#f4f7fc;color:var(--navy);font-weight:700}
+.flt-spacer{flex:1}
+.flt-count{font-size:12.5px;color:var(--awm-slate)}
+
+/* --- the selection bar (rows checked) --- */
+.sel-bar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  background:var(--awm-chip-bg);
+  border:1px solid var(--awm-line);
+  border-radius:12px;
+  padding:6px 10px 6px 14px;
+}
+@media (prefers-reduced-motion:no-preference){
+  .sel-bar{animation:sel-in .18s ease}
+}
+@keyframes sel-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.sel-count{font-size:13px;font-weight:600;color:var(--awm-chip-fg);white-space:nowrap}
+.sel-clear{
+  background:transparent;border:0;padding:4px 7px;border-radius:7px;
+  font-size:12px;line-height:1;color:var(--awm-chip-fg);cursor:pointer;
+}
+.sel-clear:hover{background:rgba(0,98,159,.12)}
+.sel-spacer{flex:1}
+.wm-toggle{
+  display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--awm-ink);font-weight:600;
+  background:var(--awm-card);border:1px solid var(--awm-line);padding:7px 10px;border-radius:8px;cursor:pointer;
+}
+.wm-toggle input{accent-color:var(--awm-blue);width:15px;height:15px}
+
+/* Bottom padding leaves the last row's actions clear of the corner disc. */
+.stage-table-wrap{padding:0 24px 96px;overflow-x:auto}
+/* border-collapse:separate is what lets the card corners actually round. */
+.stage-table{
+  width:100%;border-collapse:separate;border-spacing:0;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  overflow:hidden;
+}
+.stage-table th,.stage-table td{
+  padding:10px 14px;border-bottom:1px solid var(--awm-line);
+  text-align:left;font-size:13.5px;vertical-align:middle;
+}
+.stage-table th{
+  background:var(--awm-mist);color:var(--awm-slate);
+  font-weight:600;font-size:12.5px;
+}
 .stage-table tbody tr:last-child td{border-bottom:none}
-.stage-table tbody tr:hover{background:#f8fbff}
+.stage-table tbody tr:hover td{background:var(--awm-field)}
 .stage-table .c-chk{width:36px}
 .stage-table .c-act{white-space:nowrap;text-align:right}
-.rowname{color:var(--accent);font-weight:600;text-decoration:none;cursor:pointer}
+.rowname{color:var(--awm-link);font-weight:600;text-decoration:none;cursor:pointer}
 .rowname:hover{text-decoration:underline}
-.rowchk,#chkAllPipeline{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
-.mini{font-size:12px;padding:5px 9px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;font-weight:600;margin-left:5px}
-.mini:hover{background:#f2f6ff}
-.mini.ok{color:var(--ok);border-color:#bfe6cf}.mini.ok:hover{background:#eafaf0}
-.mini.warn{color:var(--warn);border-color:#f0d4bf}.mini.warn:hover{background:#fdf2ea}
-.mini.del{color:var(--danger);border-color:#f0c9c4}.mini.del:hover{background:#fdf2f1}
-.stage-empty{padding:34px;text-align:center;color:var(--muted)}
-.analysis{padding:20px 24px 52px}
-.stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
-.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px;min-width:170px;box-shadow:var(--shadow)}
-.stat-n{font-size:30px;font-weight:800;color:var(--navy);line-height:1}
-.stat-l{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:6px}
-.stat-s{font-size:15px;font-weight:700;margin-top:4px;color:var(--accent)}
-.stat.ok .stat-n{color:var(--ok)}.stat.warn .stat-n{color:var(--warn)}.stat.muted .stat-n{color:var(--muted)}
-.an-h{color:var(--navy);margin:26px 0 10px;font-size:16px}
-.barchart{display:flex;gap:16px;align-items:flex-end;height:210px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;overflow-x:auto;box-shadow:var(--shadow)}
-.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:58px;height:100%}
-.bar-fill{width:40px;background:linear-gradient(180deg,#3a72f0,#5b8def);border-radius:6px 6px 0 0;min-height:3px;display:flex;justify-content:center}
-.bar-fill span{color:#fff;font-size:11px;font-weight:700;padding-top:3px}
-.bar-lbl{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;white-space:nowrap}
-.an-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
-.an-table th,.an-table td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
-.an-table th{background:#f4f7fc;color:var(--navy)}
-.an-table tbody tr:last-child td{border-bottom:none}
-.muted{color:var(--muted)}
-/* ================================================================
-   OFFERS-APP ADDITIONS (not in the source app): the /offers/[id]
-   offer workspace, the assignments editor, settings modals. Everything ABOVE this
-   marker is verbatim port CSS — do not mix.
-   Session bar, emulation chrome and login live in src/app/shell.css.
-   ================================================================ */
+.rowchk,#chkAllPipeline{width:16px;height:16px;cursor:pointer}
 
-
-
+/* Row-action pills. */
+.mini{
+  font-size:12px;padding:4px 9px;border-radius:7px;border:1px solid var(--awm-line);
+  background:var(--awm-card);color:var(--awm-ink);cursor:pointer;font-weight:600;margin-left:5px;
+}
+.mini:hover{background:var(--awm-mist)}
+.mini.ok{color:var(--awm-ok);border-color:var(--awm-ok-line)}.mini.ok:hover{background:var(--awm-ok-bg)}
+.mini.warn{color:var(--awm-warn);border-color:var(--awm-warn-line)}.mini.warn:hover{background:var(--awm-warn-bg)}
+.mini.del{color:var(--awm-danger);border-color:var(--awm-danger-line)}.mini.del:hover{background:var(--awm-danger-bg)}
 a.mini.row-edit{display:inline-block;text-decoration:none}
+/* The row's ⋯ menu — a small, right-aligned dropdown in the Actions cell.
+   StageTable pins it with inline `position:fixed` coordinates while open:
+   `.stage-table{overflow:hidden}` (the rounded corners) and the sideways-
+   scrolling wrapper would otherwise clip it at the table's bottom edge. */
+.rowmenu{display:inline-block}
+/* Above the corner disc (.ah, z 90): a menu opened on a bottom row must not hide under it. */
+.rowmenu .menu{min-width:185px;z-index:95}
+.stage-empty{padding:40px;text-align:center;color:var(--awm-slate)}
 
-.offer-detail{display:flex;gap:18px;align-items:flex-start;max-width:1680px;margin:0 auto;padding:16px 20px}
-.od-main{flex:1 1 auto;min-width:0}
-.od-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px;flex-wrap:wrap}
-.od-head h2{margin:0;font-size:17px;color:var(--navy)}
-.od-back{font-size:13px;color:var(--accent);text-decoration:none;white-space:nowrap}
-.od-back:hover{text-decoration:underline}
-.od-readonly{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:8px;
-  padding:8px 12px;font-size:12.5px;margin-bottom:10px}
-.od-sub{font-size:12.5px;color:var(--muted)}
-.od-stage{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
-  border-radius:20px;padding:2px 9px;background:#eef2f7;color:#475569}
-.od-stage-hired{background:#ecfdf5;color:var(--ok)}
-.od-stage-archived{background:#fff7ed;color:var(--warn)}
-.od-head-actions{margin-left:auto;display:flex;gap:7px;align-items:center}
-.od-letter-locked,.od-details-locked{pointer-events:none;opacity:.85}
-/* The sub-tab strip is the top edge of whichever pane is active, so both panes
-   drop their own top border and square off their top corners. */
-.offer-detail .subtabs{border:1px solid var(--line);border-bottom-color:var(--line);
-  border-radius:10px 10px 0 0;padding:0 14px}
-.od-letter,.od-details{border:1px solid var(--line);border-top:none;
-  border-radius:0 0 10px 10px;box-shadow:var(--shadow)}
-.od-letter{overflow:hidden}
-.od-details{background:var(--panel)}
-/* `.letter-overlay` sizes itself with a hardcoded offset tuned to the SPA's stack
-   (session bar + app header + tabbar + sub-tabs). This page's chrome is shorter,
-   so the offset is re-stated here rather than left to overflow. */
-.od-letter .letter-overlay{height:calc(100vh - 212px);min-height:540px}
-/* RequestForm renders a <main> that normally sits in the `.wrap` grid beside the
-   saved-requests rail. Here it is the whole pane. */
-.od-details main{border-left:none;padding:2px 22px 30px}
-.od-details .formhead{margin-top:14px}
-.od-details .form-actions{background:var(--panel)}
-.od-side{width:330px;flex:0 0 330px;display:flex;flex-direction:column;gap:14px;position:sticky;top:14px}
-.od-panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:12px 14px}
-.od-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.od-panel-head h3{margin:0;font-size:13px;color:var(--navy);text-transform:uppercase;letter-spacing:.4px}
-.od-mini{font-size:11.5px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:#f8fafc;
-  color:#334155;cursor:pointer}
-.od-mini:hover{background:#eef2f7}
-.od-mini:disabled{opacity:.55;cursor:default}
-.od-mini.ok{color:var(--ok);border-color:#bfe6cf}.od-mini.ok:hover{background:#eafaf0}
-.od-mini.warn{color:var(--warn);border-color:#f0d4bf}.od-mini.warn:hover{background:#fdf2ea}
-.od-save{background:var(--accent);border-color:var(--accent);color:#fff}
-.od-save:hover{background:var(--accent-2)}
-.od-dim{color:var(--muted);font-size:12.5px}
-.od-error{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:7px 10px;
-  font-size:12px;margin-bottom:8px}
-.od-assignees{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13px}
-.od-role{display:inline-block;margin-left:7px;background:#eef2ff;color:#3730a3;border-radius:20px;
-  padding:1px 8px;font-size:11px;font-weight:600}
-.od-assign-edit{display:flex;flex-direction:column;gap:8px}
-.od-assign-row{display:flex;flex-direction:column;gap:5px;border:1px solid var(--line);border-radius:8px;padding:8px}
-.od-assign-row select,.od-assign-row input{font-size:12.5px;padding:6px 8px;border:1px solid var(--line);
-  border-radius:6px;font-family:inherit}
-.od-assign-actions{display:flex;align-items:center;gap:8px}
-.od-events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;
-  max-height:60vh;overflow-y:auto}
-.od-event{display:flex;gap:9px;align-items:flex-start;font-size:12.5px}
-.od-kind{flex:0 0 auto;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
-  border-radius:20px;padding:2px 8px;margin-top:1px;background:#eef2f7;color:#475569}
-.od-kind-created{background:#ecfdf5;color:var(--ok)}
-.od-kind-assigned,.od-kind-assignment-role-change{background:#eef2ff;color:#3730a3}
-.od-kind-unassigned,.od-kind-deleted{background:#fef2f2;color:var(--danger)}
-.od-kind-stage-change{background:#fff7ed;color:var(--warn)}
-.od-kind-letter-updated{background:#f0f9ff;color:#0369a1}
-.od-event-body{min-width:0}
-.od-summary{color:#1f2937}
-.od-meta{color:var(--muted);font-size:11px;margin-top:2px}
-.od-changes{margin-top:4px}
-.od-changes summary{cursor:pointer;color:var(--accent);font-size:11.5px}
-.od-changes ul{margin:5px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
-.od-changes li{font-size:11.5px;overflow-wrap:anywhere}
-.od-from{color:var(--danger);text-decoration:line-through}
-.od-to{color:var(--ok)}
-/* The letter workspace now wants 1380px of its own (see the width budget above).
-   With the 330px history rail, its gap and the page gutters beside it, that is
-   ~1790px of viewport before something gives. Below that the rail drops
-   underneath rather than pinching the sheet into a sideways scroll — the letter
-   is the point of this page, and the rail is reference material. */
-@media (max-width:1800px){
-  .offer-detail{flex-direction:column}
-  /* `align-items:flex-start` is what keeps the rail from stretching to the
-     letter's height in ROW mode; in column mode that same rule shrink-wraps both
-     children to their content width, so each one has to claim the row itself. */
-  .od-main{width:100%}
-  .od-side{width:100%;flex:1 1 auto;position:static}
+/* ==================================================================
+   ANALYSIS — stat cards and the month chart, in the card language.
+   ================================================================== */
+.analysis{padding:14px 24px 96px}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.stat{
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  padding:16px 20px;min-width:170px;
+}
+.stat-n{font-size:30px;font-weight:700;color:var(--awm-ink);line-height:1;letter-spacing:-.01em}
+.stat-l{font-size:12.5px;color:var(--awm-slate);font-weight:600;margin-top:7px}
+.stat-s{font-size:14px;font-weight:600;margin-top:4px;color:var(--awm-link)}
+.stat.ok .stat-n{color:var(--awm-ok)}
+.stat.warn .stat-n{color:var(--awm-warn)}
+.stat.muted .stat-n{color:var(--awm-slate)}
+.an-h{color:var(--awm-ink);margin:26px 0 10px;font-size:15px;font-weight:600}
+.barchart{
+  display:flex;gap:16px;align-items:flex-end;height:210px;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  padding:16px 22px;overflow-x:auto;
+}
+.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:58px;height:100%}
+.bar-fill{
+  width:40px;background:linear-gradient(180deg,var(--awm-blue-lift),var(--awm-blue));
+  border-radius:6px 6px 0 0;min-height:3px;display:flex;justify-content:center;
+}
+.bar-fill span{color:#fff;font-size:11px;font-weight:600;padding-top:3px}
+.bar-lbl{font-size:11px;color:var(--awm-slate);margin-top:7px;text-align:center;white-space:nowrap}
+.an-table{
+  width:100%;border-collapse:separate;border-spacing:0;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;overflow:hidden;
+}
+.an-table th,.an-table td{padding:9px 14px;border-bottom:1px solid var(--awm-line);text-align:left;font-size:13px}
+.an-table th{background:var(--awm-mist);color:var(--awm-slate);font-weight:600;font-size:12.5px}
+.an-table tbody tr:last-child td{border-bottom:none}
+.muted{color:var(--awm-slate)}
+
+@media print{
+  .session-bar,.as-switcher,header.app,aside,.form-actions,.tabbar,.subtabs,.om-side,.ah,.od-bar,.od-foot{display:none}
+  /* Layout containment would make the preview the letter sheet's containing
+     block and let its overflow clip the sheet on paper. Off for print. */
+  .od-letter .letter-overlay .letter-preview-area{container-type:normal}
+  .om-shell{display:block}
+  main{max-height:none}
 }
 
 /* ================================================================
-   NEW HIRE DETAILS FORM — section navigation + cards.
-   The frozen `.grp`, `.fld`, `.q`, `.qn`, `.help`, `.req`, `.missing`
-   rules above are reused as-is; everything here is chrome around them.
-   Grouping is presentation-only (src/components/offers/form-sections.ts);
-   schema.ts GROUPS still drive the spreadsheet and the offer packet.
-   ================================================================ */
+   THE /offers/[id] OFFER WORKSPACE.
 
+   A sticky SUMMARY BAR on top (who, the letter's key terms, the two
+   tabs), the letter or the form beside an ACTIVITY RAIL, and the
+   letter's actions as a sticky FOOTER along the bottom — the one piece
+   of dark chrome on the page, the binding the white sheet sits in.
+
+   OfferDetail measures the bar and footer into --od-bar-h / --od-foot-h
+   (and --od-top: whatever sits above the page, i.e. the session bar),
+   so the letter pane and the rail size themselves to what is left.
+   The values here are only the pre-measurement defaults.
+   ================================================================ */
+.offer-detail{--od-top:46px;--od-bar-h:150px;--od-foot-h:56px;
+  display:flex;flex-direction:column;min-height:calc(100vh - var(--od-top))}
+.od-sentinel{height:1px;margin-bottom:-1px}
+
+/* --- the sticky summary bar --- */
+.od-bar{position:sticky;top:0;z-index:30;background:var(--awm-card);
+  border-bottom:1px solid var(--awm-line);transition:box-shadow .18s ease}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .od-bar{background:color-mix(in srgb, var(--awm-card) 86%, transparent);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2)}
+}
+.od-bar.stuck{box-shadow:0 8px 24px rgba(2,20,33,.10)}
+.od-bar-in{max-width:1680px;margin:0 auto;padding:12px 20px 0}
+.od-bar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:34px}
+.od-back{font-size:12.5px;font-weight:500;color:var(--awm-slate);text-decoration:none;
+  white-space:nowrap;padding:5px 9px 5px 6px;border-radius:8px}
+.od-back:hover{color:var(--awm-ink);background:var(--awm-mist);text-decoration:none}
+.od-ident{display:flex;align-items:baseline;gap:10px;min-width:0;flex-wrap:wrap}
+/* The name is the page's one display moment, like the sidebar's title. */
+.od-name{margin:0;font-family:var(--awm-serif);font-size:22px;font-weight:600;
+  letter-spacing:-.012em;line-height:1.15;color:var(--awm-ink);overflow-wrap:anywhere}
+.od-sub{font-size:12.5px;color:var(--awm-slate)}
+.od-stage,.stage-pill{
+  font-size:11px;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+  border-radius:99px;padding:2px 9px;background:var(--awm-mist);color:var(--awm-slate);
+}
+.od-stage-hired,.stage-pill-hired{background:var(--awm-ok-bg);color:var(--awm-ok)}
+.od-stage-archived,.stage-pill-archived{background:var(--awm-warn-bg);color:var(--awm-warn)}
+.od-status{font-size:11px;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+  border-radius:99px;padding:2px 9px;background:var(--awm-warn-bg);color:var(--awm-warn)}
+.od-status.ok{background:var(--awm-ok-bg);color:var(--awm-ok)}
+.od-head-actions{margin-left:auto;display:flex;gap:7px;align-items:center}
+/* "Details" folds the who/what rows away; the basics stay. Folded by default. */
+.od-more{display:inline-flex;align-items:center;gap:4px;font:inherit;font-size:12px;font-weight:600;
+  color:var(--awm-slate);background:transparent;border:1px solid transparent;border-radius:8px;
+  padding:4px 8px;cursor:pointer}
+.od-more:hover{color:var(--awm-ink);background:var(--awm-mist)}
+.od-more:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.od-more svg{transition:transform .16s ease}
+.od-more[aria-expanded='true']{color:var(--awm-ink)}
+.od-more[aria-expanded='true'] svg{transform:rotate(180deg)}
+.od-readonly{
+  background:var(--awm-amber-bg);border:1px solid var(--awm-amber-line);color:var(--awm-amber-fg);
+  border-radius:10px;padding:8px 12px;font-size:12.5px;margin:10px 0 0;
+}
+
+/* Two rows of facts under the identity row. WHO (the applicant's contact
+   details, the other offers on file for them, the assigned stack) and WHAT
+   (the letter's terms — read off the same resolved config as the sheet, so
+   the bar can never disagree with the document below it). */
+.od-facts{display:flex;flex-wrap:wrap;margin:8px 0 0;padding:0;row-gap:2px}
+.od-facts.od-terms{margin-top:2px;padding-top:4px;border-top:1px solid var(--awm-line)}
+.od-fact{display:flex;flex-direction:column;gap:1px;padding:5px 16px 5px 0;margin-right:16px;
+  border-right:1px solid var(--awm-line);min-width:0}
+.od-fact:last-child{border-right:none;margin-right:0}
+.od-fact dt{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--awm-slate)}
+.od-fact dd{margin:0;font-size:13.5px;font-weight:500;color:var(--awm-ink);white-space:nowrap}
+.od-fact dd a{color:var(--awm-link);text-decoration:none}
+.od-fact dd a:hover{text-decoration:underline}
+.od-fact-missing dd{color:var(--awm-warn)}
+.od-fact-dim dd{color:var(--awm-slate);font-weight:400}
+.od-fact-wrap dd{white-space:normal}
+.od-ellipsis{display:inline-block;max-width:340px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;vertical-align:bottom}
+/* other offers on file for this person */
+.od-chips{display:inline-flex;flex-wrap:wrap;gap:6px}
+.od-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;
+  color:var(--awm-ink);text-decoration:none;border:1px solid var(--awm-line);border-radius:99px;
+  padding:2px 6px 2px 9px;background:var(--awm-field)}
+.od-chip:hover{background:var(--awm-mist);text-decoration:none}
+.od-chip .stage-pill{padding:0 7px;font-size:10px}
+/* the assigned stack + its popover */
+.od-fact-assigned{position:relative}
+.od-stack{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 12px;
+  background:transparent;border:0;padding:0;margin:0;font:inherit;color:var(--awm-ink);
+  cursor:pointer;border-radius:8px;text-align:left}
+.od-stack:disabled{cursor:default}
+.od-stack:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.od-stack:hover .od-stack-edit{text-decoration:underline}
+.od-who{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
+.od-who .od-role{margin-left:0}
+.od-stack-edit{font-size:11.5px;font-weight:600;color:var(--awm-link)}
+.od-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:40;min-width:340px;max-width:460px;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  box-shadow:0 14px 36px rgba(2,20,33,.18);padding:12px 14px 14px;white-space:normal;text-align:left}
+.od-pop-end{left:auto;right:0}
+.od-pop-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.od-pop-head h4{margin:0;font-size:12.5px;font-weight:600;color:var(--awm-slate)}
+
+/* The tabs are the bar's bottom edge, so a tab is always one click away. */
+.od-bar .subtabs{background:transparent;border:none;border-radius:0;padding:0;margin-top:6px;gap:2px}
+.od-bar .subtab{padding:9px 12px 10px}
+
+/* --- body: the pane beside the activity rail --- */
+.od-body{flex:1 0 auto;display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:18px;
+  align-items:start;width:100%;max-width:1680px;margin:0 auto;padding:16px 20px}
+.od-main{min-width:0}
+.od-letter-locked,.od-details-locked{pointer-events:none;opacity:.85}
+.od-foot-locked{pointer-events:none;opacity:.7}
+.od-letter,.od-details{border:1px solid var(--awm-line);border-radius:12px}
+.od-letter{overflow:hidden}
+.od-details{background:var(--awm-card)}
+/* The letter pane fills exactly what the sticky chrome leaves, so the page
+   never needs to scroll on the letter tab; inside it, each column scrolls on
+   its own (letter.css). Its fourth column — the actions — is the footer now,
+   so the grid is three columns here. Placement is EXPLICIT: letter.css and
+   the SPA's viewport rules address the same classes, and must not be able to
+   move this pane's columns. */
+.od-letter .letter-overlay{
+  height:calc(100vh - var(--od-top) - var(--od-bar-h) - var(--od-foot-h) - 32px);
+  min-height:480px}
+.od-letter .letter-overlay .letter-body-wrap{grid-template-columns:176px 312px minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr)}
+.od-letter .letter-overlay .lp-rail{grid-row:1;grid-column:1}
+.od-letter .letter-overlay .letter-options{grid-row:1;grid-column:2}
+/* The PREVIEW is a size container: the sheet's on-screen scale follows the
+   room the preview actually has (see the width budget below), so folding the
+   activity rail grows the sheet and moves nothing else. */
+.od-letter .letter-overlay .letter-preview-area{grid-row:1;grid-column:3;
+  container-type:inline-size;container-name:od-preview}
+/* RequestForm renders a <main> that is the whole pane here. */
+.od-details main{padding:2px 22px 30px}
+.od-details .formhead{margin-top:14px}
+.od-details .form-actions{background:var(--awm-card)}
+/* The form's own section rail is sticky too; on this page it must sit
+   below the summary bar, not behind it, and stop above the footer. */
+.od-details .rf-nav{top:calc(var(--od-bar-h) + 14px);
+  max-height:calc(100vh - var(--od-bar-h) - var(--od-foot-h) - 28px)}
+
+/* --- the activity rail: the audit feed, and only that --- */
+.od-side{display:flex;flex-direction:column;min-width:0;
+  position:sticky;top:calc(var(--od-bar-h) + 14px);
+  max-height:calc(100vh - var(--od-bar-h) - var(--od-foot-h) - 28px)}
+/* Folded (OfferSidebar): the grid gives the rail's column to the pane and
+   keeps a slim vertical tab on the right edge to open it again. */
+.od-body:has(.od-side-closed){grid-template-columns:minmax(0,1fr) 44px}
+.od-panel-tools{display:flex;align-items:center;gap:6px}
+.od-rail-toggle{display:inline-flex;align-items:center;padding:4px 6px}
+.od-rail-tab{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  width:44px;min-height:170px;padding:12px 0;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  color:var(--awm-slate);cursor:pointer;font:inherit;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.od-rail-tab:hover{background:var(--awm-mist);color:var(--awm-ink);border-color:var(--awm-blue)}
+.od-rail-tab:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.od-rail-tab-label{writing-mode:vertical-rl;transform:rotate(180deg);
+  font-size:12px;font-weight:600;letter-spacing:.04em;white-space:nowrap}
+.od-rail-count{min-width:20px;padding:1px 6px;border-radius:99px;font-size:11px;font-weight:600;
+  background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.od-activity{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.od-activity .od-events{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+.od-panel{background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;padding:14px 16px}
+.od-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.od-panel-head h3{margin:0;font-size:12.5px;font-weight:600;color:var(--awm-slate)}
+.od-mini{
+  font-size:11.5px;padding:4px 10px;border-radius:7px;border:1px solid var(--awm-line);
+  background:var(--awm-card);color:var(--awm-ink);cursor:pointer;font-family:inherit;
+}
+.od-mini:hover{background:var(--awm-mist)}
+.od-mini:disabled{opacity:.55;cursor:default}
+.od-mini.ok{color:var(--awm-ok);border-color:var(--awm-ok-line)}.od-mini.ok:hover{background:var(--awm-ok-bg)}
+.od-mini.warn{color:var(--awm-warn);border-color:var(--awm-warn-line)}.od-mini.warn:hover{background:var(--awm-warn-bg)}
+.od-save{background:var(--awm-blue);border-color:var(--awm-blue);color:#fff}
+.od-save:hover{background:var(--awm-blue-lift)}
+.od-dim{color:var(--awm-slate);font-size:12.5px}
+.od-error{
+  background:var(--awm-danger-bg);border:1px solid var(--awm-danger-line);color:var(--awm-danger);
+  border-radius:8px;padding:7px 10px;font-size:12px;margin-bottom:8px;
+}
+
+.od-avatar{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:inline-flex;
+  align-items:center;justify-content:center;font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.od-avatar-sm{width:24px;height:24px;font-size:10px}
+
+/* assignments */
+.od-assignees{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13px}
+.od-role{
+  display:inline-block;margin-left:7px;background:var(--awm-chip-bg);color:var(--awm-chip-fg);
+  border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600;
+}
+.od-assign-edit{display:flex;flex-direction:column;gap:8px}
+.od-assign-row{display:flex;flex-direction:column;gap:5px;border:1px solid var(--awm-line);border-radius:8px;padding:8px}
+.od-assign-row select,.od-assign-row input{
+  font-size:12.5px;padding:6px 8px;border:1px solid var(--awm-line);border-radius:7px;font-family:inherit;
+  background:var(--awm-field);color:var(--awm-ink);
+}
+.od-assign-actions{display:flex;align-items:center;gap:8px}
+
+/* the feed — avatar per actor, a hairline spine between entries */
+.od-events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.od-event{position:relative;display:flex;gap:9px;align-items:flex-start;font-size:12.5px}
+.od-event+.od-event::before{content:"";position:absolute;left:11.5px;top:-12px;height:12px;
+  border-left:1px solid var(--awm-line)}
+.od-kind{
+  display:inline-block;font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  border-radius:99px;padding:1px 7px;margin-right:6px;vertical-align:1px;
+  background:var(--awm-mist);color:var(--awm-slate);
+}
+.od-kind-created{background:var(--awm-ok-bg);color:var(--awm-ok)}
+.od-kind-assigned,.od-kind-assignment-role-change{background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.od-kind-unassigned,.od-kind-deleted{background:var(--awm-danger-bg);color:var(--awm-danger)}
+.od-kind-stage-change{background:var(--awm-warn-bg);color:var(--awm-warn)}
+.od-kind-letter-updated{background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.od-event-body{min-width:0;flex:1;padding-top:3px}
+.od-summary{color:var(--awm-ink);line-height:1.4}
+.od-meta{color:var(--awm-slate);font-size:11px;margin-top:2px}
+.od-changes{margin-top:4px}
+.od-changes summary{cursor:pointer;color:var(--awm-link);font-size:11.5px}
+.od-changes ul{margin:5px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+.od-changes li{font-size:11.5px;overflow-wrap:anywhere}
+.od-from{color:var(--awm-danger);text-decoration:line-through}
+.od-to{color:var(--awm-ok)}
+
+/* --- the sticky footer: the letter's actions --- */
+.od-foot{position:sticky;bottom:0;z-index:24;margin-top:auto;color:#fff;
+  background:
+    radial-gradient(120% 60% at 10% -8%, rgba(46,163,217,.16), transparent 60%),
+    linear-gradient(188deg, var(--awm-navy) 0%, #062338 55%, var(--awm-blue-deep) 100%);
+  border-top:1px solid rgba(148,180,203,.24);box-shadow:0 -10px 28px rgba(2,20,33,.16)}
+.od-foot-in{max-width:1680px;margin:0 auto;padding:9px 20px;min-height:56px;display:flex;align-items:center}
+.la-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;width:100%}
+.la-bar .la-note{flex:1 1 200px;min-width:0;font-size:11.5px;color:#9db3c2;line-height:1.4}
+.la-bar .la-group{display:flex;flex-direction:row;align-items:center;gap:7px;padding-left:14px;
+  border-left:1px solid rgba(255,255,255,.14)}
+.la-bar .la-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:#9db3c2;margin-right:3px;white-space:nowrap}
+.la-bar .la-btn{padding:7px 12px;font-size:12.5px;border-radius:8px;white-space:nowrap}
+.la-bar .btn-light{background:#fff;color:#10202b;border-color:transparent}
+.la-bar .btn-light:hover{background:#e8f1f7}
+.la-bar .la-check{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
+  background:rgba(255,255,255,.10);padding:7px 10px;border-radius:8px;white-space:nowrap}
+.la-bar .la-check input{accent-color:#fff;margin:0}
+.la-bar .la-select{padding:7px 8px;border-radius:8px;border:1px solid rgba(148,180,203,.35);
+  font-size:12.5px;font-family:inherit;background:#0a2438;color:#e8f1f7}
+
+/* --- width budget ---
+   The letter pane wants rail 176 + options 312 + (8.5in sheet + gutters) 852
+   = 1340px. The activity rail is the SAME on both tabs: it stays on the right
+   down to 1100px (and can be folded to a 44px tab), so below the full budget
+   the LETTER gives, never the rail.
+
+   Two independent knobs, on purpose:
+   - The letter's LEFT columns (section rail, options width, stacking) follow
+     the VIEWPORT. They never move when the activity rail folds.
+   - The sheet PREVIEW scales with `zoom` by the width the preview really has
+     (`@container od-preview`, the preview's content box), so folding the
+     rail simply grows the sheet.
+   Screen only: print never sees the zoom, and the containment is switched
+   off for print (see @media print above). Every export is a true 8.5in. */
+@media (max-width:1740px){
+  .od-letter .lp-rail{display:none}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:312px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-options{grid-column:1}
+  .od-letter .letter-overlay .letter-preview-area{grid-column:2}
+}
+@media (max-width:1560px){
+  .od-body{grid-template-columns:minmax(0,1fr) 300px}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:272px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-preview-area{padding:14px 12px}
+}
+@media (max-width:1280px){
+  .la-bar .la-note{display:none}
+}
+@media (max-width:1240px){
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:240px minmax(0,1fr)}
+}
+@media (max-width:1100px){
+  .od-body,.od-body:has(.od-side-closed){grid-template-columns:minmax(0,1fr)}
+  .od-side{position:static;max-height:none}
+  .od-activity .od-events{overflow:visible}
+  .od-rail-tab{flex-direction:row;width:100%;min-height:0;padding:9px 12px}
+  .od-rail-tab-label{writing-mode:horizontal-tb;transform:none}
+  .od-pop{left:auto;right:0;max-width:min(460px, calc(100vw - 40px))}
+  /* The pane is the full width again: the options can breathe. */
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:300px minmax(0,1fr)}
+}
+@media (max-width:860px){
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-options{grid-row:1;grid-column:1;max-height:38vh}
+  .od-letter .letter-overlay .letter-preview-area{grid-row:2;grid-column:1}
+  .od-fact dd{white-space:normal}
+  .od-ellipsis{max-width:100%;white-space:normal}
+  .od-head-actions{margin-left:0;width:100%}
+}
+/* The sheet is 816px wide; each step keeps it inside the preview's content box. */
+@media screen{
+  @container od-preview (max-width:815px){ .od-letter .letter-sheet{zoom:.9} }
+  @container od-preview (max-width:734px){ .od-letter .letter-sheet{zoom:.8} }
+  @container od-preview (max-width:652px){ .od-letter .letter-sheet{zoom:.74} }
+  @container od-preview (max-width:603px){ .od-letter .letter-sheet{zoom:.66} }
+  @container od-preview (max-width:538px){ .od-letter .letter-sheet{zoom:.6} }
+  @container od-preview (max-width:489px){ .od-letter .letter-sheet{zoom:.5} }
+}
+
+/* ================================================================
+   MOTION — the offers app. Every animation sits inside a
+   prefers-reduced-motion:no-preference block; reduced-motion users get
+   the same UI, instantly. Durations stay under 350ms; the easing is the
+   sidebar's own (.22,.68,.35,1).
+   ================================================================ */
+@media (prefers-reduced-motion:no-preference){
+  /* A view arrives: a short rise. `display:none -> block` restarts it. */
+  .view.active{animation:om-view-in .24s cubic-bezier(.22,.68,.35,1) both}
+  /* Table rows settle in one after another (first ten; the rest just appear). */
+  .stage-table tbody tr{animation:om-row-in .3s ease both}
+  .stage-table tbody tr:nth-child(1){animation-delay:0ms}
+  .stage-table tbody tr:nth-child(2){animation-delay:25ms}
+  .stage-table tbody tr:nth-child(3){animation-delay:50ms}
+  .stage-table tbody tr:nth-child(4){animation-delay:75ms}
+  .stage-table tbody tr:nth-child(5){animation-delay:100ms}
+  .stage-table tbody tr:nth-child(6){animation-delay:125ms}
+  .stage-table tbody tr:nth-child(7){animation-delay:150ms}
+  .stage-table tbody tr:nth-child(8){animation-delay:175ms}
+  .stage-table tbody tr:nth-child(9){animation-delay:200ms}
+  .stage-table tbody tr:nth-child(10){animation-delay:225ms}
+  .stage-table tbody td{transition:background .14s ease}
+  /* Sidebar items give under the pointer. */
+  .tabbar .tab{transition:background .14s ease,color .14s ease,transform .12s ease}
+  .tabbar .tab:active{transform:scale(.985)}
+  /* The sub-tab underline slides between tabs instead of blinking. */
+  .subtab{position:relative;transition:color .14s ease}
+  .subtab::after{content:"";position:absolute;left:12px;right:12px;bottom:-2px;height:2px;
+    border-radius:2px;background:var(--awm-blue);transform:scaleX(0);transform-origin:50% 50%;
+    transition:transform .22s cubic-bezier(.22,.68,.35,1)}
+  .subtab.active{border-bottom-color:transparent}
+  .subtab.active::after{transform:scaleX(1)}
+  /* /offers/[id]: the rail folds and unfolds as a slide; its panel and the
+     feed entries rise in; the popover pops. */
+  .od-body{transition:grid-template-columns .26s cubic-bezier(.22,.68,.35,1)}
+  .od-side .od-panel,.od-rail-tab{animation:om-view-in .26s cubic-bezier(.22,.68,.35,1) both}
+  .od-event{animation:om-row-in .3s ease both}
+  .od-event:nth-child(2){animation-delay:30ms}
+  .od-event:nth-child(3){animation-delay:60ms}
+  .od-event:nth-child(4){animation-delay:90ms}
+  .od-event:nth-child(5){animation-delay:120ms}
+  .od-event:nth-child(6){animation-delay:150ms}
+  .od-event:nth-child(7){animation-delay:180ms}
+  .od-event:nth-child(8){animation-delay:210ms}
+  .od-pop{animation:asg-in .18s cubic-bezier(.22,.68,.35,1) both;transform-origin:0 0}
+  .od-pop-end{transform-origin:100% 0}
+  .od-letter .letter-sheet{animation:om-view-in .36s cubic-bezier(.22,.68,.35,1) both}
+  .od-mini,.od-more,.od-stack{transition:background .14s ease,color .14s ease,border-color .14s ease,transform .12s ease}
+  .od-mini:active,.od-more:active{transform:translateY(1px)}
+  .od-fact{transition:opacity .2s ease}
+}
+/* The header's Details fold: a grid-row reveal, so the bar's height — and
+   with it the letter pane, through --od-bar-h — glides rather than jumps.
+   The inner box clips only while closed or mid-reveal: once open it must
+   let the assigned popover hang below the bar. */
+.od-bar-extra{display:grid;grid-template-rows:0fr;opacity:0;
+  transition:grid-template-rows .26s cubic-bezier(.22,.68,.35,1),opacity .2s ease}
+.od-bar-extra.open{grid-template-rows:1fr;opacity:1}
+.od-bar-extra-in{min-height:0;overflow:hidden;transition:overflow 0s linear;transition-behavior:allow-discrete}
+.od-bar-extra.open .od-bar-extra-in{overflow:visible;transition-delay:.26s}
+@media (prefers-reduced-motion:reduce){
+  .od-bar-extra,.od-bar-extra-in,.od-body{transition:none}
+}
+@keyframes om-view-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes om-row-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ================================================================
+   NEW HIRE DETAILS FORM — section navigation + cards.
+   ================================================================ */
 .rf-body{display:grid;grid-template-columns:196px minmax(0,1fr);gap:26px;align-items:start}
 
 /* --- the section rail --- */
-.rf-nav{position:sticky;top:74px;max-height:calc(100vh - 96px);overflow-y:auto;
-  padding-right:2px}
+.rf-nav{position:sticky;top:74px;max-height:calc(100vh - 96px);overflow-y:auto;padding-right:2px}
 .rf-nav ul{list-style:none;margin:0;padding:0}
-.rf-nav-item{width:100%;display:flex;align-items:center;gap:8px;text-align:left;
+.rf-nav-item{
+  width:100%;display:flex;align-items:center;gap:8px;text-align:left;
   background:transparent;border:0;border-left:2px solid transparent;
-  padding:7px 8px 7px 11px;font:inherit;font-size:13px;color:var(--muted);
-  cursor:pointer;border-radius:0 6px 6px 0}
-.rf-nav-item:hover{background:rgba(47,95,208,.06);color:var(--navy)}
-.rf-nav-item.active{border-left-color:var(--accent);background:rgba(47,95,208,.08);
-  color:var(--navy);font-weight:600}
-.rf-nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  padding:7px 8px 7px 11px;font:inherit;font-size:13px;color:var(--awm-slate);
+  cursor:pointer;border-radius:0 8px 8px 0;
+}
+.rf-nav-item:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.rf-nav-item.active{border-left-color:var(--awm-blue);background:var(--awm-mist);
+  color:var(--awm-ink);font-weight:600}
+.rf-nav-item:focus-visible{outline:none;box-shadow:inset var(--awm-focus)}
 .rf-nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rf-nav-sub .rf-nav-item{padding-left:22px;font-size:12.5px}
 /* A count is a to-do, so it carries weight; a tick is an absence of work, so it
    recedes. Same slot, deliberately unequal emphasis. */
-.rf-nav-count{flex:0 0 auto;min-width:18px;height:18px;border-radius:20px;
-  background:var(--req);color:#fff;font-size:11px;font-weight:700;
-  display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
-.rf-nav-done{flex:0 0 auto;color:var(--ok);font-size:12px;opacity:.55}
+.rf-nav-count{
+  flex:0 0 auto;min-width:18px;height:18px;border-radius:99px;
+  background:var(--awm-req);color:#fff;font-size:11px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 5px;
+}
+:root[data-theme='dark'] .rf-nav-count{color:#2b0715}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']) .rf-nav-count{color:#2b0715}
+}
+.rf-nav-done{flex:0 0 auto;color:var(--awm-ok);font-size:12px;opacity:.7}
 
-/* --- section shell ---------------------------------------------------------
-   One card, used by the New Hire Details form AND the offer-letter options, so
-   the two editors read as the same product. Flat and hairline-ruled: the ported
-   `.grp` gradient head and drop shadow are overridden here rather than edited,
-   which needs `.grp.rf-sec` — bare `.rf-sec` loses to `section.grp`'s
-   element+class specificity. */
-.grp.rf-sec,.lp-block{background:var(--panel);border:1px solid var(--line);
-  border-radius:12px;box-shadow:none;margin-bottom:14px;overflow:hidden}
-.grp-head.rf-sec-head,.lp-block-head{background:none;border-bottom:1px solid var(--line);
+/* --- section shell: one card, shared with the letter options panel --- */
+.grp.rf-sec,.lp-block{
+  background:var(--awm-card);border:1px solid var(--awm-line);
+  border-radius:12px;box-shadow:none;margin-bottom:14px;overflow:hidden;
+}
+.grp-head.rf-sec-head,.lp-block-head{
+  background:none;border-bottom:1px solid var(--awm-line);
   padding:13px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  font-weight:600;color:var(--navy)}
+  font-weight:600;color:var(--awm-ink);
+}
 .rf-sec{scroll-margin-top:78px}
 .rf-sec-title{font-size:14px;font-weight:600}
 .rf-sec-status{margin-left:auto;font-weight:600;font-size:12px}
-.rf-need{color:var(--req)}
-.rf-complete{color:var(--ok);opacity:.8}
-.rf-blurb{margin:10px 0 2px;font-size:12.5px;color:var(--muted);max-width:68ch;line-height:1.5}
+.rf-need{color:var(--awm-req)}
+.rf-complete{color:var(--awm-ok);opacity:.85}
+.rf-blurb{margin:10px 0 2px;font-size:12.5px;color:var(--awm-slate);max-width:68ch;line-height:1.5}
 .rf-sec-blurb{margin:12px 0 0}
 
 /* --- the "does this reach the candidate" marker --- */
-.rf-reach{font-size:11.5px;font-weight:500;border-radius:20px;padding:2px 9px;
-  white-space:nowrap}
-.rf-reach-letter{background:rgba(47,95,208,.10);color:var(--accent)}
-.rf-reach-internal{background:#eef1f6;color:var(--muted)}
+.rf-reach{font-size:11.5px;font-weight:500;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.rf-reach-letter{background:var(--awm-chip-bg);color:var(--awm-chip-fg)}
+.rf-reach-internal{background:var(--awm-mist);color:var(--awm-slate)}
 
 /* --- pay sub-cards: flatter than the section that holds them --- */
-.rf-card{border:1px solid var(--line);border-radius:10px;padding:2px 15px 8px;
-  margin:14px 0;background:#fafbfd;scroll-margin-top:78px}
-.rf-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:12px 0 0}
-.rf-card-head h4{margin:0;font-size:13.5px;color:var(--navy)}
+.rf-card{
+  border:1px solid var(--awm-line);border-radius:10px;padding:2px 15px 8px;
+  margin:14px 0;background:var(--awm-field);scroll-margin-top:78px;
+}
+.rf-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0 0}
+.rf-card-head h4{margin:0;font-size:13.5px;color:var(--awm-ink)}
 .rf-card .fld:last-child{border-bottom:none}
 
 /* --- the Group F override, made visible where it bites --- */
-.rf-overridden{border-left:3px solid var(--warn);background:#fff7ed;
-  border-radius:0 8px 8px 0;padding:9px 12px;margin:10px 0 2px}
-.rf-overridden p{margin:0;font-size:12.5px;color:#7c2d12;line-height:1.5}
+.rf-overridden{
+  border-left:3px solid var(--awm-warn);background:var(--awm-amber-bg);
+  border-radius:0 8px 8px 0;padding:9px 12px;margin:10px 0 2px;
+}
+.rf-overridden p{margin:0;font-size:12.5px;color:var(--awm-amber-fg);line-height:1.5}
 .rf-overridden p+p{margin-top:5px}
-.rf-claim{display:block;margin-top:7px;font-size:12px;color:#7c2d12;
-  background:#fff7ed;border-radius:6px;padding:6px 9px;line-height:1.5}
-.rf-link{background:none;border:0;padding:0;font:inherit;color:var(--accent);
+.rf-claim{
+  display:block;margin-top:7px;font-size:12px;color:var(--awm-amber-fg);
+  background:var(--awm-amber-bg);border-radius:6px;padding:6px 9px;line-height:1.5;
+}
+.rf-link{background:none;border:0;padding:0;font:inherit;color:var(--awm-link);
   text-decoration:underline;cursor:pointer}
-.rf-link:hover{color:var(--accent-2)}
+.rf-link:hover{color:var(--awm-blue-lift)}
 
 /* Jump target acknowledgement — the one piece of motion in the form. */
 .rf-flash{animation:rf-flash 1.4s ease-out}
 @keyframes rf-flash{
-  0%,55%{background:rgba(47,95,208,.10);box-shadow:0 0 0 6px rgba(47,95,208,.10)}
+  0%,55%{background:var(--awm-chip-bg);box-shadow:0 0 0 6px var(--awm-chip-bg)}
   100%{background:transparent;box-shadow:0 0 0 6px transparent}
 }
 @media (prefers-reduced-motion:reduce){
-  .rf-flash{animation:none;background:rgba(47,95,208,.10)}
+  .rf-flash{animation:none;background:var(--awm-chip-bg)}
 }
 
 /* The rail needs real estate to earn its place; below that the form is just
@@ -388,10 +1016,10 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 @media print{.rf-nav{display:none}.rf-body{display:block}}
 
 /* ================================================================
-   OFFER LETTER ACTIONS — the third column.
-   Was `.letter-toolbar`, a full-width navy bar above the workspace. It
-   kept the navy so the workspace still reads as one object, but as a
-   column the actions stack instead of wrapping onto three rows.
+   OFFER LETTER ACTIONS — the third column. Deep brand navy, the same
+   panel language as the sign-in page's left half: the one place the
+   app keeps its dark chrome, so the white sheet reads as paper on a
+   desk and the actions read as the binding around it.
    ================================================================ */
 
 /* Three columns, overriding the two-column ported rule in letter.css rather
@@ -401,55 +1029,53 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
    8.5in and any shortfall becomes a sideways scroll across the letter. */
 /* Scoped through `.letter-overlay` on purpose: letter.css is imported AFTER
    offers.css, so a bare `.letter-body-wrap` here loses to the ported two-column
-   rule at equal specificity. This wins without editing the ported file. */
+   rule at equal specificity. */
 .letter-overlay .letter-body-wrap{grid-template-columns:176px 312px minmax(0,1fr) 216px}
 .letter-overlay .letter-preview-area{padding:18px}
 
 /* The options rail — literally the details form's `.rf-nav`, so navigating the
-   two editors is the same gesture. Only the scroll container and the row-state
-   dot differ. */
-.lp-rail{position:static;max-height:none;overflow-y:auto;background:#fff;
-  border-right:1px solid var(--line);padding:14px 6px 14px 0}
-/* Row names are long ("Accelerated Commission") and the rail is narrow; let them
-   wrap onto a second line rather than truncating into guesswork. */
+   two editors is the same gesture. */
+.lp-rail{position:static;max-height:none;overflow-y:auto;background:var(--awm-card);
+  border-right:1px solid var(--awm-line);padding:14px 6px 14px 0}
 .lp-rail .rf-nav-item{align-items:flex-start}
 .lp-rail .rf-nav-label{white-space:normal;overflow:visible;line-height:1.35}
 .lp-rail .lp-dot{margin-top:5px}
 .lp-dot{flex:0 0 auto;width:7px;height:7px;border-radius:50%;
-  border:1px solid var(--line);background:transparent}
-.lp-dot.on{background:var(--accent);border-color:var(--accent)}
+  border:1px solid var(--awm-line);background:transparent}
+.lp-dot.on{background:var(--awm-blue);border-color:var(--awm-blue)}
 
-.letter-actions{background:var(--navy);color:#fff;overflow-y:auto;
-  padding:14px 14px 18px;display:flex;flex-direction:column;gap:17px}
+.letter-actions{
+  background:
+    radial-gradient(120% 60% at 10% -8%, rgba(46,163,217,.16), transparent 60%),
+    linear-gradient(188deg, var(--awm-navy) 0%, #062338 55%, var(--awm-blue-deep) 100%);
+  color:#fff;overflow-y:auto;
+  padding:14px 14px 18px;display:flex;flex-direction:column;gap:17px;
+}
 
 .la-head{display:flex;flex-direction:column;gap:5px}
-/* Only rule off the head when it actually carries something. */
 .la-head:not(:empty){padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.14)}
 .la-head:empty{display:none}
 .la-name{font-size:13.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 .la-note{font-size:11px;color:#9db3c2;line-height:1.45}
 
 .la-group{display:flex;flex-direction:column;gap:7px}
-/* Group names, not labels on every control — the buttons already say what they
-   do, so these only answer "which pile is this in". */
 .la-label{font-size:11px;color:#9db3c2;font-weight:600}
 
-/* Full-width stacked controls. The ported `.btn-*` rules supply the colour and
-   the radius; only the box model changes in a column. */
+/* Full-width stacked controls; colour comes from the shared .btn-* rules. */
 .letter-actions .la-btn{width:100%;justify-content:center;text-align:center;
   padding:8px 10px;font-size:13px}
-.la-select{width:100%;padding:7px 8px;border-radius:7px;border:1px solid #2a3a5c;
-  font-size:12.5px;font-family:inherit;background:#fff;color:#1f2937}
+.letter-actions .btn-light{background:#fff;color:#10202b;border-color:transparent}
+.letter-actions .btn-light:hover{background:#e8f1f7}
+.la-select{width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(148,180,203,.35);
+  font-size:12.5px;font-family:inherit;background:#0a2438;color:#e8f1f7}
 .la-check{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
-  background:rgba(255,255,255,.10);padding:7px 10px;border-radius:7px}
+  background:rgba(255,255,255,.10);padding:7px 10px;border-radius:8px}
 .la-check input{accent-color:#fff;margin:0}
 .la-back{margin-top:auto}
 
-/* Under a wide desktop the three columns cannot all hold their ground, so the
-   actions return to a horizontal strip above the letter rather than squeezing
-   the 8.5in sheet. */
-/* The rail is the first thing to go: it is navigation, and the four cards it
-   points at are still reachable by scrolling. */
+/* Under a narrower desktop the three columns cannot all hold their ground, so
+   the actions return to a horizontal strip above the letter rather than
+   squeezing the 8.5in sheet. The nav rail is the first thing to go. */
 @media (max-width:1560px){
   .letter-overlay .letter-body-wrap{grid-template-columns:312px minmax(0,1fr) 216px}
   .lp-rail{display:none}
@@ -470,25 +1096,23 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 }
 
 /* ================================================================
-   OFFER LETTER OPTIONS PANEL.
-   Lives inside the frozen `.letter-options` column (letter.css) — these
-   rules only add the block / row structure around the ported `.lo-row`,
-   `.lo-check` controls, which are untouched.
+   OFFER LETTER OPTIONS PANEL — block / row structure around the
+   ported `.lo-row` / `.lo-check` controls.
    ================================================================ */
 
 /* NO `scroll-behavior:smooth` here. It makes every scrollTop assignment an
    animated scroll, and browsers that decline programmatic smooth scrolling —
-   anyone with reduce-motion at the OS level — then get NO scroll at all, which
-   is how the jump chips silently died the first time. An instant jump always
-   lands, so the chips stay reliable. */
+   anyone with reduce-motion at the OS level — then get NO scroll at all. An
+   instant jump always lands, so the chips stay reliable. */
 
 /* Jump chips — the column scrolls independently, so it needs its own way back. */
 .lp-jump{display:flex;flex-wrap:wrap;gap:5px;position:sticky;top:-14px;z-index:2;
-  background:#fff;padding:2px 0 10px;margin:0 0 4px}
-.lp-jump button{font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);
-  background:#f1f5fa;border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer}
-.lp-jump button:hover{background:#e6edf8;color:var(--navy)}
-.lp-jump button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  background:var(--awm-card);padding:2px 0 10px;margin:0 0 4px}
+.lp-jump button{font:inherit;font-size:11.5px;font-weight:600;color:var(--awm-slate);
+  background:var(--awm-field);border:1px solid var(--awm-line);border-radius:99px;
+  padding:3px 10px;cursor:pointer}
+.lp-jump button:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.lp-jump button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
 
 .lp-block{scroll-margin-top:10px}
 .lp-block-body{padding:12px 14px 14px}
@@ -497,30 +1121,291 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
    names of things, not labels, so they read as names in both the section heads
    and the row cards. */
 .letter-options .lp-block-head h4{margin:0;font-size:14px;text-transform:none;
-  letter-spacing:0;color:var(--navy);font-weight:600}
+  letter-spacing:0;color:var(--awm-ink);font-weight:600}
 .letter-options .rf-card-head h4{margin:0;font-size:13px;text-transform:none;
-  letter-spacing:0;color:var(--navy);font-weight:600}
-.lp-note{margin:0 0 11px;font-size:11.5px;color:var(--muted);line-height:1.45}
-.lp-note-auto{margin-top:15px;padding-top:11px;border-top:1px solid var(--line)}
+  letter-spacing:0;color:var(--awm-ink);font-weight:600}
+.lp-note{margin:0 0 11px;font-size:11.5px;color:var(--awm-slate);line-height:1.45}
+.lp-note-auto{margin-top:15px;padding-top:11px;border-top:1px solid var(--awm-line)}
 
-/* One card per compensation row, on the same `.rf-card` the details form uses.
-   A row that is in the letter is marked on its edge, so the column reads as
-   "what is in this letter" without reading a word. */
+/* One card per compensation row. A row that is in the letter is marked on its
+   edge, so the column reads as "what is in this letter" without reading a word. */
 .lp-row{scroll-margin-top:10px;border-left:3px solid transparent;padding-bottom:4px}
-.lp-row.on{border-left-color:var(--accent);background:var(--panel)}
+.lp-row.on{border-left-color:var(--awm-blue);background:var(--awm-card)}
 .lp-row .rf-card-head{padding-top:11px}
 .lp-row .lo-row{margin-bottom:8px}
-.lp-row .lo-row label{font-size:11.5px;color:var(--muted);font-weight:600}
-.lp-row-extra{border-top:1px solid var(--line);padding-top:9px;margin-bottom:2px}
-.lp-source{margin:0 0 8px;font-size:11px;color:var(--muted);line-height:1.4}
+.lp-row .lo-row label{font-size:11.5px;color:var(--awm-slate);font-weight:600}
+.lp-row-extra{border-top:1px solid var(--awm-line);padding-top:9px;margin-bottom:2px}
+.lp-source{margin:0 0 8px;font-size:11px;color:var(--awm-slate);line-height:1.4}
 .lp-row-auto .lp-source{margin-bottom:9px}
 
-/* --- offers additions: the assignments editor in the /offers/[id] rail --- */
+/* --- the assignments editor in the /offers/[id] rail --- */
 .assign-editor{min-width:300px}
 .assign-editor .od-assignees{margin-bottom:10px}
 .assign-edit-btn{margin-top:2px}
 
-/* --- dashboard additions: new-user modal roles --- */
-.nu-roles{display:flex;flex-direction:column;gap:7px}
-.nu-role{display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer}
-.nu-role input{margin-top:2px}
+/* ================================================================
+   STAGE TABLE COLUMNS. letter.css (ported) sizes seven columns by
+   nth-child. The Assigned column and the "All" table's Stage column
+   (both 2026-09) shift those indices, so every width is re-pinned here
+   at higher specificity and the ported rules no longer bite.
+
+   Standard: chk · Name · Branch · Title · Assigned · Email · Date · Actions
+   All:      chk · Name · Stage · Branch · Title · Assigned · Email · Date · Actions
+   ================================================================ */
+.stage-table-wrap .stage-table{min-width:980px}
+.stage-table-wrap .stage-table th:nth-child(2),.stage-table-wrap .stage-table td:nth-child(2){width:15%}
+.stage-table-wrap .stage-table th:nth-child(3),.stage-table-wrap .stage-table td:nth-child(3){width:10%}
+.stage-table-wrap .stage-table th:nth-child(4),.stage-table-wrap .stage-table td:nth-child(4){width:14%}
+.stage-table-wrap .stage-table th:nth-child(5),.stage-table-wrap .stage-table td:nth-child(5){width:128px}
+.stage-table-wrap .stage-table th:nth-child(6),.stage-table-wrap .stage-table td:nth-child(6){width:12%}
+.stage-table-wrap .stage-table th:nth-child(7),.stage-table-wrap .stage-table td:nth-child(7){width:104px;white-space:nowrap}
+.stage-table-wrap .stage-table th:nth-child(8),.stage-table-wrap .stage-table td:nth-child(8){width:242px}
+
+.stage-table-wrap .stage-table.all-stages{min-width:1080px}
+.stage-table-wrap .stage-table.all-stages th:nth-child(3),.stage-table-wrap .stage-table.all-stages td:nth-child(3){width:96px}
+.stage-table-wrap .stage-table.all-stages th:nth-child(4),.stage-table-wrap .stage-table.all-stages td:nth-child(4){width:10%}
+.stage-table-wrap .stage-table.all-stages th:nth-child(5),.stage-table-wrap .stage-table.all-stages td:nth-child(5){width:14%}
+.stage-table-wrap .stage-table.all-stages th:nth-child(6),.stage-table-wrap .stage-table.all-stages td:nth-child(6){width:128px}
+.stage-table-wrap .stage-table.all-stages th:nth-child(7),.stage-table-wrap .stage-table.all-stages td:nth-child(7){width:12%}
+.stage-table-wrap .stage-table.all-stages th:nth-child(8),.stage-table-wrap .stage-table.all-stages td:nth-child(8){width:104px;white-space:nowrap}
+.stage-table-wrap .stage-table.all-stages th:nth-child(9),.stage-table-wrap .stage-table.all-stages td:nth-child(9){width:242px}
+
+/* ================================================================
+   ASSIGNEES — the Assigned column's avatar stack, and the picker.
+   Initials on the brand gradient, overlapping by a third, ringed in the
+   row's surface so they read as separate people. For admin/dev the stack
+   is a button ending in a dashed "+"; for everyone else it is just people.
+   ================================================================ */
+.asg-stack{display:inline-flex;align-items:center;padding:0;margin:0;background:transparent;border:0;
+  font:inherit;color:var(--awm-slate);cursor:default;vertical-align:middle}
+.asg-btn{cursor:pointer;border-radius:99px;padding:2px 8px 2px 2px;margin-left:-2px;transition:background .14s ease}
+.asg-btn:hover{background:var(--awm-mist)}
+.asg-btn:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.asg-av,.asg-more,.asg-add{
+  flex:0 0 auto;width:24px;height:24px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;letter-spacing:.02em;line-height:1;
+  box-shadow:0 0 0 2px var(--awm-card);
+}
+.asg-av{background:linear-gradient(145deg,var(--awm-blue-bright),var(--awm-blue));color:#fff}
+.asg-av+.asg-av,.asg-av+.asg-more,.asg-av+.asg-add,.asg-more+.asg-add{margin-left:-7px}
+.asg-more{background:var(--awm-mist);color:var(--awm-slate);font-size:10.5px}
+.asg-add{
+  border:1px dashed var(--awm-line);color:var(--awm-slate);background:var(--awm-card);
+  font-size:15px;font-weight:500;box-shadow:none;
+  transition:border-color .14s ease,color .14s ease,background .14s ease;
+}
+.asg-btn:hover .asg-add{border-color:var(--awm-chip-fg);color:var(--awm-chip-fg)}
+.asg-label{margin-left:7px;font-size:12.5px;font-weight:600;color:var(--awm-slate)}
+.asg-btn:hover .asg-label{color:var(--awm-chip-fg)}
+.asg-none{color:var(--awm-slate);padding-left:4px}
+.stage-table tbody tr:hover .asg-av,.stage-table tbody tr:hover .asg-more{box-shadow:0 0 0 2px var(--awm-field)}
+
+/* "Assigned to me" — a pill in the filter row; pressed = chip colours. */
+.f-mine{
+  padding:7px 12px;font-size:13px;font-weight:600;border-radius:99px;
+  background:var(--awm-card);color:var(--awm-slate);border:1px solid var(--awm-line);
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.f-mine:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.f-mine[aria-pressed='true']{background:var(--awm-chip-bg);color:var(--awm-chip-fg);border-color:transparent}
+
+/* The picker (AssignPopover.tsx): fixed beside its opener, above the corner disc. */
+.asg-pop{
+  position:fixed;z-index:96;width:272px;max-width:calc(100vw - 16px);
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
+  box-shadow:0 10px 30px -12px rgba(2,20,33,.35),0 24px 60px -24px rgba(2,20,33,.4);
+  padding:6px;display:flex;flex-direction:column;gap:4px;
+}
+@media (prefers-reduced-motion:no-preference){
+  .asg-pop{animation:asg-in .14s ease}
+}
+@keyframes asg-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.asg-head{font-size:12.5px;color:var(--awm-slate);padding:6px 8px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asg-head strong{color:var(--awm-ink);font-weight:600}
+.asg-pop .asg-search{
+  width:auto;margin:2px 2px 3px;padding:7px 10px;border:1px solid var(--awm-line);border-radius:8px;
+  font:inherit;font-size:13px;background:var(--awm-field);color:var(--awm-ink);
+}
+.asg-pop .asg-search:focus{outline:none;border-color:var(--awm-blue);box-shadow:var(--awm-focus)}
+.asg-list{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.asg-opt{
+  display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+  padding:6px 8px;border-radius:8px;background:transparent;color:var(--awm-ink);
+  font-weight:500;font-size:13px;
+}
+.asg-opt:hover{background:var(--awm-mist)}
+.asg-opt:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.asg-opt .asg-av{box-shadow:none}
+.asg-opt-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asg-check{
+  flex:0 0 auto;width:18px;height:18px;border-radius:5px;border:1px solid var(--awm-line);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;line-height:1;color:#fff;background:var(--awm-card);
+  transition:background .12s ease,border-color .12s ease;
+}
+.asg-opt.all .asg-check{background:var(--awm-blue);border-color:var(--awm-blue)}
+.asg-opt.some .asg-check{background:var(--awm-chip-bg);border-color:var(--awm-blue);color:var(--awm-chip-fg)}
+.asg-empty{padding:12px 8px;font-size:12.5px;color:var(--awm-slate);text-align:center}
+.asg-foot{font-size:11.5px;color:var(--awm-slate);padding:7px 8px 4px;border-top:1px solid var(--awm-line);margin-top:2px}
+
+/* letter.css sizes `.letter-overlay` against the OLD stack (session bar +
+   header + tab strip + sub-tabs). Inside the sidebar shell only the session
+   bar and the sub-tabs sit above it, so the letter gets the room back. */
+.om-content .letter-overlay{height:calc(100dvh - 92px)}
+/* With the session bar folded to its 12px strip, the letter gets the rest. */
+body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 58px)}
+
+/* ================================================================
+   ACTION HUB — the corner disc and the card it unfolds into
+   (ActionHub.tsx). The one place the app spends its boldness: a solid
+   brand-blue disc, fixed bottom-right, that opens into a hub with New
+   Request as the hero row and the file operations grouped beneath.
+   Under the toast (z 100) and the modals (z 200); gone in print.
+   ================================================================ */
+.ah{position:fixed;right:24px;bottom:24px;z-index:90}
+.ah-fab{
+  width:56px;height:56px;padding:0;border-radius:50%;justify-content:center;
+  background:var(--awm-blue);color:#fff;
+  box-shadow:0 14px 30px -10px rgba(0,98,159,.75),0 2px 6px rgba(1,58,94,.25);
+  transition:background .14s ease,box-shadow .2s ease,transform .2s cubic-bezier(.22,.68,.35,1);
+}
+.ah-fab:hover{background:var(--awm-blue-lift);
+  box-shadow:0 18px 36px -10px rgba(0,98,159,.8),0 2px 6px rgba(1,58,94,.25)}
+.ah-fab:active{transform:translateY(1px)}
+.ah-fab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--awm-page),0 0 0 6px var(--awm-blue)}
+.ah-fab svg{transition:transform .22s cubic-bezier(.22,.68,.35,1)}
+.ah.open .ah-fab svg{transform:rotate(45deg)}
+
+/* Absolutely positioned above the disc so the folded card (visibility:hidden,
+   never a hit target) leaves the root's hit area exactly the disc — a card
+   kept in flow would hand its parent a 300px-wide dead zone over the table. */
+.ah-panel{
+  position:absolute;right:0;bottom:calc(100% + 12px);
+  width:300px;max-width:calc(100vw - 48px);max-height:calc(100dvh - 120px);overflow-y:auto;
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:16px;
+  box-shadow:0 10px 30px -12px rgba(2,20,33,.35),0 30px 70px -24px rgba(2,20,33,.45);
+  padding:8px;display:flex;flex-direction:column;gap:4px;
+  transform-origin:100% 100%;
+  opacity:0;visibility:hidden;transform:translateY(10px) scale(.96);
+  transition:opacity .16s ease,transform .2s cubic-bezier(.22,.68,.35,1),visibility 0s linear .2s;
+}
+.ah.open .ah-panel{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+
+.ah-hero{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:11px 12px;border-radius:11px;
+  background:var(--awm-chip-bg);color:var(--awm-ink);border:1px solid transparent;
+}
+.ah-hero:hover{border-color:var(--awm-blue)}
+.ah-hero-icon{
+  flex:0 0 auto;width:36px;height:36px;border-radius:10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--awm-blue);color:#fff;
+}
+.ah-hero .ah-label{font-size:14px;font-weight:600}
+.ah-group{display:flex;flex-direction:column;gap:1px;padding:6px 0 2px}
+.ah-group+.ah-group{border-top:1px solid var(--awm-line);padding-top:8px}
+.ah-group-label{font-size:11.5px;font-weight:600;color:var(--awm-slate);padding:2px 10px 5px}
+.ah-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:7px 10px;border-radius:8px;background:transparent;color:var(--awm-ink);font-weight:500;
+}
+.ah-item:hover{background:var(--awm-mist)}
+.ah-item:focus-visible,.ah-hero:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.ah-item-icon{flex:0 0 auto;color:var(--awm-slate);transition:color .14s ease}
+.ah-item:hover .ah-item-icon{color:var(--awm-chip-fg)}
+.ah-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ah-label{font-size:13px;line-height:1.3}
+.ah-hint{font-size:11.5px;font-weight:400;color:var(--awm-slate);line-height:1.3}
+
+@media (prefers-reduced-motion:reduce){
+  .om-side,.ah-panel,.ah-fab,.ah-fab svg,.tab,.om-tab-icon,.ah-item-icon{transition:none}
+}
+
+/* Narrow screens: the sidebar folds back into a horizontal strip across the
+   top (title hidden, the logo badge stays), and the collapsed-rail rules
+   stand down so the strip always shows its labels. */
+@media (max-width:900px){
+  .om-shell{flex-direction:column}
+  .om-side,.om-collapsed .om-side{width:auto;flex:0 0 auto;border-right:none;border-bottom:1px solid var(--awm-line)}
+  .om-side-inner{position:static;max-height:none;flex-direction:row;align-items:center;gap:4px}
+  header.app,.om-collapsed header.app{grid-template-columns:auto;padding:10px 6px 10px 14px;gap:0}
+  header.app h1,.om-collapse{display:none}
+  .tabbar,.om-collapsed .tabbar{flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;gap:2px;padding:6px 10px;overflow-x:auto}
+  .tab,.om-collapsed .tab{width:auto;padding:8px 10px;white-space:nowrap;justify-content:flex-start}
+  .tab.active::before{display:none}
+  .om-collapsed .om-tab-text{display:flex}
+  .om-collapsed .tab-count{position:static;min-width:22px;height:auto;padding:1px 7px;font-size:11.5px;line-height:1.5;box-shadow:none}
+  .om-tab-sub{display:none}
+  .om-nav-sep,.om-collapsed .om-nav-sep{width:1px;height:20px;margin:0 4px;flex:0 0 auto}
+  .om-view-head{padding:16px 16px 0}
+  .stage-controls{padding:12px 16px 10px}
+  .stage-table-wrap{padding:0 16px 96px}
+  .ah{right:16px;bottom:16px}
+}
+
+/* ================================================================
+   /apply — THE PUBLIC REQUEST FORM. Outside the authed shell: a slim
+   brand bar, a serif headline, then the same section cards HR's form
+   uses (.grp, .rf-*, .fld) minus HR-only concerns, and one sticky
+   "Send request" bar. Themed like everything else.
+   ================================================================ */
+.apply{min-height:100dvh;display:flex;flex-direction:column}
+.apply-bar{justify-content:flex-start}
+.apply-mark{width:28px;height:28px;border-radius:7px;display:block}
+.apply-brand{color:#fff;font-weight:600;letter-spacing:.01em}
+.apply-bar-note{color:#9db3c2}
+.apply-main{width:100%;max-width:860px;margin:0 auto;padding:36px 20px 150px;flex:1}
+.apply-hero{margin-bottom:26px}
+.apply-hero h1{
+  margin:0 0 10px;font-family:var(--awm-serif);font-size:32px;font-weight:600;
+  letter-spacing:-.012em;line-height:1.15;color:var(--awm-ink);
+}
+.apply-lede{margin:0;font-size:15.5px;line-height:1.55;color:var(--awm-ink);max-width:62ch}
+.apply-meta{margin:10px 0 0;font-size:13px;color:var(--awm-slate)}
+.apply-form .grp.rf-sec{margin-bottom:16px}
+.apply-you .fld label.q{font-size:14px}
+.apply-you-missing{border-color:var(--awm-req)}
+.apply-hint{color:var(--awm-slate);font-weight:500}
+/* The honeypot: off-canvas, never display:none (some bots skip hidden inputs). */
+.apply-hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+
+.apply-foot{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  padding:12px 20px;background:var(--awm-card);border-top:1px solid var(--awm-line);
+  box-shadow:0 -10px 30px -18px rgba(2,20,33,.35);
+}
+.apply-foot-inner{width:100%;max-width:860px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.apply-status{font-size:13px;color:var(--awm-slate);display:flex;align-items:center;gap:7px}
+.apply-error{
+  font-size:13px;color:var(--awm-danger);background:var(--awm-danger-bg);
+  border:1px solid var(--awm-danger-line);border-radius:8px;padding:6px 10px;
+}
+.apply-submit{margin-left:auto;padding:11px 20px;font-size:14px;border-radius:10px}
+
+.apply-done{
+  background:var(--awm-card);border:1px solid var(--awm-line);border-radius:16px;
+  padding:36px 32px;max-width:640px;margin:20px auto 0;text-align:center;
+}
+.apply-done-mark{
+  width:52px;height:52px;border-radius:50%;margin:0 auto 14px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--awm-ok-bg);color:var(--awm-ok);font-size:24px;font-weight:700;
+}
+.apply-done h2{margin:0 0 8px;font-family:var(--awm-serif);font-size:26px;font-weight:600;color:var(--awm-ink)}
+.apply-done p{margin:0 0 8px;font-size:14.5px;line-height:1.55;color:var(--awm-ink)}
+.apply-done .apply-dim{color:var(--awm-slate);font-size:13.5px}
+.apply-done .btn-primary{margin-top:14px}
+.apply-ref{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--awm-mist);padding:2px 7px;border-radius:6px}
+
+@media (max-width:640px){
+  .apply-main{padding:24px 16px 170px}
+  .apply-hero h1{font-size:26px}
+  .apply-submit{width:100%;margin-left:0;justify-content:center}
+}
+@media print{ .apply-foot,.apply-bar{display:none} }
+
+/* The shared per-app Users view (shell.css .am-*) inside the offers content
+   column: inset like every other view's content; it brings its own title. */
+.om-content .am{padding:18px 24px 40px}

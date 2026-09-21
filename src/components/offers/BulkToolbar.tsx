@@ -1,10 +1,16 @@
 'use client'
 
-// Pipeline bulk-action toolbar.
-// Markup ← S1 343–352.  Logic ← S3 579–614 (bulk signatory), 393–402 (mass Word),
-// 716–726 (mass PDF), S2 791–799 (selected CSV), S3 745 (delete selected).
+// Pipeline selection bar — appears ONLY while rows are checked, in the slot
+// the filter row otherwise occupies (StageTable decides which one renders).
+// Logic ← S3 579–614 (bulk signatory), 393–402 (mass Word), 716–726 (mass PDF),
+// S2 791–799 (selected CSV), S3 745 (delete selected).
+//
+// One deliberate behavior change from the source app: the old "no rows
+// checked → apply the signer to ALL visible rows after a confirm" fallback is
+// gone. The bar only exists with a selection, and the header checkbox selects
+// all — the same intent, stated explicitly instead of implied.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { dstamp, safeFileBase } from '@/lib/offers/format'
 import { SIGNATORY, swapSigInHtml } from '@/lib/offers/letter'
@@ -33,26 +39,39 @@ function zipBlob(files: ZipFile[]): Blob {
 export interface BulkToolbarProps {
   /** Ids of the checked rows currently visible in the pipeline table. */
   selectedIds: string[]
-  /** Ids of every row currently visible in the pipeline table (after filters). */
-  visibleIds: string[]
   /** Clear the table's checkbox selection (after a destructive bulk action). */
   onClearSelection: () => void
+  /**
+   * Open the assign picker for every selected row, anchored to the Assign
+   * button's rect. Omitted when the viewer may not assign — the button hides.
+   */
+  onAssign?: (rect: DOMRect) => void
 }
 
-export default function BulkToolbar({
-  selectedIds,
-  visibleIds,
-  onClearSelection,
-}: BulkToolbarProps) {
+export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }: BulkToolbarProps) {
   const api = useOffers()
-  const [sigKey, setSigKey] = useState<string>('')
   const [wmOn, setWmOn] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [sigOpen, setSigOpen] = useState(false)
+  const sigRef = useRef<HTMLDivElement | null>(null)
 
   const n = selectedIds.length
   const wm = (): WatermarkOpt => ({ on: wmOn, text: 'SAMPLE' })
 
   const recFor = (id: string): OfferRecord | undefined => api.records.find((r) => r.id === id)
+
+  // Any click outside the signer dropdown closes it (same pattern as the
+  // header menu in OfferManager).
+  useEffect(() => {
+    if (!sigOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      const el = sigRef.current
+      if (el && e.target instanceof Node && el.contains(e.target)) return
+      setSigOpen(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [sigOpen])
 
   // S3 604–612
   function applySignatory(ids: string[], key: SignatoryKey) {
@@ -94,35 +113,6 @@ export default function BulkToolbar({
         (custom !== 1 ? 's have' : ' has') +
         ' a custom signature — open to change.'
     api.toast(msg)
-  }
-
-  // S3 613–614
-  function bulkAssignSignatory() {
-    if (!sigKey) {
-      api.toast('Pick a signer from the dropdown first.', true)
-      return
-    }
-    const key = sigKey as SignatoryKey
-    const sg = SIGNATORY[key]
-    if (selectedIds.length) {
-      applySignatory(selectedIds, key)
-      return
-    }
-    if (!visibleIds.length) {
-      api.toast('No requests in this list.', true)
-      return
-    }
-    api.confirmDialog(
-      'Assign signer to all?',
-      'No rows are checked. Set ' +
-        sg.name +
-        ' as the AWM signing party on all ' +
-        visibleIds.length +
-        ' request' +
-        plural(visibleIds.length, '', 's') +
-        ' in this list?',
-      () => applySignatory(visibleIds, key),
-    )
   }
 
   // S3 716–726
@@ -261,56 +251,76 @@ export default function BulkToolbar({
   }
 
   return (
-    <div className="stage-toolbar">
-      <button
-        className="btn-light"
-        type="button"
-        onClick={() => {
-          api.showView('editor')
-          api.newRecord()
-          api.showSub('details')
-        }}
-      >
-        + New Request
-      </button>
-      <span className="st-spacer" />
-      <span className="mass-sig">
-        <span className="ms-lbl">AWM signer:</span>
-        <select
-          title="Bulk-assign the signing party for our side"
-          value={sigKey}
-          onChange={(e) => setSigKey(e.target.value)}
-        >
-          <option value="">Set signer to…</option>
-          {SIG_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {SIGNATORY[k].name + ' – ' + SIGNATORY[k].title}
-            </option>
-          ))}
-        </select>
-        <button className="btn-light" type="button" onClick={bulkAssignSignatory}>
-          {'Assign (' + n + ')'}
-        </button>
+    <div className="sel-bar" role="toolbar" aria-label="Actions for the selected requests">
+      <span className="sel-count">
+        {n} selected
       </span>
-      <label className="wm-toggle">
+      <button
+        type="button"
+        className="sel-clear"
+        onClick={onClearSelection}
+        title="Clear selection"
+        aria-label="Clear selection"
+      >
+        ✕
+      </button>
+
+      {onAssign ? (
+        <button
+          className="btn-light"
+          type="button"
+          aria-haspopup="dialog"
+          onClick={(e) => {
+            e.stopPropagation()
+            onAssign(e.currentTarget.getBoundingClientRect())
+          }}
+        >
+          Assign
+        </button>
+      ) : null}
+
+      <div className="dropdown" ref={sigRef}>
+        <button className="btn-light" type="button" onClick={() => setSigOpen((o) => !o)}>
+          Set signer <span className="caret">▾</span>
+        </button>
+        <div className={sigOpen ? 'menu menu-left open' : 'menu menu-left'}>
+          {SIG_KEYS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => {
+                setSigOpen(false)
+                applySignatory(selectedIds, k)
+              }}
+            >
+              {SIGNATORY[k].name} — {SIGNATORY[k].title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="wm-toggle" title="Stamp a SAMPLE watermark across generated letters">
         <input type="checkbox" checked={wmOn} onChange={(e) => setWmOn(e.target.checked)} />{' '}
-        Watermark
+        SAMPLE watermark
       </label>
+
+      <span className="sel-spacer" />
+
       <button
         className="btn-primary"
         type="button"
         disabled={busy}
         onClick={() => void run(() => exportMassLetters(selectedIds))}
       >
-        {'Generate Offer Letters PDF (' + n + ')'}
+        Generate PDF letters
       </button>
       <button
-        className="btn-primary"
+        className="btn-light"
         type="button"
         disabled={busy}
         onClick={() => exportMassLettersWord(selectedIds)}
       >
-        {'Generate Offer Letters Word (' + n + ')'}
+        Word letters
       </button>
       <button
         className="btn-light"
@@ -318,10 +328,10 @@ export default function BulkToolbar({
         disabled={busy}
         onClick={() => void run(() => exportSelected(selectedIds))}
       >
-        {'Export CSV (' + n + ')'}
+        Export CSV
       </button>
       <button className="btn-danger" type="button" onClick={() => deleteSelected(selectedIds)}>
-        {'Delete Selected (' + n + ')'}
+        Delete
       </button>
     </div>
   )

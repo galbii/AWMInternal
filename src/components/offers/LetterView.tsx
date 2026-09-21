@@ -10,15 +10,11 @@
 // All letter-HTML builders are client-only; they run in effects/handlers, never during SSR.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { useOffers } from '@/components/offers/OffersProvider'
 import { esc, safeFileBase } from '@/lib/offers/format'
-import {
-  generateLetterHTML,
-  letterWrap,
-  resolveLetter,
-  setByPath,
-} from '@/lib/offers/letter'
+import { generateLetterHTML, letterWrap, resolveLetter, setByPath } from '@/lib/offers/letter'
 import {
   letterDocHTML,
   mailtoUrl,
@@ -27,6 +23,7 @@ import {
   offerPacketHTML,
   owaComposeUrl,
 } from '@/lib/offers/letter-exports'
+import { letterToPdfBytes } from '@/lib/offers/pdf'
 import { downloadBlob } from '@/lib/offers/spreadsheet'
 import { getEmailPref, setEmailPref } from '@/lib/offers/storage'
 import {
@@ -170,6 +167,14 @@ export interface LetterViewProps {
    * view that the page does not render — is dropped instead of being a dead button.
    */
   standalone?: boolean
+  /**
+   * Id of an element to render the action bar INTO (a React portal) instead of
+   * as the overlay's fourth column. /offers/[id] passes its sticky footer's
+   * slot, so the actions stay on screen on both of its tabs while the handlers
+   * — which need this view's refs — stay here. Nothing renders until the slot
+   * exists, so the grid never shows a stray fourth column for a frame.
+   */
+  actionsSlotId?: string
 }
 
 /**
@@ -202,13 +207,22 @@ function PanelBlock({
   )
 }
 
-export default function LetterView({ standalone }: LetterViewProps): React.JSX.Element | null {
+export default function LetterView({
+  standalone,
+  actionsSlotId,
+}: LetterViewProps): React.JSX.Element | null {
   const api = useOffers()
   const rec: OfferRecord | null = api.records.find((r) => r.id === api.currentId) || null
 
   const [L, setL] = useState<LetterConfig | null>(null)
   const [contentKey, setContentKey] = useState(0)
   const [emailClient, setEmailClient] = useState<EmailClientPref>('desktop')
+  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
+  useEffect(() => {
+    if (!actionsSlotId) return
+    setActionsSlot(document.getElementById(actionsSlotId))
+  }, [actionsSlotId])
 
   const htmlRef = useRef<string>('')
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -280,7 +294,9 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
       // "letter-updated" for merely LOOKING at the letter. Only write when the
       // rebuild actually changes something.
       const unchanged =
-        !r.letterHtml && !r.letterStale && JSON.stringify(r.letter ?? null) === JSON.stringify(nextL)
+        !r.letterHtml &&
+        !r.letterStale &&
+        JSON.stringify(r.letter ?? null) === JSON.stringify(nextL)
       if (unchanged) {
         ownSigRef.current = letterSig(recId, r.letter, r.letterHtml)
       } else {
@@ -354,10 +370,7 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
   const [activeBlock, setActiveBlock] = useState<string>('lp-letter')
   const optionsRef = useRef<HTMLDivElement | null>(null)
 
-  const navRows = useMemo(
-    () => (L ? panelNavEntries(L, rec ? rec.data : {}) : []),
-    [L, rec],
-  )
+  const navRows = useMemo(() => (L ? panelNavEntries(L, rec ? rec.data : {}) : []), [L, rec])
 
   const jumpToBlock = useCallback((id: string): void => {
     const el = document.getElementById(id)
@@ -365,7 +378,8 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
     if (!el || !col) return
     // Assign scrollTop rather than scrollIntoView: only this column should move,
     // and programmatic smooth scrolling is unreliable on it.
-    col.scrollTop = col.scrollTop + (el.getBoundingClientRect().top - col.getBoundingClientRect().top) - 10
+    col.scrollTop =
+      col.scrollTop + (el.getBoundingClientRect().top - col.getBoundingClientRect().top) - 10
   }, [])
 
   useEffect(() => {
@@ -425,12 +439,22 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
   )
 
   // S3 435–438 — Regenerate. Nothing to discard now, so no confirm.
+  // From the details tab (the /offers/[id] footer shows these controls on both
+  // tabs) the letter is not on screen: switch to it — opening the letter
+  // flushes pending form edits and rebuilds from the fields — so the click
+  // visibly does something.
   const onRegenClick = useCallback(() => {
+    const a = apiRef.current
+    if (a.sub !== 'letter') {
+      a.openLetter()
+      a.toast('Letter regenerated from the current fields.')
+      return
+    }
     const r = recRef.current
     const cur = LRef.current
     if (!r || !cur) return
     regen(cur, r.id)
-    apiRef.current.toast('Letter regenerated from the current fields.')
+    a.toast('Letter regenerated from the current fields.')
   }, [regen])
 
   // S3 439–442 — watermark toggle; independent of manual edits.
@@ -448,13 +472,57 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
     [patchSelf, renderWatermark, setLetter],
   )
 
-  // S3 443 — print only the sheet.
+  // S3 443 — print only the sheet. The print rules can only print the VISIBLE
+  // sheet: from the details tab it sits in a display:none pane and the dialog
+  // prints blank pages, so switch to the letter first and print a frame later.
   const onPrint = useCallback(() => {
-    document.body.classList.add('printing-letter')
-    window.print()
-    window.setTimeout(() => {
-      document.body.classList.remove('printing-letter')
-    }, 700)
+    const doPrint = (): void => {
+      document.body.classList.add('printing-letter')
+      window.print()
+      window.setTimeout(() => {
+        document.body.classList.remove('printing-letter')
+      }, 700)
+    }
+    if (apiRef.current.sub !== 'letter') {
+      apiRef.current.openLetter()
+      window.setTimeout(doPrint, 120)
+      return
+    }
+    doPrint()
+  }, [])
+
+  // A real PDF file — the same rasterizer the pipeline's bulk export uses
+  // (src/lib/offers/pdf.ts). Built off-screen from the record, so it works
+  // from either tab and carries none of the browser's print headers/footers
+  // (title, URL, date, page numbers), which the print dialog adds and this
+  // app cannot suppress without changing the frozen page margins.
+  const onPdf = useCallback(async () => {
+    const r = recRef.current
+    const a = apiRef.current
+    if (!r) {
+      a.toast('Add the new hire details first, then export.', true)
+      return
+    }
+    setPdfBusy(true)
+    try {
+      const cur = LRef.current
+      const wm =
+        cur && cur.watermark && cur.watermark.on
+          ? { on: true, text: cur.watermark.text || 'SAMPLE' }
+          : null
+      const bytes = await letterToPdfBytes(r, wm)
+      const buf = new ArrayBuffer(bytes.length)
+      new Uint8Array(buf).set(bytes)
+      downloadBlob(
+        new Blob([buf], { type: 'application/pdf' }),
+        'Offer_Letter_' + safeFileBase(r.data.employeeName || 'New Hire', 'letter') + '.pdf',
+      )
+      a.toast('PDF saved.')
+    } catch (e) {
+      a.toast('Could not build the PDF: ' + (e instanceof Error ? e.message : String(e)), true)
+    } finally {
+      setPdfBusy(false)
+    }
   }, [])
 
   // S3 314–350 — self-contained shareable offer packet.
@@ -512,6 +580,122 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
   }, [])
 
   if (!rec) return null
+
+  // The action bar: the overlay's fourth column in the SPA (a dark column,
+  // the binding the white sheet sits in), or — when a slot id is given — the
+  // same controls portalled into the page's footer. Same buttons and ids
+  // either way; only the wrapper class, and so the layout, differs.
+  // NOT an <aside>: `aside{display:none}` is a global rule in offers.css.
+  const inBar = Boolean(actionsSlotId)
+  const actions = (
+    <div className={inBar ? 'la-bar' : 'letter-actions'}>
+      {inBar ? (
+        <span className="la-note">
+          Built from the fields — edit it with the options rail, or on New Hire Details.
+        </span>
+      ) : (
+        <div className="la-head">
+          {/* The /offers/[id] page already names the record in its header; only
+              the SPA, where this column is the sole label, needs it repeated. */}
+          {standalone ? null : (
+            <span className="la-name" id="letterName">
+              {rec.data.employeeName || 'New hire'}
+            </span>
+          )}
+          <span className="la-note">
+            Built from the fields. Edit it with the options on the left, or on New Hire Details.
+          </span>
+        </div>
+      )}
+
+      <div className="la-group">
+        <span className="la-label">This letter</span>
+        <button
+          type="button"
+          className="btn-light la-btn"
+          id="letterRegen"
+          title="Rebuild the letter from the current fields (replaces manual edits)"
+          onClick={onRegenClick}
+        >
+          Regenerate
+        </button>
+        <label className="la-check" title="Show a SAMPLE watermark on this letter (print / PDF)">
+          <input
+            type="checkbox"
+            id="letterWmOn"
+            checked={!!(L && L.watermark && L.watermark.on)}
+            onChange={(e) => {
+              onWatermarkToggle(e.target.checked)
+            }}
+          />{' '}
+          Watermark
+        </label>
+      </div>
+
+      <div className="la-group">
+        <span className="la-label">Save a copy</span>
+        <button
+          type="button"
+          className="btn-primary la-btn"
+          id="letterPdf"
+          title="Save the letter as a PDF file"
+          disabled={pdfBusy}
+          onClick={() => void onPdf()}
+        >
+          {pdfBusy ? 'Building PDF…' : 'Download PDF'}
+        </button>
+        <button
+          type="button"
+          className="btn-light la-btn"
+          id="letterPrint"
+          title="Print the letter (turn off the browser's headers and footers in the print dialog)"
+          onClick={onPrint}
+        >
+          Print
+        </button>
+        <button type="button" className="btn-light la-btn" id="letterDoc" onClick={onWord}>
+          Word (.doc)
+        </button>
+        <button type="button" className="btn-light la-btn" id="letterShare" onClick={onShare}>
+          Offer packet (HTML)
+        </button>
+      </div>
+
+      <div className="la-group">
+        <span className="la-label">Email</span>
+        <select
+          className="la-select"
+          id="emailClientPref"
+          aria-label="Email client"
+          value={emailClient}
+          onChange={(e) => {
+            const v = e.target.value as EmailClientPref
+            setEmailClient(v)
+            setEmailPref(v)
+          }}
+        >
+          <option value="desktop">Desktop Outlook</option>
+          <option value="web">Outlook Web</option>
+        </select>
+        <button type="button" className="btn-light la-btn" id="letterEmail" onClick={onEmail}>
+          ✉ Email
+        </button>
+      </div>
+
+      {standalone ? null : (
+        <button
+          type="button"
+          className="btn-ghost la-btn la-back"
+          id="letterClose"
+          onClick={() => {
+            api.showView('pipeline')
+          }}
+        >
+          Back to Pipeline
+        </button>
+      )}
+    </div>
+  )
 
   return (
     <div className="letter-overlay" id="letterOverlay">
@@ -672,7 +856,9 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
                     >
                       <div className="rf-card-head">
                         <h4>{r.label}</h4>
-                        <span className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}>
+                        <span
+                          className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}
+                        >
                           {on ? 'In this letter' : 'Not included'}
                         </span>
                       </div>
@@ -724,7 +910,9 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
                     >
                       <div className="rf-card-head">
                         <h4>{a.label}</h4>
-                        <span className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}>
+                        <span
+                          className={on ? 'rf-reach rf-reach-letter' : 'rf-reach rf-reach-internal'}
+                        >
                           {on ? 'In this letter' : 'Not included'}
                         </span>
                       </div>
@@ -755,96 +943,7 @@ export default function LetterView({ standalone }: LetterViewProps): React.JSX.E
           </div>
         </div>
 
-        {/* Third column. This was a full-width bar across the top, where seven
-            controls wrapped onto three rows at anything under a wide desktop and
-            ate vertical space the 11in sheet needed. As a column the actions
-            stack, group by what they do, and stop competing with the letter.
-            NOT an <aside>: `aside{display:none}` is a global rule in offers.css. */}
-        <div className="letter-actions">
-          <div className="la-head">
-            {/* The /offers/[id] page already names the record in its header; only
-                the SPA, where this column is the sole label, needs it repeated. */}
-            {standalone ? null : (
-              <span className="la-name" id="letterName">
-                {rec.data.employeeName || 'New hire'}
-              </span>
-            )}
-            <span className="la-note">
-              Built from the fields. Edit it with the options on the left, or on New Hire Details.
-            </span>
-          </div>
-
-          <div className="la-group">
-            <span className="la-label">This letter</span>
-            <button
-              type="button"
-              className="btn-light la-btn"
-              id="letterRegen"
-              title="Rebuild the letter from the current fields (replaces manual edits)"
-              onClick={onRegenClick}
-            >
-              Regenerate
-            </button>
-            <label className="la-check" title="Show a SAMPLE watermark on this letter (print / PDF)">
-              <input
-                type="checkbox"
-                id="letterWmOn"
-                checked={!!(L && L.watermark && L.watermark.on)}
-                onChange={(e) => {
-                  onWatermarkToggle(e.target.checked)
-                }}
-              />{' '}
-              Watermark
-            </label>
-          </div>
-
-          <div className="la-group">
-            <span className="la-label">Save a copy</span>
-            <button type="button" className="btn-primary la-btn" id="letterPrint" onClick={onPrint}>
-              Print / Save as PDF
-            </button>
-            <button type="button" className="btn-light la-btn" id="letterDoc" onClick={onWord}>
-              Word (.doc)
-            </button>
-            <button type="button" className="btn-light la-btn" id="letterShare" onClick={onShare}>
-              Offer packet (HTML)
-            </button>
-          </div>
-
-          <div className="la-group">
-            <span className="la-label">Email</span>
-            <select
-              className="la-select"
-              id="emailClientPref"
-              aria-label="Email client"
-              value={emailClient}
-              onChange={(e) => {
-                const v = e.target.value as EmailClientPref
-                setEmailClient(v)
-                setEmailPref(v)
-              }}
-            >
-              <option value="desktop">Desktop Outlook</option>
-              <option value="web">Outlook Web</option>
-            </select>
-            <button type="button" className="btn-light la-btn" id="letterEmail" onClick={onEmail}>
-              ✉ Email
-            </button>
-          </div>
-
-          {standalone ? null : (
-            <button
-              type="button"
-              className="btn-ghost la-btn la-back"
-              id="letterClose"
-              onClick={() => {
-                api.showView('pipeline')
-              }}
-            >
-              Back to Pipeline
-            </button>
-          )}
-        </div>
+        {inBar ? (actionsSlot ? createPortal(actions, actionsSlot) : null) : actions}
       </div>
     </div>
   )

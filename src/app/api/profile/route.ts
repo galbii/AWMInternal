@@ -3,7 +3,7 @@
 // GET   ?check=<candidate> -> { available, normalized, reason? }
 //       The live handle check the editor runs as the user types. It answers
 //       only yes/no: it never says WHOSE account holds a taken name.
-// PATCH { id, name?, username?, email?, password?, roles? } -> { ok, profile }
+// PATCH { id, name?, username?, email?, password?, roles?, apps? } -> { ok, profile }
 //       Owner or admin/dev only, and rejected while emulating — view-as is
 //       read-only across the whole app.
 //
@@ -22,7 +22,10 @@
 import { Forbidden, NotFound } from 'payload'
 
 import { hasRole, type Role } from '@/access/roles'
+import { withApps } from '@/lib/apps/membership'
+import { isMembershipApp } from '@/lib/apps/registry'
 import { deny, getViewer } from '@/lib/auth/viewer'
+import type { User } from '@/payload-types'
 import { toProfileView } from '@/lib/users/profile'
 import { slugifyUsername, validateUsername } from '@/lib/users/username'
 
@@ -76,6 +79,7 @@ interface PatchBody {
   email?: unknown
   password?: unknown
   roles?: unknown
+  apps?: unknown
 }
 
 /** The ONLY fields that may reach payload.update. Nothing else is copied. */
@@ -85,6 +89,7 @@ interface ProfileUpdate {
   email?: string
   password?: string
   roles?: Role[]
+  apps?: User['apps']
 }
 
 export async function PATCH(request: Request): Promise<Response> {
@@ -157,6 +162,17 @@ export async function PATCH(request: Request): Promise<Response> {
     const roles = supplied.filter((r): r is Role => typeof r === 'string' && ROLES.has(r))
     if (roles.length !== supplied.length) return fail(400, 'Unknown role.')
     data.roles = roles
+  }
+
+  if (body.apps !== undefined) {
+    // Membership is an admin decision, but unlike roles it is safe on yourself:
+    // a manager opens every app whatever their list says.
+    if (!isAdmin) return deny(403, 'Only an admin can change app access.')
+    if (!Array.isArray(body.apps)) return fail(400, 'Apps must be a list.')
+    const supplied: unknown[] = body.apps
+    const apps = supplied.filter((a): a is string => typeof a === 'string' && isMembershipApp(a))
+    if (apps.length !== supplied.length) return fail(400, 'Unknown app.')
+    data.apps = withApps([], apps) as User['apps']
   }
 
   if (Object.keys(data).length === 0) return fail(400, 'Nothing to update.')
