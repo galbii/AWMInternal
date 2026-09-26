@@ -76,10 +76,6 @@ export default function AnalysisView() {
         <StatCard label="Pending" n={pending} sub={pct(pending) + '% of offers'} cls="muted" />
       </div>
 
-      {/* Not in the source: the cross-offer audit feed (2026-09), so the
-          numbers above sit next to what actually happened. */}
-      <RecentActivity />
-
       <h3 className="an-h">Offers by month</h3>
       <div className="barchart">
         {keys.length ? (
@@ -134,6 +130,12 @@ export default function AnalysisView() {
       ) : (
         <p className="muted">No dated offers yet.</p>
       )}
+
+      {/* Not in the source: the cross-offer audit feed (2026-09). It reads as
+          the page's footnote — the three analytics blocks above are one
+          argument (totals, then by month, then the same months in full), and
+          wedging a scrolling feed into the middle of it split them. */}
+      <RecentActivity />
     </div>
   )
 }

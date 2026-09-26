@@ -39,6 +39,12 @@ const REQUIRED_TOTAL = FIELDS.filter((f) => f.req).length
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** The signed-in colleague's own details, when there is a session. */
+export interface SignedInAs {
+  name: string
+  email: string
+}
+
 interface ApplyFormProps {
   /** True when the deployment set APPLY_ACCESS_CODE — the form asks for it. */
   requiresCode: boolean
@@ -48,6 +54,13 @@ interface ApplyFormProps {
    * with the top of the rail on wide screens and first of all on narrow ones.
    */
   hero?: React.ReactNode
+  /**
+   * The actor's name/email when the visitor happens to be signed in, else null.
+   * Seeds About you and Branch Manager and is then forgotten: these are ORDINARY
+   * editable fields, never locked, and nothing re-applies the seed once a value
+   * has been changed or cleared.
+   */
+  signedInAs?: SignedInAs | null
 }
 
 type Phase = 'form' | 'sending' | 'done'
@@ -61,10 +74,24 @@ function initials(name: string): string {
   return (first + last).toUpperCase()
 }
 
-export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React.JSX.Element {
-  const [data, setData] = useState<OfferData>({})
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+export default function ApplyForm({
+  requiresCode,
+  hero,
+  signedInAs,
+}: ApplyFormProps): React.JSX.Element {
+  // Whoever is filling this in is, far more often than not, the branch manager
+  // of the branch they are hiring into — so the answer is worth offering. It is
+  // still a GUESS about a third party (unlike About you, which is simply them),
+  // which is why the field wears a "from your account" note until it is changed.
+  const seededData = useMemo<OfferData>(() => {
+    const seed: OfferData = {}
+    if (signedInAs?.name) seed.branchManager = signedInAs.name
+    return seed
+  }, [signedInAs?.name])
+
+  const [data, setData] = useState<OfferData>(seededData)
+  const [name, setName] = useState(signedInAs?.name ?? '')
+  const [email, setEmail] = useState(signedInAs?.email ?? '')
   const [code, setCode] = useState('')
   /** Honeypot — a field people never see; bots fill it and get a polite no-op. */
   const [website, setWebsite] = useState('')
@@ -170,7 +197,9 @@ export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React
   }
 
   const reset = (): void => {
-    setData({})
+    // A second request is still theirs to file: keep the seeded answers, drop
+    // everything about the last new hire.
+    setData(seededData)
     setMissingIds([])
     setYouMissing(false)
     setError(null)
@@ -207,6 +236,19 @@ export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React
       return f?.req && !(data[id] || '').trim()
     }).length
 
+  /**
+   * A seeded answer says so — but only while it is still the guess. The moment
+   * it is edited or cleared the note goes, because it would then be a claim
+   * about the account that is no longer true.
+   */
+  const seedNote = (id: string): React.ReactNode => {
+    const seed = seededData[id]
+    if (!seed || (data[id] || '') !== seed) return null
+    return (
+      <span className="apply-seeded">Filled in from your account — change it if that is wrong.</span>
+    )
+  }
+
   const renderField = (id: string) => {
     const f = fieldById(id)
     if (!f) return null
@@ -219,6 +261,7 @@ export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React
         onChange={setField}
         onDollarBlur={onDollarBlur}
         onClearFields={clearFields}
+        extra={seedNote(f.id)}
       />
     )
   }
@@ -257,6 +300,10 @@ export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React
       </section>
     )
   }
+
+  /** True while About you is still untouched from the session seed. */
+  const youSeeded =
+    !!signedInAs && name === signedInAs.name && email === signedInAs.email
 
   /* ---- the rail's identity card: a live mirror of what has been typed ---- */
   const whoName = (data.preferredName || data.employeeName || '').trim()
@@ -317,6 +364,11 @@ export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React
               </span>
             </div>
             <div className="grp-body">
+              {youSeeded ? (
+                <p className="apply-seeded">
+                  Filled in from your account. Change it if HR should reply to someone else.
+                </p>
+              ) : null}
               <div className={'fld' + (youMissing && !name.trim() ? ' missing' : '')}>
                 <label className="q" htmlFor="apply-name">
                   Your name<span className="req">*</span>

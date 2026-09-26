@@ -70,7 +70,12 @@ import StageTable from './StageTable'
 
 const stageOf = (r: OfferRecord): Stage => r.stage || 'pipeline'
 
-/** localStorage key for the collapsed-rail preference (a new key; the frozen `onhr_*` set is untouched). */
+/**
+ * localStorage key for the sidebar preference (a new key; the frozen `onhr_*`
+ * set is untouched). Since 2026-09-26 the RAIL is the resting state and the
+ * labels unfold on hover, so what this remembers is the exception: '0' means
+ * "pinned open". A value of '1', and anything absent, is the rail.
+ */
 const SIDEBAR_KEY = 'onhr_sidebar_collapsed'
 
 type TableView = Exclude<View, 'analysis' | 'users' | 'editor'>
@@ -130,18 +135,18 @@ export default function OfferManager() {
 
   const [codeOpen, setCodeOpen] = useState(false)
   const [codeText, setCodeText] = useState('')
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const fileImportRef = useRef<HTMLInputElement | null>(null)
   const fileRestoreRef = useRef<HTMLInputElement | null>(null)
 
-  // The rail preference is read after mount so the server and first client
-  // render agree (expanded); a collapsed user sees one frame of the full rail.
+  // Read after mount so the server and first client render agree (the rail);
+  // someone who pinned the sidebar open sees one frame of the rail first.
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(SIDEBAR_KEY) === '1') setCollapsed(true)
+      if (window.localStorage.getItem(SIDEBAR_KEY) === '0') setCollapsed(false)
     } catch {
-      /* storage unavailable — stay expanded */
+      /* storage unavailable — stay on the rail */
     }
   }, [])
 
@@ -437,9 +442,9 @@ export default function OfferManager() {
                 type="button"
                 className="om-collapse"
                 onClick={toggleCollapsed}
-                aria-pressed={collapsed}
-                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-pressed={!collapsed}
+                aria-label={collapsed ? 'Keep the sidebar open' : 'Collapse the sidebar to a rail'}
+                title={collapsed ? 'Keep the sidebar open' : 'Collapse the sidebar to a rail'}
               >
                 {collapsed ? (
                   <PanelLeftOpen size={17} strokeWidth={1.75} aria-hidden="true" />

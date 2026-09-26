@@ -9,6 +9,7 @@
 // between rebuilds, so the DOM the user is editing is left alone.
 // All letter-HTML builders are client-only; they run in effects/handlers, never during SSR.
 
+import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -167,7 +168,21 @@ export interface LetterViewProps {
    * exists, so the grid never shows a stray fourth column for a frame.
    */
   actionsSlotId?: string
+  /**
+   * Let the section rail + options column REST COLLAPSED behind a slim tab that
+   * unfolds on hover, the same contract as the activity rail and the offers
+   * sidebar. /offers/[id] passes it; the SPA editor does not, because there the
+   * options column is the view's whole reason to exist.
+   *
+   * The peek must OVERLAY the preview rather than reflow it:
+   * `.letter-preview-area` is a size container driving the sheet's zoom steps,
+   * so a reflow mid-sweep would re-scale the letter under the pointer.
+   */
+  railsCollapsible?: boolean
 }
+
+/** localStorage key for the letter drawer's pin (a new key; the frozen onhr_* set is untouched). */
+const LETTER_RAIL_KEY = 'onhr_letter_rail'
 
 /**
  * A section of the options column. Deliberately the same shape as a section of
@@ -202,6 +217,7 @@ function PanelBlock({
 export default function LetterView({
   standalone,
   actionsSlotId,
+  railsCollapsible,
 }: LetterViewProps): React.JSX.Element | null {
   const api = useOffers()
   const rec: OfferRecord | null = api.records.find((r) => r.id === api.currentId) || null
@@ -214,6 +230,29 @@ export default function LetterView({
     if (!actionsSlotId) return
     setActionsSlot(document.getElementById(actionsSlotId))
   }, [actionsSlotId])
+
+  /* ---- the options drawer's pin (railsCollapsible only) ----
+     Rests collapsed, like the activity rail; only an explicit pin keeps it
+     open. Read after mount so the server and first client render agree. */
+  const [railPinned, setRailPinned] = useState(false)
+  useEffect(() => {
+    if (!railsCollapsible) return
+    try {
+      if (window.localStorage.getItem(LETTER_RAIL_KEY) === 'open') setRailPinned(true)
+    } catch {
+      /* stay collapsed */
+    }
+  }, [railsCollapsible])
+  const toggleRail = useCallback((): void => {
+    const next = !railPinned
+    setRailPinned(next)
+    try {
+      window.localStorage.setItem(LETTER_RAIL_KEY, next ? 'open' : 'closed')
+    } catch {
+      /* the choice just does not persist */
+    }
+  }, [railPinned])
+  const railsRest = Boolean(railsCollapsible) && !railPinned
 
   const htmlRef = useRef<string>('')
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -666,8 +705,32 @@ export default function LetterView({
   )
 
   return (
-    <div className="letter-overlay" id="letterOverlay">
+    <div
+      className={railsRest ? 'letter-overlay lp-collapsed' : 'letter-overlay'}
+      id="letterOverlay"
+    >
       <div className="letter-body-wrap">
+        {railsCollapsible ? (
+          <button
+            type="button"
+            className="lp-peek-tab"
+            onClick={toggleRail}
+            aria-expanded={railPinned}
+            title={
+              railPinned
+                ? 'Collapse the letter options to a rail'
+                : 'Pin the letter options open (or just point at this edge)'
+            }
+          >
+            {railPinned ? (
+              <ChevronsLeft size={14} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <ChevronsRight size={14} strokeWidth={2} aria-hidden="true" />
+            )}
+            <span className="lp-peek-label">Letter options</span>
+          </button>
+        ) : null}
+
         <nav className="rf-nav lp-rail" aria-label="Letter sections">
           <ul>
             {navRows.map((n) => (

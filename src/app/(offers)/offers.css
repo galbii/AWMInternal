@@ -159,7 +159,11 @@ header.app h1{
 .email-link:hover{text-decoration:underline}
 /* The table's address opens the composer, so it is a button now, not a
    mailto: link — stripped back to look exactly like the link it replaced. */
+/* `display` is deliberate: the base `button` rule below is inline-FLEX, and
+   text-overflow never ellipsises a flex container's content — the address was
+   hard-cut mid-domain with no "…". Keep it a block box. */
 button.email-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;
+  display:inline-block;vertical-align:middle;
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .c-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -251,19 +255,55 @@ button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
 .view{display:none}
 .view.active{display:block}
 
-/* --- collapsed rail: icons only, counts as small badges on the icon --- */
-.om-collapsed .om-side{width:68px;flex-basis:68px}
-.om-collapsed header.app{grid-template-columns:1fr;justify-items:center;padding:14px 8px 8px;gap:6px}
-.om-collapsed header.app h1,
-.om-collapsed .om-tab-text{display:none}
-.om-collapsed .tabbar{padding:4px 8px 16px}
-.om-collapsed .tab{justify-content:center;padding:11px 0}
-.om-collapsed .tab-count{
-  position:absolute;top:3px;right:9px;margin:0;
-  min-width:17px;height:17px;padding:0 4px;font-size:9.5px;line-height:17px;
-  box-shadow:0 0 0 1.5px var(--awm-card);
+/* --- the rail, and how it unfolds (2026-09-26) ---
+   `.om-collapsed` is the RESTING state now, not an opt-out: the rail shows
+   icons, and pointing at it (or tabbing into it) unfolds the labels.
+
+   The COLUMN stays 68px whatever happens — only `.om-side-inner` widens, and
+   it widens OVER the content. That is the whole point: sweeping the pointer
+   past the rail must never reflow the table underneath it. The inner is
+   already `position:sticky`, so it takes a z-index without any new
+   positioning.
+
+   Scoped to pointers that can actually hover, and to widths above the
+   horizontal-strip breakpoint. On a touch screen `.om-collapsed` does nothing
+   at all and the full 244px rail stays — there is no hover to reveal it. */
+@media (hover:hover) and (min-width:901px){
+  .om-collapsed .om-side{width:68px;flex-basis:68px}
+  .om-collapsed .om-side-inner{
+    width:68px;height:100dvh;max-height:none;background:var(--awm-card);z-index:61;
+    transition:width .2s cubic-bezier(.22,.68,.35,1),box-shadow .2s ease;
+  }
+  .om-collapsed .om-side:hover .om-side-inner,
+  .om-collapsed .om-side:focus-within .om-side-inner{
+    width:244px;border-right:1px solid var(--awm-line);
+    /* Sideways, not down: the panel is lifting off the content to its RIGHT. */
+    box-shadow:16px 0 36px -18px rgba(2,20,33,.45);
+  }
+
+  /* Folded contents. Everything below is undone by the hover state above. */
+  .om-collapsed .om-side:not(:hover):not(:focus-within) header.app{
+    grid-template-columns:1fr;justify-items:center;padding:14px 8px 8px;gap:6px}
+  /* The labels leave the LAYOUT but stay in the accessibility tree.
+     `display:none` would strip the page's only <h1>, and — worse — every
+     tab's accessible name, because the count span would then be the only
+     content left and each tab would announce as "3". */
+  .om-collapsed .om-side:not(:hover):not(:focus-within) header.app h1,
+  .om-collapsed .om-side:not(:hover):not(:focus-within) .om-tab-text{
+    position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;
+    overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+  }
+  .om-collapsed .om-side:not(:hover):not(:focus-within) .tabbar{padding:4px 8px 16px}
+  .om-collapsed .om-side:not(:hover):not(:focus-within) .tab{justify-content:center;padding:11px 0}
+  /* Ringed in the rail's own surface so the badge reads as a badge and not as
+     ink spilled on the glyph. */
+  .om-collapsed .om-side:not(:hover):not(:focus-within) .tab-count{
+    position:absolute;top:2px;right:6px;margin:0;
+    min-width:16px;height:16px;padding:0 4px;font-size:9.5px;line-height:16px;
+    box-shadow:0 0 0 2px var(--awm-card);
+  }
+  .om-collapsed .om-side:not(:hover):not(:focus-within) .om-nav-sep{margin:8px 10px}
 }
-.om-collapsed .om-nav-sep{margin:8px 10px}
 
 /* --- the title row above each view's content --- */
 .om-view-head{padding:22px 24px 0;display:flex;flex-direction:column;gap:3px}
@@ -277,7 +317,10 @@ button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
    ================================================================== */
 .wrap{display:block;min-height:calc(100vh - 56px)}
 aside{display:none}
-main{padding:0 28px 96px}
+/* 24px matches every other view's gutter. The cap is the fix for a 1040px
+   text input: at 960 the field column lands near 650px, a readable measure,
+   and the form reads as a document rather than a stretched table row. */
+main{padding:0 24px 96px;max-width:960px;margin:0 auto}
 
 .formhead{display:flex;align-items:baseline;gap:14px;margin:20px 0 8px;flex-wrap:wrap}
 .formhead h2{
@@ -323,6 +366,10 @@ input[type=text],input[type=email],input[type=tel],input[type=date],textarea,sel
   transition:border-color .14s ease,box-shadow .14s ease,background .14s ease;
 }
 textarea{min-height:64px;resize:vertical}
+/* Fields whose content has a known, short shape should not run the full
+   measure — an 8-character date in a 650px box reads as a mistake. */
+.fld input[type=date]{max-width:210px}
+.fld input[type=tel]{max-width:260px}
 input:focus,textarea:focus,select:focus{
   outline:none;background:var(--awm-card);border-color:var(--awm-blue);box-shadow:var(--awm-focus);
 }
@@ -456,7 +503,25 @@ input[type=file]{display:none}
 .wm-toggle input{accent-color:var(--awm-blue);width:15px;height:15px}
 
 /* Bottom padding leaves the last row's actions clear of the corner disc. */
-.stage-table-wrap{padding:0 24px 96px;overflow-x:auto}
+/* NO `scrollbar-width` here: Chrome 121+ prefers the standard property over
+   ::-webkit-scrollbar, and `thin` on macOS is an OVERLAY bar that reserves no
+   space and fades out — exactly the thing being fixed. Firefox reserves a
+   classic bar by default. */
+/* The 96px clearance for the corner disc is a MARGIN, not padding: a
+   horizontal scrollbar is drawn at the bottom of the PADDING box, so as
+   padding it left the bar floating 96px under the table. */
+.stage-table-wrap{padding:0 24px;margin-bottom:96px;overflow-x:auto}
+/* Below ~1225px viewport the table is wider than the pane and the Actions
+   column is off-screen — and macOS overlay scrollbars hide the only hint
+   that it is. A styled bar is present exactly when there is overflow, which
+   is the affordance; same reason .apply-rail styles its own. A scroll-shadow
+   would not work here: the table card is opaque and paints over it, and
+   making the Actions cell sticky would trap the row's fixed ⋯ menu inside a
+   z-1 stacking context, under the corner disc. */
+.stage-table-wrap::-webkit-scrollbar{height:10px}
+.stage-table-wrap::-webkit-scrollbar-thumb{background:var(--awm-slate);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box}
+.stage-table-wrap::-webkit-scrollbar-thumb:hover{background:var(--awm-ink);background-clip:content-box}
 /* border-collapse:separate is what lets the card corners actually round. */
 .stage-table{
   width:100%;border-collapse:separate;border-spacing:0;
@@ -505,7 +570,7 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
 .stat{
   background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
-  padding:16px 20px;min-width:170px;
+  padding:16px 20px;flex:1 1 170px;min-width:170px;
 }
 .stat-n{font-size:30px;font-weight:700;color:var(--awm-ink);line-height:1;letter-spacing:-.01em}
 .stat-l{font-size:12.5px;color:var(--awm-slate);font-weight:600;margin-top:7px}
@@ -518,8 +583,17 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
   display:flex;gap:16px;align-items:flex-end;height:210px;
   background:var(--awm-card);border:1px solid var(--awm-line);border-radius:12px;
   padding:16px 22px;overflow-x:auto;
+  /* Few months should read as a centred group, not as bars abandoned in the
+     card's first 200px. `safe` keeps the first bar reachable once there are
+     enough months to overflow — plain `center` would clip the start of the
+     scroll range. The unprefixed value first, as the fallback. */
+  justify-content:center;
+  justify-content:safe center;
 }
-.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:58px;height:100%}
+/* `flex:1 1 0` spreads the months across the card instead of huddling them
+   in its first 200px; the 40px fill stays 40px and centres in its share.
+   `min-width` is what keeps the card scrollable once there are many months. */
+.bar{display:flex;flex:1 1 0;flex-direction:column;align-items:center;justify-content:flex-end;min-width:58px;max-width:120px;height:100%}
 .bar-fill{
   width:40px;background:linear-gradient(180deg,var(--awm-blue-lift),var(--awm-blue));
   border-radius:6px 6px 0 0;min-height:3px;display:flex;justify-content:center;
@@ -557,10 +631,14 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .muted{color:var(--awm-slate)}
 
 @media print{
-  .session-bar,.as-switcher,header.app,aside,.form-actions,.tabbar,.subtabs,.om-side,.ah,.od-bar,.od-foot{display:none}
+  .session-bar,.as-switcher,header.app,aside,.form-actions,.tabbar,.subtabs,.om-side,.ah,.od-bar,.od-foot,.lp-peek-tab{display:none}
   /* Layout containment would make the preview the letter sheet's containing
      block and let its overflow clip the sheet on paper. Off for print. */
-  .od-letter .letter-overlay .letter-preview-area{container-type:normal}
+  .letter-preview-area{container-type:normal}
+  /* Same trap, one level up: the collapsed drawer's overlay needs a positioned
+     ancestor on screen, but `#letterSheet` prints as position:absolute at 0,0 —
+     it must resolve against the PAGE, not against the letter pane. */
+  .letter-overlay.lp-collapsed .letter-body-wrap{position:static}
   .om-shell{display:block}
   main{max-height:none}
 }
@@ -689,15 +767,83 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .od-letter .letter-overlay{
   height:calc(100vh - var(--od-top) - var(--od-bar-h) - var(--od-foot-h) - 32px);
   min-height:480px}
-.od-letter .letter-overlay .letter-body-wrap{grid-template-columns:176px 312px minmax(0,1fr);
+/* Column 1 is the drawer's tab (`.lp-peek-tab`), which is present in BOTH
+   states — pinned it is the collapse control, at rest it is the thing you point
+   at. 44px of permanent chrome buys the letter ~490px whenever the drawer is
+   resting, which is the default. */
+.od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 176px 312px minmax(0,1fr);
   grid-template-rows:minmax(0,1fr)}
-.od-letter .letter-overlay .lp-rail{grid-row:1;grid-column:1}
-.od-letter .letter-overlay .letter-options{grid-row:1;grid-column:2}
-/* The PREVIEW is a size container: the sheet's on-screen scale follows the
-   room the preview actually has (see the width budget below), so folding the
-   activity rail grows the sheet and moves nothing else. */
-.od-letter .letter-overlay .letter-preview-area{grid-row:1;grid-column:3;
-  container-type:inline-size;container-name:od-preview}
+.od-letter .letter-overlay .lp-peek-tab{grid-row:1;grid-column:1}
+.od-letter .letter-overlay .lp-rail{grid-row:1;grid-column:2}
+.od-letter .letter-overlay .letter-options{grid-row:1;grid-column:3}
+/* The preview is a size container app-wide (see the zoom ladder below); this
+   rule only places it in the grid. Folding either rail grows the sheet
+   and moves nothing else. */
+.od-letter .letter-overlay .letter-preview-area{grid-row:1;grid-column:4}
+
+/* --- the letter drawer at rest (2026-09-26) ---
+   The section rail and the options column REST COLLAPSED behind the tab, and a
+   peek OVERLAYS the preview instead of reflowing it. That is not a style
+   choice: the preview is a size container driving the zoom ladder below, so
+   reflowing it mid-sweep would re-scale the sheet under the pointer. Same
+   reason `.om-side-inner` widens over the table rather than pushing it.
+
+   4 classes on purpose — these have to beat the 3-class base rules above AND
+   every 3-class width-budget override below, at every viewport. The overlaid
+   panels drop their grid placement (`grid-area:auto`) because an absolutely
+   positioned grid child WITH a definite grid position takes that grid AREA as
+   its containing block, which would pin them back into the columns they just
+   left. */
+.od-letter .letter-overlay.lp-collapsed .letter-body-wrap{
+  grid-template-columns:44px minmax(0,1fr);grid-template-rows:minmax(0,1fr);
+  position:relative}
+.od-letter .letter-overlay.lp-collapsed .lp-peek-tab{grid-row:1;grid-column:1}
+.od-letter .letter-overlay.lp-collapsed .letter-preview-area{grid-row:1;grid-column:2}
+.od-letter .letter-overlay.lp-collapsed .lp-rail,
+.od-letter .letter-overlay.lp-collapsed .letter-options{
+  grid-area:auto;position:absolute;top:0;bottom:0;max-height:none;z-index:12;
+  visibility:hidden;opacity:0;transform:translateX(-10px);
+  transition:opacity .18s ease,transform .2s cubic-bezier(.22,.68,.35,1)}
+.od-letter .letter-overlay.lp-collapsed .lp-rail{display:block;left:44px;width:176px}
+/* Sideways, not downward: this slides out over the sheet from the left, and a
+   drop shadow is what separates it from the paper underneath. */
+.od-letter .letter-overlay.lp-collapsed .letter-options{left:220px;width:312px;
+  box-shadow:16px 0 44px -22px rgba(2,20,33,.55)}
+/* The section rail leaves the peek at the SAME width it leaves the pinned
+   layout (the 1740px budget below) — below that the pinned drawer has no rail
+   either, and a peek must not invent one. */
+@media (max-width:1740px){
+  .od-letter .letter-overlay.lp-collapsed .lp-rail{display:none}
+  .od-letter .letter-overlay.lp-collapsed .letter-options{
+    left:44px;width:min(312px,calc(100% - 44px))}
+}
+/* The reveal. One forgiving :has() list: the tab, or either panel once the tab
+   has already revealed it — that second half is what lets the pointer travel
+   from the tab into the options without the drawer closing behind it. While
+   hidden the panels are `visibility:hidden`, so they cannot catch a hover of
+   their own until the tab opens the chain. */
+@media (hover:hover){
+  .od-letter .letter-overlay.lp-collapsed .letter-body-wrap:has(.lp-peek-tab:hover,
+    .lp-rail:hover,.letter-options:hover,.lp-peek-tab:focus-visible,
+    .lp-rail:focus-within,.letter-options:focus-within)>:is(.lp-rail,.letter-options){
+    visibility:visible;opacity:1;transform:none}
+}
+
+/* The drawer's tab: the resting affordance and the pin toggle in one control,
+   the vertical twin of the activity rail's `.od-rail-tab`. `display:flex`
+   overrides the base `button{display:inline-flex}`. */
+.lp-peek-tab{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  width:44px;padding:12px 0;
+  background:var(--awm-card);color:var(--awm-slate);
+  border:0;border-right:1px solid var(--awm-line);border-radius:0;
+  cursor:pointer;font:inherit;
+  transition:background .14s ease,color .14s ease}
+.lp-peek-tab:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.lp-peek-tab:focus-visible{outline:none;box-shadow:inset var(--awm-focus)}
+.lp-peek-tab:active{transform:none}
+.lp-peek-label{writing-mode:vertical-rl;transform:rotate(180deg);
+  font-size:12px;font-weight:600;letter-spacing:.04em;white-space:nowrap}
 /* RequestForm renders a <main> that is the whole pane here. */
 .od-details main{padding:2px 22px 30px}
 .od-details .formhead{margin-top:14px}
@@ -711,9 +857,44 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .od-side{display:flex;flex-direction:column;min-width:0;
   position:sticky;top:calc(var(--od-bar-h) + 14px);
   max-height:calc(100vh - var(--od-bar-h) - var(--od-foot-h) - 28px)}
-/* Folded (OfferSidebar): the grid gives the rail's column to the pane and
-   keeps a slim vertical tab on the right edge to open it again. */
+.od-side-inner{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0}
+/* Pinned open: the panel IS the column, and the resting tab is gone. */
+.od-side:not(.od-side-closed) .od-rail-tab{display:none}
+/* Resting (OfferSidebar): the grid gives the rail's column back to the letter
+   and keeps a slim vertical tab on the right edge. The panel leaves the layout
+   until a peek (below) or a pin brings it back — on a touch screen there is no
+   peek, so the tab's click is the only way in, exactly as before. */
 .od-body:has(.od-side-closed){grid-template-columns:minmax(0,1fr) 44px}
+.od-side-closed .od-activity{display:none}
+
+/* --- the peek (2026-09-26) ---
+   Same contract as the offers sidebar's `.om-collapsed`: the grid COLUMN stays
+   44px whatever the pointer does — only `.od-side-inner` widens, and it widens
+   OVER the letter pane. `.od-side` is already sticky, so it is the containing
+   block for the inner without any new positioning; it just has to keep its
+   full height while the panel is out of the layout, or the peeked panel would
+   only be as tall as the tab.
+
+   Scoped to pointers that can actually hover, and to widths where the rail
+   still has its own column — below 1100px it is a block under the letter and
+   there is nothing to peek out of. */
+@media (hover:hover) and (min-width:1101px){
+  .od-side-closed{height:calc(100vh - var(--od-bar-h) - var(--od-foot-h) - 28px)}
+  .od-side-closed .od-side-inner{
+    position:absolute;inset:0 0 0 auto;width:44px;z-index:26;
+    transition:width .2s cubic-bezier(.22,.68,.35,1),box-shadow .2s ease}
+  .od-side-closed:hover .od-side-inner,
+  .od-side-closed:focus-within .od-side-inner{
+    width:324px;box-shadow:-16px 0 44px -22px rgba(2,20,33,.5)}
+  .od-side-closed:hover .od-activity,
+  .od-side-closed:focus-within .od-activity{display:flex}
+  .od-side-closed:hover .od-rail-tab,
+  .od-side-closed:focus-within .od-rail-tab{display:none}
+  /* The panel's entry rise would replay on every sweep of the pointer; the
+     width slide is the only motion a peek needs. (3 classes, so it beats the
+     `.od-side .od-panel` animation in the MOTION block below.) */
+  .od-side.od-side-closed .od-activity{animation:none}
+}
 .od-panel-tools{display:flex;align-items:center;gap:6px}
 .od-rail-toggle{display:inline-flex;align-items:center;padding:4px 6px}
 .od-rail-tab{
@@ -828,22 +1009,25 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
      rail simply grows the sheet.
    Screen only: print never sees the zoom, and the containment is switched
    off for print (see @media print above). Every export is a true 8.5in. */
+/* These all describe the PINNED drawer; the collapsed rules above are 4 classes
+   and outrank every one of them, so none needs a `:not(.lp-collapsed)` guard.
+   Column 1 stays the tab throughout. */
 @media (max-width:1740px){
   .od-letter .lp-rail{display:none}
-  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:312px minmax(0,1fr)}
-  .od-letter .letter-overlay .letter-options{grid-column:1}
-  .od-letter .letter-overlay .letter-preview-area{grid-column:2}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 312px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-options{grid-column:2}
+  .od-letter .letter-overlay .letter-preview-area{grid-column:3}
 }
 @media (max-width:1560px){
   .od-body{grid-template-columns:minmax(0,1fr) 300px}
-  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:272px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 272px minmax(0,1fr)}
   .od-letter .letter-overlay .letter-preview-area{padding:14px 12px}
 }
 @media (max-width:1280px){
   .la-bar .la-note{display:none}
 }
 @media (max-width:1240px){
-  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:240px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 240px minmax(0,1fr)}
 }
 @media (max-width:1100px){
   .od-body,.od-body:has(.od-side-closed){grid-template-columns:minmax(0,1fr)}
@@ -853,25 +1037,36 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
   .od-rail-tab-label{writing-mode:horizontal-tb;transform:none}
   .od-pop{left:auto;right:0;max-width:min(460px, calc(100vw - 40px))}
   /* The pane is the full width again: the options can breathe. */
-  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:300px minmax(0,1fr)}
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 300px minmax(0,1fr)}
 }
 @media (max-width:860px){
-  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:minmax(0,1fr);
+  .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px minmax(0,1fr);
     grid-template-rows:auto minmax(0,1fr)}
-  .od-letter .letter-overlay .letter-options{grid-row:1;grid-column:1;max-height:38vh}
-  .od-letter .letter-overlay .letter-preview-area{grid-row:2;grid-column:1}
+  /* The tab stays a full-height strip; the options stack above the sheet. */
+  .od-letter .letter-overlay .lp-peek-tab{grid-row:1 / span 2;grid-column:1}
+  .od-letter .letter-overlay .letter-options{grid-row:1;grid-column:2;max-height:38vh}
+  .od-letter .letter-overlay .letter-preview-area{grid-row:2;grid-column:2}
   .od-fact dd{white-space:normal}
   .od-ellipsis{max-width:100%;white-space:normal}
   .od-head-actions{margin-left:0;width:100%}
 }
-/* The sheet is 816px wide; each step keeps it inside the preview's content box. */
+/* The sheet is 816px wide; each step keeps it inside the preview's content box.
+   EVERY letter preview is the container, not just /offers/[id]'s — the width
+   budget above is measured against the VIEWPORT, and inside /offers the
+   sidebar has already taken 68-244px of it before the letter sees any. That
+   gap is why the sheet scrolled sideways at every desktop width in the
+   in-app editor: at a 1600px viewport the preview really has 652px of the
+   852px it needs. A container query is the only thing that can see that.
+   `zoom` is screen-only (print switches the containment off above) and the
+   PDF path never touches this node — pdf.ts renders its own 720px clone. */
 @media screen{
-  @container od-preview (max-width:815px){ .od-letter .letter-sheet{zoom:.9} }
-  @container od-preview (max-width:734px){ .od-letter .letter-sheet{zoom:.8} }
-  @container od-preview (max-width:652px){ .od-letter .letter-sheet{zoom:.74} }
-  @container od-preview (max-width:603px){ .od-letter .letter-sheet{zoom:.66} }
-  @container od-preview (max-width:538px){ .od-letter .letter-sheet{zoom:.6} }
-  @container od-preview (max-width:489px){ .od-letter .letter-sheet{zoom:.5} }
+  .letter-preview-area{container-type:inline-size;container-name:od-preview}
+  @container od-preview (max-width:815px){ .letter-sheet{zoom:.9} }
+  @container od-preview (max-width:734px){ .letter-sheet{zoom:.8} }
+  @container od-preview (max-width:652px){ .letter-sheet{zoom:.74} }
+  @container od-preview (max-width:603px){ .letter-sheet{zoom:.66} }
+  @container od-preview (max-width:538px){ .letter-sheet{zoom:.6} }
+  @container od-preview (max-width:489px){ .letter-sheet{zoom:.5} }
 }
 
 /* ================================================================
@@ -948,6 +1143,10 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .od-bar-extra.open .od-bar-extra-in{overflow:visible;transition-delay:.26s}
 @media (prefers-reduced-motion:reduce){
   .od-bar-extra,.od-bar-extra-in,.od-body{transition:none}
+  /* The rails still collapse and still peek — they just arrive instantly. */
+  .od-side-closed .od-side-inner,
+  .od-letter .letter-overlay.lp-collapsed>.letter-body-wrap>.lp-rail,
+  .od-letter .letter-overlay.lp-collapsed>.letter-body-wrap>.letter-options{transition:none}
 }
 @keyframes om-view-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes om-row-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -1084,7 +1283,12 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
     radial-gradient(120% 60% at 10% -8%, rgba(46,163,217,.16), transparent 60%),
     linear-gradient(188deg, var(--awm-navy) 0%, #062338 55%, var(--awm-blue-deep) 100%);
   color:#fff;overflow-y:auto;
-  padding:14px 14px 18px;display:flex;flex-direction:column;gap:17px;
+  /* The bottom padding is the action hub's room. `.la-back` is pinned to the
+     bottom of this column by `margin-top:auto`, and the fixed corner disc
+     (.ah, 56px + 24px inset) covered 56x24px of it at EVERY viewport size —
+     the disc is z-90, so that part of "Back to Pipeline" was not even
+     clickable. Same reservation `.stage-table-wrap` makes for the tables. */
+  padding:14px 14px 96px;display:flex;flex-direction:column;gap:17px;
 }
 
 .la-head{display:flex;flex-direction:column;gap:5px}
@@ -1366,7 +1570,7 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
 .ah-hint{font-size:11.5px;font-weight:400;color:var(--awm-slate);line-height:1.3}
 
 @media (prefers-reduced-motion:reduce){
-  .om-side,.ah-panel,.ah-fab,.ah-fab svg,.tab,.om-tab-icon,.ah-item-icon{transition:none}
+  .om-side,.om-side-inner,.ah-panel,.ah-fab,.ah-fab svg,.tab,.om-tab-icon,.ah-item-icon{transition:none}
 }
 
 /* Narrow screens: the sidebar folds back into a horizontal strip across the
@@ -1376,6 +1580,9 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
   .om-shell{flex-direction:column}
   .om-side,.om-collapsed .om-side{width:auto;flex:0 0 auto;border-right:none;border-bottom:1px solid var(--awm-line)}
   .om-side-inner{position:static;max-height:none;flex-direction:row;align-items:center;gap:4px}
+  /* The rail block is already scoped to >=901px; these keep the inner honest
+     if that scope is ever widened. */
+  .om-collapsed .om-side-inner{width:auto;height:auto;box-shadow:none;border-right:0}
   header.app,.om-collapsed header.app{grid-template-columns:auto;padding:10px 6px 10px 14px;gap:0}
   header.app h1,.om-collapse{display:none}
   .tabbar,.om-collapsed .tabbar{flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;gap:2px;padding:6px 10px;overflow-x:auto}
@@ -1387,7 +1594,7 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
   .om-nav-sep,.om-collapsed .om-nav-sep{width:1px;height:20px;margin:0 4px;flex:0 0 auto}
   .om-view-head{padding:16px 16px 0}
   .stage-controls{padding:12px 16px 10px}
-  .stage-table-wrap{padding:0 16px 96px}
+  .stage-table-wrap{padding:0 16px;margin-bottom:96px}
   .ah{right:16px;bottom:16px}
 }
 
@@ -1496,6 +1703,13 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .apply-who-empty .apply-who-sub{white-space:normal}
+
+/* An answer the page filled in for you, marked as such until you change it. */
+.apply-seeded{
+  display:block;margin:7px 0 0;padding:6px 9px;border-radius:7px;
+  font-size:11.5px;line-height:1.45;color:var(--awm-chip-fg);background:var(--awm-chip-bg);
+}
+p.apply-seeded{margin:9px 0 2px}
 
 .apply-you .fld label.q{font-size:13px}
 .apply-you-missing{border-color:var(--awm-req)}

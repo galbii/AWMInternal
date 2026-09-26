@@ -289,9 +289,9 @@ type (`.session-bar` in shell.css) so it separates from the white sidebar and
 the dark cards alike; emulation turns the whole bar amber-brown. A chevron at
 its far right folds it into a 12px strip with a restore tab; the choice is the
 `awm-bar` cookie (`src/lib/bar.ts`), read in `AppShell` so the fold survives
-reloads without a jump. The offers activity rail (`OfferSidebar`) folds too, to
-a vertical tab, via `onhr_activity_rail` in localStorage and a
-`.od-body:has(.od-side-closed)` grid rule, so `OfferDetail` stays unaware.
+reloads without a jump. Both rails on `/offers/[id]` REST COLLAPSED and unfold
+on hover (see that section), via `onhr_activity_rail` / `onhr_letter_rail` in
+localStorage and `:has()` grid rules, so `OfferDetail` stays unaware of either.
 
 **Users app (`/users`):** the admin directory, built exactly like any other
 hub app (`src/app/(users)/`, registry entry with `roles: ['admin','dev']`,
@@ -398,6 +398,17 @@ questions of a card are swallowed rather than scrolled to) and a styled
 the rail has more below it). The send bar's meter counts the schema's required
 fields PLUS the About-you answers, so its denominator is not `missingRequired`'s.
 
+A signed-in visitor gets SEEDED answers (2026-09-26): About you's name/email and
+the New hire card's Branch Manager arrive filled in. The page reads
+`getViewer()` behind a `.catch(() => null)` — /apply stays PUBLIC, so this is a
+convenience and an auth or database hiccup must never take the public door down
+— and seeds from the **actor**, never the viewer, because those answers become
+the submitter on the "Created" event and attribution is always the real human.
+The seed is applied once, to initial state: the fields are ordinary and
+editable, clearing one keeps it cleared, and a `.apply-seeded` note marks each
+seeded answer only while it is still untouched (Branch Manager is a GUESS about
+a third party, so it must be visibly a guess).
+
 **The `/offers/[id]` workspace (2026-09 layout):** a STICKY SUMMARY BAR on
 top (`.od-bar`: back link, avatar + the name in the serif, position · branch,
 stage + completion chips, the stage actions and the two sub-tabs — the
@@ -430,16 +441,38 @@ of dark chrome). Things to know:
   (and `--od-top`, the session bar above) so the letter pane fills exactly
   what the chrome leaves and the rails (`.od-side`, the form's `.rf-nav`)
   stick below the bar. The activity rail is the SAME on both tabs and stays
-  on the right down to 1100px (it also folds to a 44px tab); below the full
+  on the right down to 1100px; below the full
   width budget the LETTER gives, never the rail — through two independent
   knobs: the letter's LEFT columns (section rail, options width, stacking)
-  follow VIEWPORT breakpoints and never move when the rail folds, while the
+  follow VIEWPORT breakpoints and never move when a rail folds, while the
   sheet PREVIEW scales with `zoom` by the room the preview really has
   (`.letter-preview-area` is a size container, `@container od-preview`), so
-  folding the rail just grows the sheet. Screen only: print never sees the
+  folding a rail just grows the sheet. Screen only: print never sees the
   zoom, and `@media print` switches the containment off so the sheet's
   absolute positioning still resolves against the page. Every export stays
   a true 8.5in.
+- **Both rails REST COLLAPSED and unfold on hover (2026-09-26)**, the same
+  contract as the offers sidebar's `.om-collapsed`: the activity rail
+  (`.od-side-closed`, `onhr_activity_rail`) and the letter's section rail +
+  options column, which share one drawer behind `.lp-peek-tab`
+  (`.letter-overlay.lp-collapsed`, `onhr_letter_rail`, gated by LetterView's
+  `railsCollapsible` prop so the SPA editor is untouched). Each tab CLICKS to
+  pin and is the collapse control when pinned. **A peek must OVERLAY, never
+  reflow** — `.letter-preview-area` is a size container driving the zoom
+  ladder, so reflowing it mid-sweep would re-scale the sheet under the
+  pointer; that is why the grid column stays 44px and only the panel widens.
+  Resting buys the preview 240–490px and keeps the sheet at a true 816px down
+  to a 1180px viewport (pinned it drops to `zoom:.9` there). Three things to
+  keep: the collapsed rules are deliberately 4 classes so they outrank every
+  3-class width-budget override; the overlaid panels set `grid-area:auto`
+  (an absolutely positioned grid child WITH a grid position takes that grid
+  AREA as its containing block); and `@media print` resets the drawer's
+  `position:relative`, the same trap as the container-query reset beside it —
+  `#letterSheet` prints absolute at 0,0 and must resolve against the PAGE.
+  The reveal is one forgiving `:has()` list covering the tab AND both panels,
+  which is what lets the pointer travel from the tab into the options without
+  the drawer closing behind it. All of it is scoped to `(hover:hover)`; on a
+  touch screen the tab's click is the only way in.
 
 **Emailing an offer (2026-09-25):** pressing ✉ Email — on the letter's action
 bar or an address in a stage table — opens `SendLetterModal`, and the app sends

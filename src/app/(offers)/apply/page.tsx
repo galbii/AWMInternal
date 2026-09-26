@@ -11,6 +11,7 @@ import Image from 'next/image'
 import React from 'react'
 
 import ApplyForm from '@/components/offers/apply/ApplyForm'
+import { getViewer } from '@/lib/auth/viewer'
 import { env } from '@/lib/env'
 
 export const metadata: Metadata = {
@@ -21,7 +22,19 @@ export const metadata: Metadata = {
 // The access-code requirement is a deploy-time env setting; never bake it in.
 export const dynamic = 'force-dynamic'
 
-export default function ApplyPage(): React.JSX.Element {
+export default async function ApplyPage(): Promise<React.JSX.Element> {
+  // A CONVENIENCE, never a gate: /apply stays public. A colleague who happens
+  // to be signed in gets their own details typed in for them; a visitor with no
+  // session gets exactly the form that was here before. The catch matters —
+  // an auth or database hiccup must not take the public door down with it.
+  const session = await getViewer().catch(() => null)
+  // The ACTOR, not the viewer. These answers become the submitter recorded on
+  // the "Created" event, and audit attribution is always the real human: an
+  // admin in view-as must not file a request under someone else's name.
+  const signedInAs = session
+    ? { name: (session.actor.name || '').trim(), email: session.actor.email }
+    : null
+
   const hero = (
     <header className="apply-hero">
       <h1>Request a new hire</h1>
@@ -45,7 +58,11 @@ export default function ApplyPage(): React.JSX.Element {
         <span className="apply-bar-note">New hire request</span>
       </div>
       <main className="apply-main">
-        <ApplyForm requiresCode={Boolean(env.APPLY_ACCESS_CODE)} hero={hero} />
+        <ApplyForm
+          requiresCode={Boolean(env.APPLY_ACCESS_CODE)}
+          hero={hero}
+          signedInAs={signedInAs}
+        />
       </main>
     </div>
   )

@@ -470,7 +470,7 @@ export default function OfferDetail({
         <div className="od-main">
           <div className={subViewCls('letter')}>
             <div className={readOnly ? 'od-letter od-letter-locked' : 'od-letter'}>
-              <LetterView standalone actionsSlotId={FOOT_SLOT_ID} />
+              <LetterView standalone railsCollapsible actionsSlotId={FOOT_SLOT_ID} />
             </div>
           </div>
 

@@ -16,7 +16,10 @@
 
 /* ===== letter workspace chrome ===== */
 .letter-overlay{display:flex;flex-direction:column;background:var(--awm-desk);height:calc(100vh - 150px);min-height:520px}
-.subtabs{display:flex;gap:4px;background:var(--awm-card);border-bottom:1px solid var(--awm-line);padding:0 20px}
+/* 10px + the subtab's own 14px puts the first tab's text on the 24px gutter
+   every other view's title uses (.om-view-head). `.od-bar .subtabs` zeroes
+   this for the /offers/[id] header, which has its own measure. */
+.subtabs{display:flex;gap:4px;background:var(--awm-card);border-bottom:1px solid var(--awm-line);padding:0 10px}
 .subtab{background:transparent;color:var(--awm-slate);border:none;border-radius:0;border-bottom:2px solid transparent;
   margin-bottom:-1px;padding:12px 14px;font-weight:600;font-size:13.5px;cursor:pointer}
 .subtab:hover{color:var(--awm-ink)}
@@ -34,7 +37,10 @@
 .stage-table th:nth-child(5),.stage-table td:nth-child(5){width:11%}
 .stage-table th:nth-child(6),.stage-table td:nth-child(6){width:84px}
 .stage-table th:nth-child(7),.stage-table td:nth-child(7){width:242px}   /* Actions: fixed home so buttons never overflow */
-.stage-table td{word-break:break-word}
+/* `word-break` is the last resort for an unbroken string (a long address);
+   hyphenation runs first, so a squeezed Branch/Title column reads "Hender-
+   son" rather than "Henderso / n". <html lang="en"> is set by the layout. */
+.stage-table td{overflow-wrap:break-word;hyphens:auto}
 .stage-table .c-act .mini{padding:4px 7px;font-size:11.5px;margin-left:4px}
 .letter-body-wrap{flex:1;display:grid;grid-template-columns:290px 1fr;overflow:hidden}
 .letter-options{background:var(--awm-card);border-right:1px solid var(--awm-line);overflow:auto;padding:14px 16px}
