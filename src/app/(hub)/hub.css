@@ -180,32 +180,41 @@ body{ background:var(--awm-page); color:var(--awm-ink); }
   color:var(--awm-slate);
 }
 
+/* SECONDARY (2026-09-25). The passkey button moved BELOW the password form,
+ * so the dark .signin-submit is the panel's one primary; keeping the blue
+ * gradient here would have made the alternative the loudest thing on the page.
+ * Rest sits on --awm-field like the inputs above it and lifts to --awm-card on
+ * hover, which reads as a control in both themes (--awm-card is also the
+ * panel's own background, so it can't be the resting fill). */
 .signin-passkey{
   width:100%;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:10px;
-  padding:14px 18px;
-  border:none;
+  padding:13px 18px;
+  border:1px solid var(--awm-line);
   border-radius:12px;
-  background:linear-gradient(135deg, var(--awm-blue), var(--awm-blue-lift));
-  color:#fff;
+  background:var(--awm-field);
+  /* --awm-link, not --awm-blue: the brand blue is a FILL colour and drops to
+   * 2.7:1 as text on the dark field. --awm-link is the themed accent text. */
+  color:var(--awm-link);
   font-family:inherit;
-  font-size:15.5px;
+  font-size:15px;
   font-weight:600;
   cursor:pointer;
-  box-shadow:0 8px 20px -10px rgba(0,98,159,.55), inset 0 1px 0 rgba(255,255,255,.22);
-  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease,
+    border-color .16s ease;
 }
 .signin-passkey:hover:not(:disabled){
-  background:linear-gradient(135deg, var(--awm-blue-lift), #1290c9);
+  background:var(--awm-card);
+  border-color:var(--awm-link);
   transform:translateY(-1px);
-  box-shadow:0 14px 28px -12px rgba(0,98,159,.6), inset 0 1px 0 rgba(255,255,255,.28);
+  box-shadow:0 10px 20px -14px rgba(0,98,159,.55);
 }
-.signin-passkey:active:not(:disabled){ transform:translateY(0); box-shadow:0 6px 14px -8px rgba(0,98,159,.5); }
-.signin-passkey:focus-visible{ outline:none; box-shadow:var(--awm-focus), 0 14px 28px -12px rgba(0,98,159,.5); }
-.signin-passkey:disabled{ opacity:.72; cursor:default; transform:none; }
+.signin-passkey:active:not(:disabled){ transform:translateY(0); box-shadow:none; }
+.signin-passkey:focus-visible{ outline:none; border-color:var(--awm-link); box-shadow:var(--awm-focus); }
+.signin-passkey:disabled{ opacity:.6; cursor:default; transform:none; }
 
 .signin-key{
   width:18px; height:18px; flex:0 0 auto;
@@ -230,6 +239,11 @@ body{ background:var(--awm-page); color:var(--awm-ink); }
 }
 @media (prefers-reduced-motion:no-preference){
   .signin-spinner{ animation:signin-spin .8s linear infinite; }
+}
+/* White reads on the dark primary; on the light secondary it vanishes. */
+.signin-passkey .signin-spinner{
+  border-color:var(--awm-line);
+  border-top-color:var(--awm-link);
 }
 
 .signin-alt{
@@ -304,6 +318,9 @@ body{ background:var(--awm-page); color:var(--awm-ink); }
   }
 }
 
+/* Inside the form the message sits ABOVE the submit; the passkey error is a
+ * direct child of the sequence and sits BELOW its button, so flip the margin. */
+.signin-card-seq > .signin-error{ margin:12px 0 0; }
 .signin-error{
   margin:0 0 14px;
   padding:9px 11px;

@@ -2,14 +2,20 @@
 
 // Sign-in for the whole dashboard. Two paths to the same place:
 //
-//  1. PASSKEY — the fast path. On mount we start a conditional-UI ceremony so
-//     saved passkeys appear inside the email field's own autofill dropdown
-//     (that is what `autocomplete="username webauthn"` is for). Nothing is
-//     shown, nothing is clicked; if the browser can't do it, or the person
-//     ignores it, the ceremony just sits there and we fall through silently.
-//     The explicit button is the discoverable version of the same flow.
-//  2. PASSWORD — posts to Payload's own /api/users/login, which sets the
-//     httpOnly `payload-token` cookie itself.
+//  1. PASSWORD — posts to Payload's own /api/users/login, which sets the
+//     httpOnly `payload-token` cookie itself. It leads the panel, so the dark
+//     `.signin-submit` is the page's one primary button.
+//  2. PASSKEY — the fast path, offered BELOW the form (2026-09-25) as the
+//     secondary. Its real front door is invisible: on mount we start a
+//     conditional-UI ceremony so saved passkeys appear inside the email
+//     field's own autofill dropdown (that is what
+//     `autocomplete="username webauthn"` is for). Nothing is shown, nothing is
+//     clicked; if the browser can't do it, or the person ignores it, the
+//     ceremony just sits there and we fall through silently. The button is the
+//     discoverable version of the same flow.
+//
+// Errors carry their source so each message renders beside the control that
+// produced it — the two are no longer adjacent.
 //
 // Either way we finish with a FULL navigation, not router.push: the server
 // layouts have to re-run so the session bar and the auth gate see the cookie.
@@ -36,10 +42,13 @@ interface LoginFormProps {
   next?: string
 }
 
+/** Which control an error belongs under — the two are far apart on the page. */
+type ErrorSource = 'password' | 'passkey'
+
 export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ from: ErrorSource; message: string } | null>(null)
   const [busy, setBusy] = useState<null | 'password' | 'passkey'>(null)
   const [done, setDone] = useState(false)
   /**
@@ -139,12 +148,18 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
         finish()
         return
       }
-      setError('That passkey isn’t registered here. Sign in with your password instead.')
+      setError({
+        from: 'passkey',
+        message: 'That passkey isn’t registered here. Sign in with your password instead.',
+      })
     } catch (err) {
       // Cancelling the OS prompt is a decision, not a failure.
       const name = err instanceof Error ? err.name : ''
       if (name !== 'NotAllowedError' && name !== 'AbortError') {
-        setError('Passkey sign-in didn’t finish. Try again, or use your password.')
+        setError({
+          from: 'passkey',
+          message: 'Passkey sign-in didn’t finish. Try again, or use your password.',
+        })
       }
     }
     setBusy(null)
@@ -166,13 +181,18 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
         finish()
         return
       }
-      setError(
-        res.status === 401
-          ? 'That email and password don’t match.'
-          : 'Sign-in failed. Try again in a moment.',
-      )
+      setError({
+        from: 'password',
+        message:
+          res.status === 401
+            ? 'That email and password don’t match.'
+            : 'Sign-in failed. Try again in a moment.',
+      })
     } catch {
-      setError('Can’t reach the server. Check your connection and try again.')
+      setError({
+        from: 'password',
+        message: 'Can’t reach the server. Check your connection and try again.',
+      })
     }
     setBusy(null)
   }
@@ -187,6 +207,14 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
       <path d="M4.5 12.5l5 5 10-11" />
     </svg>
   )
+
+  /** The message renders under whichever control produced it, never both. */
+  const errorFor = (from: ErrorSource): React.JSX.Element | null =>
+    error && error.from === from ? (
+      <p className="signin-error" role="alert">
+        {error.message}
+      </p>
+    ) : null
 
   return (
     <main className="signin">
@@ -230,43 +258,11 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
           <h1 className="signin-title">Sign in</h1>
           <p className="signin-lede">
             {canPasskey
-              ? 'Use a passkey, or your email and password.'
+              ? 'Enter your email and password, or use a passkey.'
               : 'Enter your email and password to continue.'}
           </p>
 
           <div className="signin-card-seq">
-            {canPasskey && (
-              <>
-                <button
-                  type="button"
-                  className="signin-passkey"
-                  onClick={() => void signInWithPasskey()}
-                  disabled={busy !== null || done}
-                >
-                  {passkeyDone ? (
-                    check
-                  ) : busy === 'passkey' ? (
-                    <span className="signin-spinner" aria-hidden="true" />
-                  ) : (
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="signin-key">
-                      <circle cx="9" cy="8" r="4" />
-                      <path d="M9 13c-3.3 0-6 2.2-6 5v1h9" />
-                      <path d="M20 11.5a2.5 2.5 0 1 0-4 2v5.5l1.5 1.5 1.5-1.5-1-1 1-1-1-1 1-1v-1.5a2.5 2.5 0 0 0 1-2z" />
-                    </svg>
-                  )}
-                  {passkeyDone
-                    ? 'Signed in'
-                    : busy === 'passkey'
-                      ? 'Waiting for your device…'
-                      : 'Sign in with a passkey'}
-                </button>
-
-                <div className="signin-alt">
-                  <span>or use your password</span>
-                </div>
-              </>
-            )}
-
             <form onSubmit={(e) => void submitPassword(e)} noValidate>
               <label className="signin-field">
                 <span>Email</span>
@@ -292,11 +288,7 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
                 />
               </label>
 
-              {error && (
-                <p className="signin-error" role="alert">
-                  {error}
-                </p>
-              )}
+              {errorFor('password')}
 
               <button className="signin-submit" type="submit" disabled={busy !== null || done}>
                 {passwordDone ? (
@@ -307,6 +299,40 @@ export default function LoginForm({ next }: LoginFormProps): React.JSX.Element {
                 {passwordDone ? 'Signed in' : busy === 'password' ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
+
+            {canPasskey && (
+              <>
+                <div className="signin-alt">
+                  <span>or</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="signin-passkey"
+                  onClick={() => void signInWithPasskey()}
+                  disabled={busy !== null || done}
+                >
+                  {passkeyDone ? (
+                    check
+                  ) : busy === 'passkey' ? (
+                    <span className="signin-spinner" aria-hidden="true" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="signin-key">
+                      <circle cx="9" cy="8" r="4" />
+                      <path d="M9 13c-3.3 0-6 2.2-6 5v1h9" />
+                      <path d="M20 11.5a2.5 2.5 0 1 0-4 2v5.5l1.5 1.5 1.5-1.5-1-1 1-1-1-1 1-1v-1.5a2.5 2.5 0 0 0 1-2z" />
+                    </svg>
+                  )}
+                  {passkeyDone
+                    ? 'Signed in'
+                    : busy === 'passkey'
+                      ? 'Waiting for your device…'
+                      : 'Sign in with a passkey'}
+                </button>
+
+                {errorFor('passkey')}
+              </>
+            )}
           </div>
         </div>
       </section>

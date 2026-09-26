@@ -18,7 +18,7 @@
 // autosaves cannot reorder; a failed write does NOT advance the snapshot, so
 // the next save retries the same diff.
 
-import type { EmailClientPref, IntakeSubmission, OfferRecord } from '@/lib/offers/types'
+import type { IntakeSubmission, OfferRecord } from '@/lib/offers/types'
 
 // S2 102–103 — the legacy localStorage keys. LS_KEY is now read only once, to
 // migrate a browser's pre-server data up to Payload on first load.
@@ -26,8 +26,6 @@ export const LS_KEY = 'onhr_records_v121'
 export const LS_DRAFT = 'onhr_draft_v121'
 /** Set after the one-time localStorage -> server migration has succeeded. */
 export const MIGRATED_KEY = 'onhr_migrated_srv_v1'
-// S3 509
-export const LS_EMAIL_CLIENT = 'onhr_email_client'
 // S3 763
 export const IMPORTED_KEY = 'onhr_imported_sids'
 // S3 771
@@ -198,26 +196,6 @@ export function removeRecordOnServer(id: string): Promise<boolean> {
   }
   queue = queue.then(run, run)
   return queue
-}
-
-// S3 509
-export function getEmailPref(): EmailClientPref {
-  if (!isBrowser()) return 'desktop'
-  try {
-    return localStorage.getItem(LS_EMAIL_CLIENT) === 'web' ? 'web' : 'desktop'
-  } catch {
-    return 'desktop'
-  }
-}
-
-// S3 510
-export function setEmailPref(v: EmailClientPref): void {
-  if (!isBrowser()) return
-  try {
-    localStorage.setItem(LS_EMAIL_CLIENT, v === 'web' ? 'web' : 'desktop')
-  } catch {
-    /* quota / private mode — ignore, as the source does */
-  }
 }
 
 // S3 764

@@ -147,30 +147,12 @@ export function letterDocHTML(
   return { name: name, doc: doc }
 }
 
-/* ---- Email compose helpers: Desktop Outlook (mailto → default mail app) or Outlook Web ---- */
-// S3 511–515
-export function owaComposeUrl(email: string, subject: string, body: string): string {
-  return (
-    'https://outlook.office.com/mail/deeplink/compose?to=' +
-    encodeURIComponent(email || '') +
-    '&subject=' +
-    encodeURIComponent(subject || '') +
-    (body ? '&body=' + encodeURIComponent(body) : '')
-  )
-}
-
-// S3 516–519
-export function mailtoUrl(email: string, subject: string, body: string): string {
-  const b = (body || '').replace(/\r?\n/g, '\r\n') // CRLF so the desktop client keeps line breaks
-  return (
-    'mailto:' +
-    (email || '') +
-    '?subject=' +
-    encodeURIComponent(subject || '') +
-    '&body=' +
-    encodeURIComponent(b)
-  )
-}
+/* ---- The default email, as the source worded it ----
+   S3's compose helpers (511–519: the mailto: deeplink for desktop Outlook and
+   the OWA compose URL) are GONE — the app sends the letter itself now, through
+   SendLetterModal -> /api/offer-email. The subject and body below survive
+   because they are the source's WORDING, not its transport, and they are still
+   what the composer opens with. */
 
 // S3 520
 export function offerEmailSubject(_rec: OfferRecord): string {

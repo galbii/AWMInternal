@@ -25,14 +25,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
 import { fmtShort } from '@/lib/offers/format'
-import {
-  mailtoUrl,
-  offerEmailBody,
-  offerEmailSubject,
-  owaComposeUrl,
-} from '@/lib/offers/letter-exports'
 import { exportOneXlsx } from '@/lib/offers/spreadsheet'
-import { getEmailPref } from '@/lib/offers/storage'
 import type { OfferRecord, Stage } from '@/lib/offers/types'
 import { initialsOf } from '@/lib/users/initials'
 
@@ -83,22 +76,6 @@ function rowMenuPosition(r: DOMRect): RowMenuPos {
 }
 
 const EMPTY_FILTERS: Filters = { nm: '', br: '', ti: '' }
-
-// S3 526–532 — open a pre-addressed message in whichever client the user picked.
-function openEmailCompose(
-  email: string,
-  subject: string,
-  body: string,
-  toast: (msg: string, err?: boolean) => void,
-) {
-  if (getEmailPref() === 'web') {
-    window.open(owaComposeUrl(email, subject, body), '_blank', 'noopener')
-    toast('Opening Outlook on the web — attach the saved PDF, then send.')
-  } else {
-    window.location.href = mailtoUrl(email, subject, body)
-    toast('Opening your desktop mail app — attach the saved PDF, then send.')
-  }
-}
 
 /** A stage table shows one stage, or every stage at once. */
 export type TableScope = Stage | 'all'
@@ -216,16 +193,11 @@ export default function StageTable({ stage }: StageTableProps) {
     }
   }
 
-  // S3 533–539
+  // Was S3 533–539 (a mailto:/OWA deeplink). Both tables and the letter now
+  // open the same in-app composer, so an offer is sent — and audited — from
+  // one place.
   function openEmailFor(id: string) {
-    const rec = api.records.find((r) => r.id === id)
-    if (!rec) return
-    const email = (rec.data.email || '').trim()
-    if (!email) {
-      api.toast('No email on this record.', true)
-      return
-    }
-    openEmailCompose(email, offerEmailSubject(rec), offerEmailBody(rec), api.toast)
+    if (api.records.some((r) => r.id === id)) api.composeEmail(id)
   }
 
   // S3 748
@@ -570,18 +542,17 @@ export default function StageTable({ stage }: StageTableProps) {
                   <td className="c-assign">{assigneeCell(r)}</td>
                   <td className="c-email">
                     {d.email ? (
-                      <a
-                        href={mailtoUrl(d.email, offerEmailSubject(r), offerEmailBody(r))}
+                      <button
+                        type="button"
                         className="email-link"
                         title={'Email ' + d.email}
                         onClick={(e) => {
                           e.stopPropagation()
-                          e.preventDefault()
                           openEmailFor(r.id)
                         }}
                       >
                         {d.email}
-                      </a>
+                      </button>
                     ) : null}
                   </td>
                   <td>{fmtShort(offerDateISO(r))}</td>

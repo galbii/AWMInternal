@@ -108,12 +108,24 @@ Rules for a new app:
   handler must still resolve `getViewer()` itself and pass
   `{ user: viewer, overrideAccess: false }` to Payload — exactly as
   `/api/offer-records` does.
-- **Give a membership-managed app a Users view.** Render the shared
-  `<AppMembers appId="myapp" />` (`src/components/shell/AppMembers.tsx`, fed by
-  `/api/app-members`) somewhere in its navigation, as offers (sidebar entry)
-  and kern (last tab) do, so the people who can open the app are managed from
-  inside it. Its styles are the `.am-*` block in `shell.css`; an app with its
-  own palette re-maps the `--sh-*` tokens under its scope (see `kern.css`).
+- **Give a membership-managed app a Users view — behind `isManager`.** Render
+  the shared `<AppMembers appId="myapp" />` (`src/components/shell/AppMembers.tsx`,
+  fed by `/api/app-members`) somewhere in its navigation, as offers (sidebar
+  entry) and kern (last tab) do, so the people who can open the app are managed
+  from inside it. **Gate the nav entry AND the view on
+  `useViewer().isManager`** (2026-09-25): the roster is user management, so a
+  plain user must not see it — `/api/app-members` refuses them outright, GET
+  included. Where the active view lives in the URL (kern's `?tab=`), fall the
+  view back rather than trusting the hidden entry. Its styles are the `.am-*`
+  block in `shell.css`; an app with its own palette re-maps the `--sh-*` tokens
+  under its scope (see `kern.css`).
+- **`useViewer()` is how a CLIENT component asks who is signed in**
+  (`src/components/shell/ViewerProvider.tsx`). `<AppShell>` provides it, so
+  every app gets it without drilling a prop through its own provider.
+  `isManager` = admin/dev AND not emulating, matching `SessionBar`'s
+  `adminTools` and `/api/app-members`' `canManage`, so view-as shows the
+  target's UI. Outside a provider it defaults to a plain user — deny by
+  default. Like the registry it is a UX filter, never the boundary.
 - **Never import across apps.** `src/lib/offers/*` and
   `src/components/offers/*` belong to the offers app. Anything genuinely shared
   moves to `src/lib/apps/`, `src/lib/auth/`, or `src/components/shell/` first.
@@ -143,6 +155,7 @@ Rules for a new app:
 | `intake.ts` | Intake code/link encode/decode |
 | `summary.ts` | The `/offers/[id]` header facts + completion chip + `relativeTime` |
 | `applicant.ts` | Applicant identity (key on email, else name) + snapshot for the `applicants` collection |
+| `activity.ts` | The audit feed contract: `toActivityEvent`, the kind filters, shared by both feed routes |
 | `storage.ts` | **THE persistence seam** — see below |
 
 ### `src/components/offers/` — UI
@@ -186,10 +199,11 @@ record shape (unchanged):
   as a delete server-side.
 - `toOfferRecord`/`toOfferDoc` (`src/lib/offers/payload-doc.ts`) must stay a
   byte-stable round trip (tested) — LetterView's `letterSig` compares JSON.
-- Still localStorage (frozen keys): `onhr_email_client` (read in sync click
-  handlers before `window.open` — cannot go async), `onhr_imported_sids`,
-  `onhr_inbox` (written by the external intake page; the 2.5s poller drains
-  it). `onhr_records_v121` is read once to migrate old data up to the server.
+- Still localStorage (frozen keys): `onhr_imported_sids`, `onhr_inbox`
+  (written by the external intake page; the 2.5s poller drains it).
+  `onhr_records_v121` is read once to migrate old data up to the server.
+  (`onhr_email_client` is GONE — it remembered Desktop Outlook vs Outlook Web,
+  and the app sends the mail itself now. See **Emailing an offer**.)
 
 **Auth & dashboard:** every app is login-gated by its own `(authed)` layout
 calling `requireApp('<id>')` (`src/lib/apps/guard.ts`), which redirects to
@@ -241,6 +255,25 @@ conditional-UI ceremony on mount so saved passkeys appear inside the email
 field's own autofill menu; that is why the email input carries
 `autocomplete="username webauthn"`. Removing that attribute silently kills
 the feature without breaking anything visible.
+
+**Email (Resend):** ONE door — `sendEmail()` in `src/lib/email/send.ts`. It
+goes through `payload.sendEmail`, because Resend is configured once as
+Payload's email adapter in `payload.config.ts`, so the same credentials cover
+admin password resets and anything an app sends, and a provider swap stays a
+one-line adapter change. It never throws (a failed notification must not fail
+the request that triggered it) and never pretends: with `RESEND_API_KEY` unset
+there is no adapter at all, Payload logs the message to the console, and the
+result is `{ ok: false, skipped: true }`. `src/lib/env.ts` treats a leftover
+placeholder (`noreply@yourdomain.com`, `<-- FILL IN`) as UNSET — a key *with* a
+placeholder from-address fails the boot instead of 403-ing on the first real
+send. `RESEND_OVERRIDE_TO` redirects every outbound email to one inbox
+(the adapter's `overrideRecipientAddress`) — set it anywhere that must never
+mail a real applicant. Two ways to verify: `bun run email:test <address>`
+(terminal; hits api.resend.com directly, because a plain script can't import
+`@payload-config`) and `POST /api/email/test` (admin/dev, no emulation; the
+real app path). Sending from an unverified domain is the usual failure —
+Resend only accepts `onboarding@resend.dev` until you verify one, and only
+delivers it to the account owner.
 
 **`src/middleware.ts` exists for exactly one reason:** it stamps the request
 path onto `x-awm-pathname` so `requireApp()`/`requireSession()` — which run in
@@ -350,6 +383,21 @@ submitter's name/email travel in `context.apply`, which `recordOfferEvents`
 writes into the "Created" event. Submissions appear in the Offer Manager on its
 next load — there is no live push.
 
+Its LAYOUT (2026-09-26) is two columns, not HR's stack: a sticky left RAIL
+(`.apply-rail`) carries the identity of the request — a live "who is joining"
+card (`.apply-who`, initials + `position · branchName`, `aria-hidden` because it
+mirrors typed fields), the `person` section and the About-you block — while the
+right column carries role/pay/equipment/systems. `RAIL_SECTIONS` in
+`ApplyForm.tsx` is the whole split; the headline is passed in from the server
+page as a `hero` prop so it can be its own grid cell (`grid-template-areas`),
+which is what puts it FIRST in the one-column fallback below 1080px instead of
+after everything in the rail. Two things the rail must keep: `.apply-rail > *
+{flex:0 0 auto}` (flex children shrink and `.grp` clips — without it the last
+questions of a card are swallowed rather than scrolled to) and a styled
+`::-webkit-scrollbar` (macOS overlay scrollbars would hide the only hint that
+the rail has more below it). The send bar's meter counts the schema's required
+fields PLUS the About-you answers, so its denominator is not `missingRequired`'s.
+
 **The `/offers/[id]` workspace (2026-09 layout):** a STICKY SUMMARY BAR on
 top (`.od-bar`: back link, avatar + the name in the serif, position · branch,
 stage + completion chips, the stage actions and the two sub-tabs — the
@@ -393,6 +441,35 @@ of dark chrome). Things to know:
   absolute positioning still resolves against the page. Every export stays
   a true 8.5in.
 
+**Emailing an offer (2026-09-25):** pressing ✉ Email — on the letter's action
+bar or an address in a stage table — opens `SendLetterModal`, and the app sends
+the message itself. It replaced the port's `emailViaOutlook` (S3 511–552): a
+`mailto:` deeplink to desktop Outlook or the OWA compose URL, chosen with a
+remembered picker. That flow left the app, attached the PDF by hand, and left
+no trace on the record.
+
+- The modal is owned by `OffersProvider` and opened through
+  `api.composeEmail(id)`, so the letter view and both tables use ONE composer.
+  It holds To/Cc, the subject and note (still `offerEmailSubject` /
+  `offerEmailBody` — the source's wording, which did not change when the
+  transport did), and an "attach the letter as a PDF" tick.
+- The PDF is built IN THE BROWSER (`letterToPdfBytes`, html2canvas) and posted
+  as base64 — there is no server-side renderer. `src/lib/email/send.ts` takes
+  attachment `content` as base64 because that is what Resend's API wants and
+  the adapter passes strings through untouched.
+- `/api/offer-email` is the door: it re-reads the offer as the VIEWER with
+  `overrideAccess: false` (the body's `id` is a lookup key, never a grant),
+  re-runs the SAME pure checks the modal ran (`src/lib/offers/email.ts`,
+  tested), refuses emulation, and sets `replyTo` to the actor — mail leaves the
+  shared RESEND_FROM_ADDRESS, so replies must come back to whoever sent it.
+- A successful send writes an `offer-events` row of kind `email-sent`
+  ("Emailed"), which the activity rail and the Analysis feed show under the
+  Letters filter. The audit is best-effort: it can never turn a sent email into
+  a failed one.
+- Sends fail while `RESEND_FROM_ADDRESS` is the `onboarding@resend.dev`
+  sandbox — Resend only delivers those to the account owner. Resend's own
+  wording is surfaced verbatim in the modal.
+
 **Applicants:** `applicants` is one row per PERSON across all their offers,
 related to `offer-requests` both ways (`offer-requests.applicant` relationship
 + an `applicants.offers` join). Nobody types these in: the `linkApplicant`
@@ -408,6 +485,15 @@ Offers saved before the collection existed link on their next save, or all at
 once with `bun run backfill:applicants` (`--dry-run`; Mongo-direct, like the
 usernames backfill). `applicants` keeps REST open (the admin picker and join
 table read through it), gated by the usual access rules.
+
+**Recent activity, everywhere:** the same audit feed appears twice — the
+per-offer rail on `/offers/[id]` (`/api/offer-timeline`) and, across every
+request, on the Analysis view (`RecentActivity` → `/api/offer-activity`, a
+kind filter + `before` cursor paging). Both routes map documents through
+`toActivityEvent` (`src/lib/offers/activity.ts`, tested) and both render
+through `ActivityFeed`, so the two feeds cannot drift. The Analysis feed
+loads when the view opens and refetches a few seconds after the record
+list changes, like the rail.
 
 **History & assignments:** every change to an offer is audited into
 `offer-events` by `afterChange` hooks on `offer-requests` — field edits and

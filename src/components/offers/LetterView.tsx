@@ -15,17 +15,9 @@ import { createPortal } from 'react-dom'
 import { useOffers } from '@/components/offers/OffersProvider'
 import { esc, safeFileBase } from '@/lib/offers/format'
 import { generateLetterHTML, letterWrap, resolveLetter, setByPath } from '@/lib/offers/letter'
-import {
-  letterDocHTML,
-  mailtoUrl,
-  offerEmailBody,
-  offerEmailSubject,
-  offerPacketHTML,
-  owaComposeUrl,
-} from '@/lib/offers/letter-exports'
+import { letterDocHTML, offerPacketHTML } from '@/lib/offers/letter-exports'
 import { letterToPdfBytes } from '@/lib/offers/pdf'
 import { downloadBlob } from '@/lib/offers/spreadsheet'
-import { getEmailPref, setEmailPref } from '@/lib/offers/storage'
 import {
   AUTO_ROWS,
   EDITABLE_ROWS,
@@ -34,7 +26,7 @@ import {
   rowAnchorId,
   rowIncluded,
 } from '@/components/offers/letter-panel'
-import type { EmailClientPref, LetterConfig, OfferRecord, OffersApi } from '@/lib/offers/types'
+import type { LetterConfig, OfferRecord, OffersApi } from '@/lib/offers/types'
 
 /* ---------- option-panel primitives (S3 234–237: selOpt / chkOpt / txtOpt / inpOpt) ---------- */
 
@@ -216,7 +208,6 @@ export default function LetterView({
 
   const [L, setL] = useState<LetterConfig | null>(null)
   const [contentKey, setContentKey] = useState(0)
-  const [emailClient, setEmailClient] = useState<EmailClientPref>('desktop')
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
   useEffect(() => {
@@ -403,11 +394,6 @@ export default function LetterView({
     return () => obs.disconnect()
   }, [navRows, contentKey])
 
-  // S3 509–510 — remembered email-client preference (client-only read).
-  useEffect(() => {
-    setEmailClient(getEmailPref())
-  }, [])
-
   useEffect(() => {
     return () => {
       if (regenTimer.current) clearTimeout(regenTimer.current)
@@ -555,7 +541,10 @@ export default function LetterView({
     apiRef.current.toast('Word document exported. Open in Word to edit, then Save As .docx.')
   }, [])
 
-  // S3 531–552 — compose in whichever client the user picked.
+  // Was S3 531–552 (compose in the user's own Outlook, desktop or web). The
+  // app sends the letter itself now: this opens SendLetterModal, which owns
+  // the recipients, the note and the PDF attachment. A record with no email on
+  // file is no longer a dead end — the modal asks for the address.
   const onEmail = useCallback(() => {
     const r = recRef.current
     const a = apiRef.current
@@ -563,20 +552,7 @@ export default function LetterView({
       a.toast('Open a new hire first.', true)
       return
     }
-    const email = ((r.data && r.data.email) || '').trim()
-    if (!email) {
-      a.toast('No email on this record — add one on the New Hire Details tab.', true)
-      return
-    }
-    const subject = offerEmailSubject(r)
-    const body = offerEmailBody(r)
-    if (getEmailPref() === 'web') {
-      window.open(owaComposeUrl(email, subject, body), '_blank', 'noopener')
-      a.toast('Opening Outlook on the web — attach the saved PDF, then send.')
-    } else {
-      window.location.href = mailtoUrl(email, subject, body)
-      a.toast('Opening your desktop mail app — attach the saved PDF, then send.')
-    }
+    a.composeEmail(r.id)
   }, [])
 
   if (!rec) return null
@@ -663,21 +639,13 @@ export default function LetterView({
 
       <div className="la-group">
         <span className="la-label">Email</span>
-        <select
-          className="la-select"
-          id="emailClientPref"
-          aria-label="Email client"
-          value={emailClient}
-          onChange={(e) => {
-            const v = e.target.value as EmailClientPref
-            setEmailClient(v)
-            setEmailPref(v)
-          }}
+        <button
+          type="button"
+          className="btn-light la-btn"
+          id="letterEmail"
+          title="Send this offer — choose the recipients and attach the letter"
+          onClick={onEmail}
         >
-          <option value="desktop">Desktop Outlook</option>
-          <option value="web">Outlook Web</option>
-        </select>
-        <button type="button" className="btn-light la-btn" id="letterEmail" onClick={onEmail}>
           ✉ Email
         </button>
       </div>

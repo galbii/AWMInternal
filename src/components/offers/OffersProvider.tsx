@@ -44,6 +44,7 @@ import type {
 
 import Modal from '@/components/shell/Modal'
 
+import SendLetterModal from './SendLetterModal'
 import Toast, { type ToastState } from './Toast'
 
 interface ConfirmState {
@@ -90,6 +91,9 @@ export function OffersProvider({
   const [sub, setSub] = useState<EditorSub>('letter')
   const [toastState, setToastState] = useState<ToastState | null>(null)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  // The offer the email modal is composing for — an id, not a record, so the
+  // modal always reads the CURRENT version of it (autosave replaces the object).
+  const [emailFor, setEmailFor] = useState<string | null>(null)
 
   // Mirrors of the state that mutators read synchronously, so a handler never
   // works from a stale closure.
@@ -362,6 +366,18 @@ export function OffersProvider({
     [],
   )
 
+  /**
+   * Open the "Email this offer" modal. Replaces the ported mailto:/OWA compose
+   * (S3 526–552): the app sends the letter itself now, so the flow lives here
+   * rather than in whatever the browser has registered for mail.
+   */
+  const composeEmail = useCallback(
+    (id: string) => {
+      setEmailFor(id || null)
+    },
+    [],
+  )
+
   /* ===================== INTAKE SYNC (S3 763–773) ===================== */
 
   /** addSubmission (S3 766–769) for a batch: dedupe by sid, prepend, persist. */
@@ -449,6 +465,7 @@ export function OffersProvider({
       patchRecords,
       toast,
       confirmDialog,
+      composeEmail,
       showView,
       showSub,
       openLetter,
@@ -472,6 +489,7 @@ export function OffersProvider({
       patchRecords,
       toast,
       confirmDialog,
+      composeEmail,
       showView,
       showSub,
       openLetter,
@@ -484,6 +502,12 @@ export function OffersProvider({
     <OffersContext.Provider value={api}>
       {children}
       <Toast state={toastState} />
+      <SendLetterModal
+        open={emailFor !== null}
+        rec={records.find((r) => r.id === emailFor) ?? null}
+        onClose={() => setEmailFor(null)}
+        onSent={(msg) => toast(msg)}
+      />
       <Modal
         open={confirm !== null}
         title={confirm ? confirm.title : 'Notice'}

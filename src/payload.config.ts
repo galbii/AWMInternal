@@ -77,6 +77,9 @@ export default buildConfig({
           defaultFromAddress: env.RESEND.fromAddress,
           defaultFromName: env.RESEND.fromName,
           apiKey: env.RESEND.apiKey,
+          // RESEND_OVERRIDE_TO: one inbox swallows every send. Set on staging
+          // so testing a notification can never reach a real applicant.
+          ...(env.RESEND.overrideTo ? { overrideRecipientAddress: env.RESEND.overrideTo } : {}),
         }),
       }
     : {}),

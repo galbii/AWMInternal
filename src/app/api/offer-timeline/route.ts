@@ -12,6 +12,7 @@
 
 import { hasRole } from '@/access/roles'
 import { deny, getViewer } from '@/lib/auth/viewer'
+import { toActivityEvent } from '@/lib/offers/activity'
 import type { User } from '@/payload-types'
 
 export const dynamic = 'force-dynamic'
@@ -74,22 +75,8 @@ export async function GET(request: Request): Promise<Response> {
     overrideAccess: false,
   })
 
-  const events = eventsRes.docs.map((e) => ({
-    id: String(e.id),
-    kind: e.kind,
-    summary: e.summary || '',
-    changes: (e.changes ?? []).map((c) => ({
-      field: c.field,
-      label: c.label || c.field,
-      from: c.from || '',
-      to: c.to || '',
-    })),
-    targetLabel: label(e.targetUser),
-    targetRole: e.targetRole || '',
-    editCount: e.editCount ?? 1,
-    actorLabel: label(e.actor) || 'System',
-    at: e.createdAt,
-  }))
+  // The same shape the cross-offer feed uses (src/lib/offers/activity.ts).
+  const events = eventsRes.docs.map(toActivityEvent)
 
   const assignments = (offer.assignments ?? []).map((a) => ({
     user: typeof a.user === 'string' ? a.user : String(a.user.id),
@@ -125,7 +112,14 @@ export async function GET(request: Request): Promise<Response> {
         sort: '-updated',
         limit: 50,
         depth: 0,
-        select: { id: true, employeeName: true, stage: true, status: true, updated: true, data: true },
+        select: {
+          id: true,
+          employeeName: true,
+          stage: true,
+          status: true,
+          updated: true,
+          data: true,
+        },
         user: v.viewer,
         overrideAccess: false,
       })

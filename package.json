@@ -10,6 +10,7 @@
     "backfill:usernames": "cross-env NODE_OPTIONS=--no-deprecation bun run scripts/backfill-usernames.ts",
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbopack",
+    "email:test": "cross-env NODE_OPTIONS=--no-deprecation bun run scripts/send-test-email.ts",
     "dev:prod": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && bun run build && bun run start",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { defaultLetter, resolveLetter, generateLetterHTML, compTableHTML } from '@/lib/offers/letter'
-import { offerEmailBody, mailtoUrl } from '@/lib/offers/letter-exports'
+import { offerEmailBody } from '@/lib/offers/letter-exports'
 import type { OfferRecord } from '@/lib/offers/types'
 
 const rec = (data: Record<string, string>, extra: Partial<OfferRecord> = {}): OfferRecord => ({
@@ -56,5 +56,4 @@ test('part-time drops benefits row', () => {
 
 test('email helpers', () => {
   expect(offerEmailBody(rec({ preferredName: 'Mickey' }))).toContain('Hi Mickey,')
-  expect(mailtoUrl('a@b.c', 'S', 'x\ny')).toBe('mailto:a@b.c?subject=S&body=x%0D%0Ay')
 })

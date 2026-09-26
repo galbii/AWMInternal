@@ -17,8 +17,29 @@ export const dynamic = 'force-dynamic'
 
 export default async function HubPage() {
   const v = await requireSession('/')
-  const apps = appsFor(v.actor)
-  const displayName = v.actor.name || v.actor.email
+  /*
+   * VIEWER, not actor — both of these are what the person on screen is meant
+   * to SEE, and seeing what the target user sees is the entire point of
+   * "view as". Reading them off `actor` meant the hub rendered identically
+   * while emulating: the admin's own name in the greeting and the admin's own
+   * shelf of cards, under a session bar that said "Viewing as <someone else>".
+   * That contradiction was the bug — the page did update, it just had nothing
+   * emulation-dependent on it to change.
+   *
+   * `viewer.ts` draws the line: `actor` is for audit attribution, `viewer` is
+   * the identity reads are evaluated against. A greeting and a card shelf are
+   * reads, and AppShell already follows this for `viewerLabel`.
+   *
+   * Note this deliberately does NOT match AppShell's app switcher, which
+   * stays on `actor` because it has to mirror `requireApp`'s actor-based gate
+   * — an admin emulating a plain user keeps access to the app so view-as
+   * stays usable for debugging. So the shelf can show fewer cards than the
+   * switcher while emulating, which is correct: the shelf answers "what does
+   * THIS user have?", the switcher answers "where may I still go?". Exiting
+   * view-as is always available in the session bar either way.
+   */
+  const apps = appsFor(v.viewer)
+  const displayName = v.viewer.name || v.viewer.email
 
   return (
     <div className="hub">

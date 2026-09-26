@@ -19,6 +19,7 @@ import type { Viewer } from '@/lib/auth/viewer'
 
 import AppSwitcher from './AppSwitcher'
 import SessionBar, { type SessionUserOption } from './SessionBar'
+import { ViewerProvider } from './ViewerProvider'
 
 export interface AppShellProps {
   /** Registry app id, or undefined when rendering the hub itself. */
@@ -102,7 +103,21 @@ export default async function AppShell({
           </div>
         }
       />
-      {children}
+      {/* Client components in every app ask this instead of drilling a prop.
+          `isManager` drops while emulating, so view-as shows the plain user's
+          UI — the same rule SessionBar's adminTools already follows. */}
+      <ViewerProvider
+        value={{
+          id: String(v.actor.id),
+          name: v.actor.name || v.actor.email,
+          username: typeof v.actor.username === 'string' ? v.actor.username : '',
+          roles: Array.isArray(v.actor.roles) ? v.actor.roles.filter(Boolean) : [],
+          isManager: canManage && !v.isEmulating,
+          isEmulating: v.isEmulating,
+        }}
+      >
+        {children}
+      </ViewerProvider>
     </>
   )
 }

@@ -968,6 +968,7 @@ export interface OfferEvent {
     | 'field-edit'
     | 'stage-change'
     | 'letter-updated'
+    | 'email-sent'
     | 'assigned'
     | 'unassigned'
     | 'assignment-role-change'

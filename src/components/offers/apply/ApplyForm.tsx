@@ -5,6 +5,13 @@
 // FieldBlock), with the HR-only concerns left out: no letter badges, no
 // autosave, no custom letter-wording card. One sitting, one "Send request".
 //
+// LAYOUT (2026-09): two columns. A sticky LEFT RAIL holds the identity of the
+// request — a live "who is joining" card, the New hire section and About you —
+// because those answers are the context every later answer is given in, and a
+// requester deep in the commission splits should still be able to see whose
+// splits they are. The right column carries the work: role, pay, equipment,
+// systems. Below 1080px the rail simply becomes the first block of one column.
+//
 // Nothing is stored until the send succeeds; the server (/api/apply) creates
 // the pipeline record and answers with its id, shown here as the reference.
 
@@ -18,22 +25,43 @@ import {
   type FormSection,
 } from '@/components/offers/form-sections'
 import { fmtDollarStr } from '@/lib/offers/format'
-import { missingRequired } from '@/lib/offers/schema'
+import { FIELDS, missingRequired } from '@/lib/offers/schema'
 import type { OfferData } from '@/lib/offers/types'
 
 /** HR's letter-wording overrides are not a requester's call. */
 const HIDDEN_CARDS = new Set(['pay-wording'])
+
+/** Sections that live in the rail rather than the main column. */
+const RAIL_SECTIONS = new Set(['person'])
+
+/** Denominator of the progress meter: every required question in the schema. */
+const REQUIRED_TOTAL = FIELDS.filter((f) => f.req).length
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface ApplyFormProps {
   /** True when the deployment set APPLY_ACCESS_CODE — the form asks for it. */
   requiresCode: boolean
+  /**
+   * The page's headline, handed down from the server page so the copy stays
+   * there while the layout decides where it sits — its own grid cell, level
+   * with the top of the rail on wide screens and first of all on narrow ones.
+   */
+  hero?: React.ReactNode
 }
 
 type Phase = 'form' | 'sending' | 'done'
 
-export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.Element {
+/** "Jordan Doe" → "JD". Empty name gives an empty mark, not a stray letter. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return ''
+  const first = parts[0]?.[0] ?? ''
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
+  return (first + last).toUpperCase()
+}
+
+export default function ApplyForm({ requiresCode, hero }: ApplyFormProps): React.JSX.Element {
   const [data, setData] = useState<OfferData>({})
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -54,6 +82,8 @@ export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.E
       ),
     [],
   )
+  const railSections = useMemo(() => sections.filter((s) => RAIL_SECTIONS.has(s.id)), [sections])
+  const mainSections = useMemo(() => sections.filter((s) => !RAIL_SECTIONS.has(s.id)), [sections])
   const missing = useMemo(() => missingRequired(data), [data])
 
   const setField = (id: string, value: string): void => {
@@ -78,8 +108,16 @@ export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.E
     })
   }
 
-  const youOk =
-    name.trim() !== '' && EMAIL_RE.test(email.trim()) && (!requiresCode || code.trim() !== '')
+  /** The About-you answers are required too, so they count toward progress. */
+  const youNeed =
+    (name.trim() ? 0 : 1) +
+    (EMAIL_RE.test(email.trim()) ? 0 : 1) +
+    (requiresCode && !code.trim() ? 1 : 0)
+  const youOk = youNeed === 0
+
+  const progTotal = REQUIRED_TOTAL + (requiresCode ? 3 : 2)
+  const progDone = Math.max(0, progTotal - missing.length - youNeed)
+  const ready = progDone === progTotal
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
@@ -89,8 +127,17 @@ export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.E
       setMissingIds(list.map((f) => f.id))
       setYouMissing(!youOk)
       setError('Fill in the highlighted fields, then send again.')
-      const first = formRef.current?.querySelector(!youOk ? '.apply-you' : '.fld.missing')
-      first?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Aim at the field itself, not at `.fld.missing`: the class is set by the
+      // render this call has not caused yet, so on a first attempt there is no
+      // `.missing` in the DOM to find. `list` is already in schema order, which
+      // is the order the questions are rendered in — first gap first, whichever
+      // column it is in. Only if every question is answered is the requester's
+      // own block the thing in the way.
+      const target = list.length
+        ? formRef.current?.querySelector('[data-fid="' + list[0]?.id + '"]')
+        : formRef.current?.querySelector('.apply-you')
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      target?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
       return
     }
     setPhase('sending')
@@ -211,6 +258,11 @@ export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.E
     )
   }
 
+  /* ---- the rail's identity card: a live mirror of what has been typed ---- */
+  const whoName = (data.preferredName || data.employeeName || '').trim()
+  const whoSub = [data.position, data.branchName].map((v) => (v || '').trim()).filter(Boolean)
+  const whoMark = initials(whoName)
+
   const busy = phase === 'sending'
 
   return (
@@ -221,84 +273,131 @@ export default function ApplyForm({ requiresCode }: ApplyFormProps): React.JSX.E
       noValidate
       onSubmit={(e) => void submit(e)}
     >
-      <section
-        className={'grp rf-sec apply-you' + (youMissing ? ' apply-you-missing' : '')}
-        id="sec-you"
-      >
-        <div className="grp-head rf-sec-head">
-          <span className="rf-sec-title">About you</span>
-          <span className="rf-sec-status">
-            {youOk ? (
-              <span className="rf-complete">Complete</span>
-            ) : (
-              <span className="apply-hint">So HR can follow up</span>
-            )}
-          </span>
-        </div>
-        <div className="grp-body">
-          <div className={'fld' + (youMissing && !name.trim() ? ' missing' : '')}>
-            <label className="q" htmlFor="apply-name">
-              Your name<span className="req">*</span>
-            </label>
-            <input
-              id="apply-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className={'fld' + (youMissing && !EMAIL_RE.test(email.trim()) ? ' missing' : '')}>
-            <label className="q" htmlFor="apply-email">
-              Your work email<span className="req">*</span>
-            </label>
-            <span className="help">HR replies here if anything needs clarifying.</span>
-            <input
-              id="apply-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          {requiresCode ? (
-            <div className={'fld' + (youMissing && !code.trim() ? ' missing' : '')}>
-              <label className="q" htmlFor="apply-code">
-                Request code<span className="req">*</span>
-              </label>
-              <span className="help">Ask HR for the current code if you do not have it.</span>
-              <input
-                id="apply-code"
-                type="text"
-                autoComplete="off"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
-            </div>
-          ) : null}
-          <div className="apply-hp" aria-hidden="true">
-            <label>
-              Website
-              <input
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </label>
-          </div>
-        </div>
-      </section>
+      <div className="apply-grid">
+        {hero}
 
-      {sections.map(renderSection)}
+        {/* The rail is context, not navigation: who this request is about, and
+            who is asking. Both stay on screen while the details are filled in.
+            A plain div, not <aside> — these are required questions, not an
+            aside from the form. */}
+        <div className="apply-rail">
+          <div className={'apply-who' + (whoName ? '' : ' apply-who-empty')} aria-hidden="true">
+            <span className="apply-who-avatar">
+              {whoMark || (
+                /* No name yet: a neutral silhouette rather than an emoji, which
+                   would drag a colour palette of its own onto the brand card. */
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <circle cx="12" cy="8.2" r="3.9" />
+                  <path d="M12 13.4c-4 0-7.2 2.3-7.2 5.1v.9h14.4v-.9c0-2.8-3.2-5.1-7.2-5.1Z" />
+                </svg>
+              )}
+            </span>
+            <span className="apply-who-text">
+              <span className="apply-who-name">{whoName || 'Your new hire'}</span>
+              <span className="apply-who-sub">
+                {whoSub.length ? whoSub.join(' · ') : 'Name, title and branch appear here'}
+              </span>
+            </span>
+          </div>
+
+          {railSections.map(renderSection)}
+
+          <section
+            className={'grp rf-sec apply-you' + (youMissing ? ' apply-you-missing' : '')}
+            id="sec-you"
+          >
+            <div className="grp-head rf-sec-head">
+              <span className="rf-sec-title">About you</span>
+              <span className="rf-sec-status">
+                {youOk ? (
+                  <span className="rf-complete">Complete</span>
+                ) : (
+                  <span className="apply-hint">So HR can follow up</span>
+                )}
+              </span>
+            </div>
+            <div className="grp-body">
+              <div className={'fld' + (youMissing && !name.trim() ? ' missing' : '')}>
+                <label className="q" htmlFor="apply-name">
+                  Your name<span className="req">*</span>
+                </label>
+                <input
+                  id="apply-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div
+                className={'fld' + (youMissing && !EMAIL_RE.test(email.trim()) ? ' missing' : '')}
+              >
+                <label className="q" htmlFor="apply-email">
+                  Your work email<span className="req">*</span>
+                </label>
+                <span className="help">HR replies here if anything needs clarifying.</span>
+                <input
+                  id="apply-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              {requiresCode ? (
+                <div className={'fld' + (youMissing && !code.trim() ? ' missing' : '')}>
+                  <label className="q" htmlFor="apply-code">
+                    Request code<span className="req">*</span>
+                  </label>
+                  <span className="help">Ask HR for the current code if you do not have it.</span>
+                  <input
+                    id="apply-code"
+                    type="text"
+                    autoComplete="off"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                </div>
+              ) : null}
+              <div className="apply-hp" aria-hidden="true">
+                <label>
+                  Website
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="apply-col">{mainSections.map(renderSection)}</div>
+      </div>
 
       <div className="apply-foot">
         <div className="apply-foot-inner">
-          <span className="apply-status">
-            <span className={'dot' + (missing.length === 0 && youOk ? '' : ' saving')} />
-            {missing.length === 0
-              ? 'All required fields complete'
-              : `${missing.length} required field${missing.length === 1 ? '' : 's'} still needed`}
-          </span>
+          <div
+            className={'apply-prog' + (ready ? ' is-ready' : '')}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progTotal}
+            aria-valuenow={progDone}
+            aria-label="Required questions answered"
+          >
+            <span className="apply-prog-track">
+              <span
+                className="apply-prog-fill"
+                style={{ width: Math.round((progDone / progTotal) * 100) + '%' }}
+              />
+            </span>
+            <span className="apply-prog-text">
+              {ready
+                ? 'Everything required is filled in'
+                : `${progDone} of ${progTotal} required answers`}
+            </span>
+          </div>
           {error ? (
             <span className="apply-error" role="alert">
               {error}

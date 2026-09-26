@@ -2,6 +2,9 @@
 // request here WITHOUT signing in; /api/apply creates the pipeline record.
 // Lives in the (offers) route group (same stylesheet and fonts as HR's form)
 // but OUTSIDE its (authed) segment, so requireApp never runs for it.
+//
+// The headline is built here (server copy) and handed to ApplyForm, which
+// gives it its own cell in the two-column grid — level with the identity rail.
 
 import type { Metadata } from 'next'
 import Image from 'next/image'
@@ -19,6 +22,20 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default function ApplyPage(): React.JSX.Element {
+  const hero = (
+    <header className="apply-hero">
+      <h1>Request a new hire</h1>
+      <p className="apply-lede">
+        Tell HR who is joining, where, and how they will be paid. HR turns this into the offer
+        letter, so the more complete it is, the sooner the letter goes out.
+      </p>
+      <p className="apply-meta">
+        Required fields are marked <span className="req">*</span>. Nothing is saved until you send,
+        so plan to finish in one sitting.
+      </p>
+    </header>
+  )
+
   return (
     <div className="apply">
       <div className="session-bar apply-bar">
@@ -28,18 +45,7 @@ export default function ApplyPage(): React.JSX.Element {
         <span className="apply-bar-note">New hire request</span>
       </div>
       <main className="apply-main">
-        <header className="apply-hero">
-          <h1>Request a new hire</h1>
-          <p className="apply-lede">
-            Tell HR who is joining, where, and how they will be paid. HR turns this into the offer
-            letter, so the more complete it is, the sooner the letter goes out.
-          </p>
-          <p className="apply-meta">
-            Required fields are marked <span className="req">*</span>. Nothing is saved until you
-            send, so plan to finish in one sitting.
-          </p>
-        </header>
-        <ApplyForm requiresCode={Boolean(env.APPLY_ACCESS_CODE)} />
+        <ApplyForm requiresCode={Boolean(env.APPLY_ACCESS_CODE)} hero={hero} />
       </main>
     </div>
   )

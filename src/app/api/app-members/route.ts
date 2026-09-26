@@ -2,11 +2,14 @@
 // each app shows through <AppMembers>).
 //
 // GET  ?app=<id> -> { app: {id, name}, canManage, members, candidates }
+//      Admin/dev only, rejected while emulating — the roster IS user
+//      management, so a plain user may not read it even for an app they can
+//      open (2026-09-25). The <AppMembers> view is hidden from them too; this
+//      is the door behind that.
 //      members: everyone who can open the app — people with it on their list,
 //      plus admins/developers (flagged `implicit`: they open every app without
-//      being listed). Emails only for a manager. Evaluated as the VIEWER, so
-//      "view as" shows what that person would see.
-//      candidates: everyone else, for the add picker — managers only.
+//      being listed).
+//      candidates: everyone else, for the add picker.
 // POST { app, add?: string[], remove?: string[] } -> the same snapshot
 //      Admin/dev only, rejected while emulating. Each user's list is rebuilt
 //      through `withApps` and written with the ACTOR + overrideAccess:false,
@@ -18,7 +21,6 @@
 import { hasRole } from '@/access/roles'
 import { withApps } from '@/lib/apps/membership'
 import {
-  canUseApp,
   getApp,
   isAppManager,
   isMembershipApp,
@@ -34,7 +36,7 @@ export interface AppMember {
   id: string
   name: string
   username: string
-  /** Managers only. */
+  /** Always set — only managers reach this route. Optional for older clients. */
   email?: string
   roles: string[]
   /** An admin/developer who is not on the list but opens every app anyway. */
@@ -61,10 +63,10 @@ function resolveApp(id: string | null): AppDef | null {
   return app && isMembershipApp(app.id) ? app : null
 }
 
+/** Both callers are managers, so this always carries emails and candidates. */
 async function snapshot(
   v: Viewer,
   app: AppDef,
-  canManage: boolean,
 ): Promise<{ members: AppMember[]; candidates: AppCandidate[] }> {
   const res = await v.payload.find({
     collection: 'users',
@@ -85,11 +87,11 @@ async function snapshot(
         id: String(u.id),
         name: nameOf(u),
         username,
-        ...(canManage ? { email: u.email } : {}),
+        email: u.email,
         roles: Array.isArray(u.roles) ? u.roles.filter(Boolean) : [],
         implicit,
       })
-    } else if (canManage) {
+    } else {
       candidates.push({ id: String(u.id), name: nameOf(u), username, email: u.email })
     }
   }
@@ -101,12 +103,16 @@ export async function GET(request: Request): Promise<Response> {
   if (!v) return deny(401)
   const app = resolveApp(new URL(request.url).searchParams.get('app'))
   if (!app) return fail(404, 'No such app.')
-  // The view is inside the app, so the viewer must be someone who can open it.
-  if (!canUseApp(v.viewer, app)) return deny(403)
+  // Same gate as POST: reading who else has access is user management, and a
+  // manager opens every app anyway, so there is nothing left for canUseApp
+  // to decide here.
+  if (v.isEmulating) {
+    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.')
+  }
+  if (!hasRole(v.actor, 'admin', 'dev')) return deny(403)
 
-  const canManage = !v.isEmulating && hasRole(v.actor, 'admin', 'dev')
-  const snap = await snapshot(v, app, canManage)
-  return Response.json({ app: { id: app.id, name: app.name }, canManage, ...snap })
+  const snap = await snapshot(v, app)
+  return Response.json({ app: { id: app.id, name: app.name }, canManage: true, ...snap })
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -162,6 +168,6 @@ export async function POST(request: Request): Promise<Response> {
     return fail(400, 'That change could not be saved.')
   }
 
-  const snap = await snapshot(v, app, true)
+  const snap = await snapshot(v, app)
   return Response.json({ app: { id: app.id, name: app.name }, canManage: true, ...snap })
 }

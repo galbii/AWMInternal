@@ -1,13 +1,15 @@
 'use client'
 
-// Analysis view — stat cards, monthly bar chart, monthly breakdown table.
-// ← S3 623–646.  Everything is derived in render; this view holds no state.
+// Analysis view — stat cards, recent activity, monthly bar chart, monthly
+// breakdown table. ← S3 623–646. The numbers are derived in render; only the
+// activity feed (RecentActivity, not in the source) fetches.
 
 import { fmtMonthKey } from '@/lib/offers/format'
 import type { OfferRecord, Stage } from '@/lib/offers/types'
 
 import { monthKeyOf, stageOf } from './StageTable'
 import { useOffers } from './OffersProvider'
+import RecentActivity from './RecentActivity'
 
 interface MonthBucket {
   total: number
@@ -50,8 +52,7 @@ export default function AnalysisView() {
   const months: Record<string, MonthBucket> = {}
   records.forEach((r) => {
     const k = monthKeyOf(r) || ''
-    const M =
-      months[k] || (months[k] = { total: 0, hired: 0, archived: 0, pipeline: 0 })
+    const M = months[k] || (months[k] = { total: 0, hired: 0, archived: 0, pipeline: 0 })
     M.total++
     const s: Stage = stageOf(r)
     M[s]++
@@ -74,6 +75,10 @@ export default function AnalysisView() {
         />
         <StatCard label="Pending" n={pending} sub={pct(pending) + '% of offers'} cls="muted" />
       </div>
+
+      {/* Not in the source: the cross-offer audit feed (2026-09), so the
+          numbers above sit next to what actually happened. */}
+      <RecentActivity />
 
       <h3 className="an-h">Offers by month</h3>
       <div className="barchart">

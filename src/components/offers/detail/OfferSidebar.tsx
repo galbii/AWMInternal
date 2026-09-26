@@ -13,29 +13,9 @@
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 
-import { relativeTime } from '@/lib/offers/summary'
-import { initialsOf } from '@/lib/users/initials'
+import ActivityFeed from '@/components/offers/ActivityFeed'
 
 import type { TimelineEvent } from './useOfferTimeline'
-
-const KIND_LABEL: Record<string, string> = {
-  created: 'Created',
-  'field-edit': 'Edited',
-  'stage-change': 'Stage',
-  'letter-updated': 'Letter',
-  assigned: 'Assigned',
-  unassigned: 'Unassigned',
-  'assignment-role-change': 'Role',
-  deleted: 'Deleted',
-}
-
-function fmtWhen(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
-}
 
 interface OfferSidebarProps {
   /** null while the first fetch is in flight. */
@@ -115,51 +95,7 @@ export default function OfferSidebar({
         {error && <div className="od-error">{error}</div>}
         {!events && !error && <div className="od-dim">Loading…</div>}
         {events && events.length === 0 && <div className="od-dim">Nothing yet.</div>}
-        {events && events.length > 0 && (
-          <ol className="od-events">
-            {events.map((e) => (
-              <li key={e.id} className="od-event">
-                <span className="od-avatar od-avatar-sm" title={e.actorLabel} aria-hidden="true">
-                  {initialsOf(e.actorLabel)}
-                </span>
-                <div className="od-event-body">
-                  <div className="od-summary">
-                    <span className={`od-kind od-kind-${e.kind}`}>
-                      {KIND_LABEL[e.kind] || e.kind}
-                    </span>
-                    {e.summary}
-                    {e.targetLabel && <> — {e.targetLabel}</>}
-                    {e.kind === 'field-edit' && e.editCount > 1 && (
-                      <span className="od-dim"> ({e.editCount} saves)</span>
-                    )}
-                  </div>
-                  {e.changes.length > 0 && (
-                    <details className="od-changes">
-                      <summary>
-                        {e.changes.length} change{e.changes.length === 1 ? '' : 's'}
-                      </summary>
-                      <ul>
-                        {e.changes.map((c) => (
-                          <li key={c.field}>
-                            <strong>{c.label}:</strong>{' '}
-                            <span className="od-from">{c.from || '(empty)'}</span> →{' '}
-                            <span className="od-to">{c.to || '(empty)'}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                  <div className="od-meta">
-                    {e.actorLabel} ·{' '}
-                    <time dateTime={e.at} title={fmtWhen(e.at)}>
-                      {relativeTime(e.at)}
-                    </time>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+        {events && events.length > 0 && <ActivityFeed events={events} />}
       </section>
     </aside>
   )

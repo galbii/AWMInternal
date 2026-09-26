@@ -30,6 +30,7 @@ import TenureView from './tabs/TenureView'
 import TitlesView from './tabs/TitlesView'
 
 import AppMembers from '@/components/shell/AppMembers'
+import { useViewer } from '@/components/shell/ViewerProvider'
 
 /** K 209-213 — tab order is the source's. */
 const TABS: { id: TabId; label: string }[] = [
@@ -66,7 +67,14 @@ const NO_COUNT: Partial<Record<TabId, true>> = {
 }
 
 export default function KernManager() {
-  const { state, tab, setTab, openBranchId, dirty } = useKern()
+  const { state, tab: rawTab, setTab, openBranchId, dirty } = useKern()
+
+  // The Users tab is administrative: admin/dev only, hidden while emulating.
+  // The active tab lives in ?tab=, so a plain user can TYPE /kern?tab=users —
+  // fall the view back to Branches rather than trusting the hidden nav entry.
+  const { isManager } = useViewer()
+  const tabs = isManager ? TABS : TABS.filter((t) => t.id !== 'users')
+  const tab: TabId = !isManager && rawTab === 'users' ? 'branches' : rawTab
 
   // K 215-220
   const live = state.branches.filter((b) => !b.archived)
@@ -94,7 +102,7 @@ export default function KernManager() {
       </header>
 
       <nav className="tabs">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <div
             key={t.id}
             className={`tab${t.id === tab ? ' active' : ''}`}

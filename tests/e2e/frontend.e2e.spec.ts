@@ -124,7 +124,9 @@ test.describe('Kern Org Manager @ /kern', () => {
     await expect(page.locator('.kern header h1')).toHaveText('Kern Org Manager')
     await expect(page.locator('.session-bar .sb-user')).toContainText('Signed in as')
 
-    // The source's 16 tabs, plus the per-app Users view (2026-09).
+    // The source's 16 tabs, plus the per-app Users view (2026-09). That last
+    // one is admin/dev only (2026-09-25), so E2E_EMAIL must be a manager —
+    // a plain user correctly sees 16.
     const tabs = page.locator('.kern nav.tabs .tab')
     await expect(tabs).toHaveCount(17)
     await expect(tabs.nth(0)).toContainText('Branches')

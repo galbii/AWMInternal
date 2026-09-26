@@ -157,6 +157,10 @@ header.app h1{
 
 .email-link{color:var(--awm-link);text-decoration:none}
 .email-link:hover{text-decoration:underline}
+/* The table's address opens the composer, so it is a button now, not a
+   mailto: link — stripped back to look exactly like the link it replaced. */
+button.email-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .c-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Dropdown menu (the row ⋯ menus, the selection bar's signer picker). */
@@ -529,6 +533,27 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .an-table th,.an-table td{padding:9px 14px;border-bottom:1px solid var(--awm-line);text-align:left;font-size:13px}
 .an-table th{background:var(--awm-mist);color:var(--awm-slate);font-weight:600;font-size:12.5px}
 .an-table tbody tr:last-child td{border-bottom:none}
+/* Recent activity on the Analysis view: the same feed as /offers/[id]'s
+   rail (.od-events), in a card with a kind filter and paging. */
+.an-activity{margin-top:22px;background:var(--awm-card);border:1px solid var(--awm-line);
+  border-radius:12px;padding:14px 16px 16px}
+.an-activity-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-bottom:12px}
+.an-activity .an-h{margin:0}
+.an-blurb{margin:3px 0 0;font-size:12.5px;color:var(--awm-slate)}
+.an-activity-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.an-chips{display:flex;gap:4px;flex-wrap:wrap}
+.an-chip{font:inherit;font-size:12px;font-weight:600;color:var(--awm-slate);background:var(--awm-field);
+  border:1px solid var(--awm-line);border-radius:99px;padding:4px 10px;cursor:pointer;
+  transition:background .14s ease,color .14s ease,border-color .14s ease}
+.an-chip:hover{background:var(--awm-mist);color:var(--awm-ink)}
+.an-chip:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.an-chip[aria-pressed='true']{background:var(--awm-chip-bg);color:var(--awm-chip-fg);border-color:transparent}
+.an-activity-body{max-height:540px;overflow-y:auto;scrollbar-width:thin;padding-right:6px}
+.an-more{display:block;margin:14px auto 2px;min-width:140px}
+.od-offer-link{color:var(--awm-link);font-weight:600;text-decoration:none}
+.od-offer-link:hover{text-decoration:underline}
+.od-offer-gone{color:var(--awm-slate);text-decoration:line-through;font-weight:500}
 .muted{color:var(--awm-slate)}
 
 @media print{
@@ -788,8 +813,6 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .la-bar .la-check{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
   background:rgba(255,255,255,.10);padding:7px 10px;border-radius:8px;white-space:nowrap}
 .la-bar .la-check input{accent-color:#fff;margin:0}
-.la-bar .la-select{padding:7px 8px;border-radius:8px;border:1px solid rgba(148,180,203,.35);
-  font-size:12.5px;font-family:inherit;background:#0a2438;color:#e8f1f7}
 
 /* --- width budget ---
    The letter pane wants rail 176 + options 312 + (8.5in sheet + gutters) 852
@@ -859,9 +882,21 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
    ================================================================ */
 @media (prefers-reduced-motion:no-preference){
   /* A view arrives: a short rise. `display:none -> block` restarts it. */
-  .view.active{animation:om-view-in .24s cubic-bezier(.22,.68,.35,1) both}
+  /* `backwards`, never `both`. A filling animation whose `to` keyframe is
+     `transform:none` does NOT compute to `none` — it computes to the resolved
+     matrix(1,0,0,1,0,0), and a non-`none` transform makes the element a
+     CONTAINING BLOCK for `position:fixed` descendants. That silently broke the
+     row's ⋯ menu: StageTable pins it with viewport coordinates from
+     getBoundingClientRect(), which the row then re-based against its own top
+     edge, throwing the menu a row-offset down the page — off-screen entirely
+     for anything below the fold.
+     `backwards` still fills the delay with the `from` keyframe, so the stagger
+     is unchanged; it just stops filling afterwards, and the transform goes back
+     to a real `none`. The end keyframe equals the base style here, so this is a
+     visual no-op. */
+  .view.active{animation:om-view-in .24s cubic-bezier(.22,.68,.35,1) backwards}
   /* Table rows settle in one after another (first ten; the rest just appear). */
-  .stage-table tbody tr{animation:om-row-in .3s ease both}
+  .stage-table tbody tr{animation:om-row-in .3s ease backwards}
   .stage-table tbody tr:nth-child(1){animation-delay:0ms}
   .stage-table tbody tr:nth-child(2){animation-delay:25ms}
   .stage-table tbody tr:nth-child(3){animation-delay:50ms}
@@ -1066,8 +1101,6 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
   padding:8px 10px;font-size:13px}
 .letter-actions .btn-light{background:#fff;color:#10202b;border-color:transparent}
 .letter-actions .btn-light:hover{background:#e8f1f7}
-.la-select{width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(148,180,203,.35);
-  font-size:12.5px;font-family:inherit;background:#0a2438;color:#e8f1f7}
 .la-check{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
   background:rgba(255,255,255,.10);padding:7px 10px;border-radius:8px}
 .la-check input{accent-color:#fff;margin:0}
@@ -1088,7 +1121,6 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
   .la-head:not(:empty){flex-direction:row;align-items:baseline;gap:9px;padding:0;border-bottom:none}
   .la-group{flex-direction:row;align-items:center;gap:7px}
   .letter-actions .la-btn{width:auto}
-  .la-select{width:auto}
   .la-back{margin-top:0}
   .letter-overlay .letter-options{grid-row:2;grid-column:1}
   .letter-overlay .letter-preview-area{grid-row:2;grid-column:2}
@@ -1137,6 +1169,20 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .lp-row-extra{border-top:1px solid var(--awm-line);padding-top:9px;margin-bottom:2px}
 .lp-source{margin:0 0 8px;font-size:11px;color:var(--awm-slate);line-height:1.4}
 .lp-row-auto .lp-source{margin-bottom:9px}
+
+/* ================================================================
+   SEND-LETTER MODAL (SendLetterModal)
+   Rides on the shared .usm-form styling in shell.css; only the textarea
+   and the footnote are its own.
+   ================================================================ */
+.sle-form{min-width:min(420px,72vw)}
+.sle-form textarea{
+  padding:9px 10px;border:1px solid var(--sh-line);border-radius:7px;
+  font-size:13.5px;font-family:inherit;line-height:1.5;resize:vertical;
+  background:var(--sh-field);color:var(--sh-ink);
+}
+.sle-form textarea:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
+.sle-note{margin:2px 0 0;font-size:11.5px;line-height:1.45}
 
 /* --- the assignments editor in the /offers/[id] rail --- */
 .assign-editor{min-width:300px}
@@ -1347,37 +1393,138 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
 
 /* ================================================================
    /apply — THE PUBLIC REQUEST FORM. Outside the authed shell: a slim
-   brand bar, a serif headline, then the same section cards HR's form
-   uses (.grp, .rf-*, .fld) minus HR-only concerns, and one sticky
-   "Send request" bar. Themed like everything else.
+   brand bar, then TWO COLUMNS — a sticky identity rail (who is joining,
+   who is asking) on the left, the work (role, pay, equipment, systems)
+   on the right — over one sticky "Send request" bar. It reuses HR's
+   section cards verbatim (.grp, .rf-*, .fld); everything below only
+   re-sizes them for the rail. Themed like everything else.
    ================================================================ */
-.apply{min-height:100dvh;display:flex;flex-direction:column}
-.apply-bar{justify-content:flex-start}
+.apply{
+  min-height:100dvh;display:flex;flex-direction:column;
+  /* Where the rail sticks: the brand bar (46px) plus breathing room. */
+  --apply-top:62px;
+  /* Room the sticky footer claims back from the rail's height. */
+  --apply-foot:92px;
+  --apply-width:1240px;
+}
+.apply-bar{position:sticky;top:0;z-index:60;justify-content:flex-start}
 .apply-mark{width:28px;height:28px;border-radius:7px;display:block}
 .apply-brand{color:#fff;font-weight:600;letter-spacing:.01em}
 .apply-bar-note{color:#9db3c2}
-.apply-main{width:100%;max-width:860px;margin:0 auto;padding:36px 20px 150px;flex:1}
-.apply-hero{margin-bottom:26px}
+.apply-main{width:100%;max-width:var(--apply-width);margin:0 auto;padding:26px 24px 132px;flex:1}
+
+/* The rail spans both rows so it starts level with the headline; the headline
+   is still its own grid child, which is what lets the one-column fallback put
+   it FIRST rather than after everything in the rail. */
+.apply-grid{
+  display:grid;grid-template-columns:344px minmax(0,1fr);
+  grid-template-areas:"rail hero" "rail col";
+  grid-template-rows:auto auto;column-gap:30px;align-items:start;
+}
+
+/* --- the main column --- */
+.apply-hero{grid-area:hero;margin:0 0 20px}
+.apply-col{grid-area:col;min-width:0}
 .apply-hero h1{
-  margin:0 0 10px;font-family:var(--awm-serif);font-size:32px;font-weight:600;
-  letter-spacing:-.012em;line-height:1.15;color:var(--awm-ink);
+  margin:0 0 10px;font-family:var(--awm-serif);font-size:34px;font-weight:600;
+  letter-spacing:-.014em;line-height:1.12;color:var(--awm-ink);
 }
 .apply-lede{margin:0;font-size:15.5px;line-height:1.55;color:var(--awm-ink);max-width:62ch}
 .apply-meta{margin:10px 0 0;font-size:13px;color:var(--awm-slate)}
-.apply-form .grp.rf-sec{margin-bottom:16px}
-.apply-you .fld label.q{font-size:14px}
+.apply-col .grp.rf-sec{margin-bottom:16px}
+.apply-col .grp.rf-sec:last-child{margin-bottom:0}
+
+/* Eight basis-point boxes in one tall stack was a scrolling exercise; with the
+   rail freeing the width they pair up. Head and blurb still span the card. */
+@media (min-width:1080px){
+  .apply-col #sec-pay-splits{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;align-items:start}
+  .apply-col #sec-pay-splits>.rf-card-head,
+  .apply-col #sec-pay-splits>.rf-blurb{grid-column:1/-1}
+  .apply-col #sec-pay-splits>.fld{border-bottom:none;padding:9px 0}
+}
+
+/* --- the identity rail --- */
+.apply-rail{
+  grid-area:rail;align-self:start;
+  position:sticky;top:var(--apply-top);
+  max-height:calc(100dvh - var(--apply-top) - var(--apply-foot));
+  overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:14px;padding-right:9px;margin-right:-9px;
+}
+/* Flex children shrink by default, and .grp clips — together that SWALLOWED the
+   last questions of a card instead of scrolling to them. The rail scrolls; its
+   cards keep their natural height. */
+.apply-rail>*{flex:0 0 auto}
+/* A styled scrollbar stays visible while the rail overflows (macOS overlay
+   scrollbars would hide the only hint that there is more below). */
+.apply-rail::-webkit-scrollbar{width:9px}
+.apply-rail::-webkit-scrollbar-thumb{background:var(--awm-slate);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box}
+.apply-rail::-webkit-scrollbar-thumb:hover{background:var(--awm-ink);background-clip:content-box}
+.apply-rail .grp.rf-sec{margin-bottom:0}
+.apply-rail .grp-head.rf-sec-head{padding:11px 14px}
+.apply-rail .grp-body{padding:2px 14px 12px}
+.apply-rail .fld{padding:10px 0}
+.apply-rail .fld label.q{font-size:13px;margin-bottom:5px}
+.apply-rail .rf-sec-title{font-size:13.5px}
+.apply-rail .rf-sec-status{font-size:11.5px}
+.apply-rail .rf-blurb{font-size:12px;margin:9px 0 0}
+.apply-rail textarea{min-height:54px}
+
+/* The live "who is joining" card — the one piece of brand colour on the page,
+   and the reason the rail is worth its width: it answers "whose splits are
+   these?" from anywhere in the form. Mirrors typed fields, so aria-hidden. */
+.apply-who{
+  display:flex;align-items:center;gap:13px;border-radius:14px;padding:14px 16px;
+  background:linear-gradient(142deg,var(--awm-blue-deep),var(--awm-blue) 62%,var(--awm-blue-lift));
+  color:#fff;box-shadow:0 14px 30px -22px rgba(2,20,33,.85);
+}
+.apply-who-avatar{
+  flex:0 0 auto;width:46px;height:46px;border-radius:13px;
+  display:grid;place-items:center;font-size:15.5px;font-weight:700;letter-spacing:.02em;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);
+}
+.apply-who-empty .apply-who-avatar{color:rgba(255,255,255,.62)}
+.apply-who-text{min-width:0;display:flex;flex-direction:column;gap:3px}
+.apply-who-name{
+  font-family:var(--awm-serif);font-size:19px;font-weight:600;line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.apply-who-empty .apply-who-name{font-family:inherit;font-size:14px;color:rgba(255,255,255,.9)}
+.apply-who-sub{
+  font-size:12.5px;line-height:1.35;color:rgba(255,255,255,.76);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.apply-who-empty .apply-who-sub{white-space:normal}
+
+.apply-you .fld label.q{font-size:13px}
 .apply-you-missing{border-color:var(--awm-req)}
 .apply-hint{color:var(--awm-slate);font-weight:500}
 /* The honeypot: off-canvas, never display:none (some bots skip hidden inputs). */
 .apply-hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
 
+/* --- the send bar --- */
 .apply-foot{
   position:fixed;left:0;right:0;bottom:0;z-index:50;
-  padding:12px 20px;background:var(--awm-card);border-top:1px solid var(--awm-line);
+  padding:12px 24px;background:var(--awm-card);border-top:1px solid var(--awm-line);
   box-shadow:0 -10px 30px -18px rgba(2,20,33,.35);
 }
-.apply-foot-inner{width:100%;max-width:860px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.apply-status{font-size:13px;color:var(--awm-slate);display:flex;align-items:center;gap:7px}
+.apply-foot-inner{
+  width:100%;max-width:var(--apply-width);margin:0 auto;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.apply-prog{display:flex;align-items:center;gap:11px;min-width:0}
+.apply-prog-track{
+  flex:0 0 auto;width:170px;height:7px;border-radius:99px;overflow:hidden;
+  background:var(--awm-mist);border:1px solid var(--awm-line);
+}
+.apply-prog-fill{
+  display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--awm-blue),var(--awm-blue-bright));
+}
+.apply-prog-text{font-size:13px;font-weight:500;color:var(--awm-slate)}
+.apply-prog.is-ready .apply-prog-fill{background:var(--awm-ok)}
+.apply-prog.is-ready .apply-prog-text{color:var(--awm-ok)}
 .apply-error{
   font-size:13px;color:var(--awm-danger);background:var(--awm-danger-bg);
   border:1px solid var(--awm-danger-line);border-radius:8px;padding:6px 10px;
@@ -1399,12 +1546,43 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
 .apply-done .btn-primary{margin-top:14px}
 .apply-ref{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--awm-mist);padding:2px 7px;border-radius:6px}
 
+/* Below the two-column budget the rail stops being a rail: it becomes the
+   first block of one column, in the order you would fill it anyway. */
+@media (max-width:1079px){
+  /* One column of full-width inputs reads badly past ~880px, so the page stops
+     growing once the rail is gone. */
+  .apply-main{max-width:880px}
+  .apply-foot-inner{max-width:880px}
+  .apply-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"hero" "rail" "col";
+    grid-template-rows:auto auto auto;row-gap:16px}
+  .apply-hero{margin-bottom:0}
+  .apply-rail{position:static;max-height:none;overflow:visible;
+    padding-right:0;margin-right:0;gap:16px}
+  .apply-who{padding:16px 18px}
+  .apply-rail .grp-head.rf-sec-head{padding:13px 16px}
+  .apply-rail .grp-body{padding:6px 16px 16px}
+  .apply-rail .fld{padding:12px 0}
+  .apply-rail .fld label.q,.apply-you .fld label.q{font-size:14px}
+}
 @media (max-width:640px){
-  .apply-main{padding:24px 16px 170px}
-  .apply-hero h1{font-size:26px}
+  .apply-main{padding:22px 16px 170px}
+  .apply-foot{padding:12px 16px}
+  .apply-hero h1{font-size:27px}
+  .apply-prog{flex:1 1 100%}
+  .apply-prog-track{flex:1 1 auto;width:auto}
   .apply-submit{width:100%;margin-left:0;justify-content:center}
 }
-@media print{ .apply-foot,.apply-bar{display:none} }
+
+@media (prefers-reduced-motion:no-preference){
+  .apply-who,.apply-col .grp.rf-sec{animation:sh-rise .26s cubic-bezier(.22,.68,.35,1) both}
+  .apply-prog-fill{transition:width .34s cubic-bezier(.22,.68,.35,1),background .2s ease}
+  .apply-who-name{transition:font-size .18s ease}
+}
+@media print{
+  .apply-foot,.apply-bar,.apply-who{display:none}
+  .apply-grid{display:block}
+  .apply-rail{position:static;max-height:none;overflow:visible}
+}
 
 /* The shared per-app Users view (shell.css .am-*) inside the offers content
    column: inset like every other view's content; it brings its own title. */

@@ -12,26 +12,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useOffers } from '@/components/offers/OffersProvider'
+import type { ActivityEvent } from '@/lib/offers/activity'
 import type { Stage } from '@/lib/offers/types'
 
-export interface TimelineChange {
-  field: string
-  label: string
-  from: string
-  to: string
-}
-
-export interface TimelineEvent {
-  id: string
-  kind: string
-  summary: string
-  changes: TimelineChange[]
-  targetLabel: string
-  targetRole: string
-  editCount: number
-  actorLabel: string
-  at: string
-}
+/** One feed shape for both rails — see src/lib/offers/activity.ts. */
+export type TimelineEvent = ActivityEvent
 
 export interface ApplicantOffer {
   id: string

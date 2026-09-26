@@ -59,6 +59,7 @@ import Modal from '@/components/shell/Modal'
 
 import ActionHub, { type HubGroup } from './ActionHub'
 import AppMembers from '@/components/shell/AppMembers'
+import { useViewer } from '@/components/shell/ViewerProvider'
 
 import AnalysisView from './AnalysisView'
 import LetterView from './LetterView'
@@ -123,6 +124,9 @@ export default function OfferManager() {
     showView,
     toast,
   } = useOffers()
+
+  // The Users view is administrative: admin/dev only, hidden while emulating.
+  const { isManager } = useViewer()
 
   const [codeOpen, setCodeOpen] = useState(false)
   const [codeText, setCodeText] = useState('')
@@ -484,17 +488,21 @@ export default function OfferManager() {
               </button>
 
               {/* Per-app membership (2026-09): who can open this app, managed
-                  here rather than only in the /users directory. */}
-              <button
-                type="button"
-                className={tabCls('users')}
-                aria-current={view === 'users' ? 'page' : undefined}
-                title={collapsed ? 'Users' : undefined}
-                onClick={() => showView('users')}
-              >
-                <Users className="om-tab-icon" size={17} strokeWidth={1.75} aria-hidden="true" />
-                <span className="om-tab-text">Users</span>
-              </button>
+                  here rather than only in the /users directory. Administrative,
+                  so a plain user never sees the entry — nor the roster behind
+                  it, which /api/app-members refuses them. */}
+              {isManager ? (
+                <button
+                  type="button"
+                  className={tabCls('users')}
+                  aria-current={view === 'users' ? 'page' : undefined}
+                  title={collapsed ? 'Users' : undefined}
+                  onClick={() => showView('users')}
+                >
+                  <Users className="om-tab-icon" size={17} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="om-tab-text">Users</span>
+                </button>
+              ) : null}
 
               {/* S1 340: the Editor tab exists only while a request is open. */}
               {view === 'editor' ? (
@@ -547,9 +555,11 @@ export default function OfferManager() {
             <AnalysisView />
           </section>
           {/* No ViewHead: the shared panel carries its own title and blurb. */}
-          <section className={viewCls('users')}>
-            <AppMembers appId="offers" />
-          </section>
+          {isManager ? (
+            <section className={viewCls('users')}>
+              <AppMembers appId="offers" />
+            </section>
+          ) : null}
           <section className={viewCls('editor')}>{editorContent}</section>
         </div>
       </div>

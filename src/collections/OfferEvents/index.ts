@@ -40,6 +40,7 @@ export const OfferEvents: CollectionConfig = {
         { label: 'Field edit', value: 'field-edit' },
         { label: 'Stage change', value: 'stage-change' },
         { label: 'Letter updated', value: 'letter-updated' },
+        { label: 'Emailed', value: 'email-sent' },
         { label: 'Assigned', value: 'assigned' },
         { label: 'Unassigned', value: 'unassigned' },
         { label: 'Assignment role change', value: 'assignment-role-change' },

@@ -105,8 +105,6 @@ export interface IntakeSubmission {
   data: OfferData
 }
 
-export type EmailClientPref = 'desktop' | 'web'
-
 // 'all' (2026-09) is the cross-stage table added with the sidebar navigation
 // and 'users' (2026-09) the app's membership view (<AppMembers>, shared
 // chrome); every other member is the ported tab set.
@@ -169,6 +167,11 @@ export interface OffersApi {
   patchRecords(patches: RecordPatch[]): void
   toast(msg: string, err?: boolean): void
   confirmDialog(title: string, msg: string, onYes: () => void, onCancel?: () => void): void
+  /**
+   * Open the "Email this offer" modal for a record (SendLetterModal). Replaces
+   * the ported mailto:/OWA compose — the app sends the letter itself now.
+   */
+  composeEmail(id: string): void
   showView(v: View): void
   showSub(s: EditorSub): void
   /**

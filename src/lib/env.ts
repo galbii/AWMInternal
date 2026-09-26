@@ -10,6 +10,26 @@ function optional(key: string): string | null {
 }
 
 /**
+ * Placeholders survive a copied .env.example: `noreply@yourdomain.com`,
+ * `<-- FILL IN`, a leftover `#`. Resend accepts none of them, but it only
+ * says so at SEND time — a 403 inside whatever request tried to mail, long
+ * after boot. Treat a placeholder as "not configured" so the fallback
+ * (Payload logs mail to the console) kicks in and /api/email/test says why.
+ */
+const PLACEHOLDER = [/^#/, /^<.*>$/, /fill[ _-]?in/i, /yourdomain\.com$/i, /example\.com$/i]
+
+function real(key: string): string | null {
+  const v = optional(key)
+  return v && !PLACEHOLDER.some((p) => p.test(v.trim())) ? v.trim() : null
+}
+
+function requireReal(key: string, why: string): string {
+  const v = real(key)
+  if (!v) throw new Error(`${key} is missing or still a placeholder. ${why} (see .env.example).`)
+  return v
+}
+
+/**
  * Atlas hands you a connection string with an empty database path:
  *   mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true
  * Mongoose silently falls back to a database named `test`, so every
@@ -50,7 +70,7 @@ if (storageMode !== 'local' && storageMode !== 'r2') {
   throw new Error(`Invalid STORAGE_MODE: ${storageMode}. Must be 'local' or 'r2'.`)
 }
 
-const resendApiKey = optional('RESEND_API_KEY')
+const resendApiKey = real('RESEND_API_KEY')
 
 /**
  * Accepts whatever the merchant pastes out of the Shopify admin bar —
@@ -136,11 +156,27 @@ export const env = {
 
   // Null when unset — Payload then falls back to logging emails to the
   // console rather than sending, which is what we want in local dev.
+  //
+  // A key WITH a placeholder from-address is a misconfiguration, not a
+  // half-enabled state: fail at boot rather than 403 on the first send.
   RESEND: resendApiKey
     ? {
         apiKey: resendApiKey,
-        fromAddress: required('RESEND_FROM_ADDRESS'),
-        fromName: process.env.RESEND_FROM_NAME || 'Website',
+        // The domain must be verified at resend.com/domains, with one
+        // exception: onboarding@resend.dev sends without a domain but only
+        // reaches the address that owns the Resend account.
+        fromAddress: requireReal(
+          'RESEND_FROM_ADDRESS',
+          'RESEND_API_KEY is set, so mail needs a real sender on a verified domain',
+        ),
+        fromName:
+          process.env.RESEND_FROM_NAME || process.env.NEXT_PUBLIC_SITE_NAME || 'All Western Mortgage',
+        /**
+         * Staging safety valve: every outbound email is redirected here
+         * instead of to its real recipients (the Resend adapter's
+         * `overrideRecipientAddress`). Leave unset in production.
+         */
+        overrideTo: real('RESEND_OVERRIDE_TO'),
       }
     : null,
 }
