@@ -15,12 +15,14 @@ import { useEffect, useRef, useState } from 'react'
 import { dstamp, safeFileBase } from '@/lib/offers/format'
 import { SIGNATORY, swapSigInHtml } from '@/lib/offers/letter'
 import { letterDocHTML } from '@/lib/offers/letter-exports'
-import { letterToPdfBytes } from '@/lib/offers/pdf'
+import { letterToPdf } from '@/lib/offers/pdf'
 import { downloadBlob, exportSelectedCsv } from '@/lib/offers/spreadsheet'
-import type { OfferRecord, RecordPatch, SignatoryKey, WatermarkOpt } from '@/lib/offers/types'
+import type { LetterRenderOpts, OfferRecord, RecordPatch, SignatoryKey } from '@/lib/offers/types'
 import { makeZip, type ZipFile } from '@/lib/offers/zip'
 
 import { useOffers } from './OffersProvider'
+import { usePush } from './PushProvider'
+import { useViewer } from '@/components/shell/ViewerProvider'
 
 const SIG_KEYS = Object.keys(SIGNATORY) as SignatoryKey[]
 
@@ -50,13 +52,24 @@ export interface BulkToolbarProps {
 
 export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }: BulkToolbarProps) {
   const api = useOffers()
+  // Per-record: a request that has not been pushed to HR (or a viewer who may
+  // not issue) is stamped whatever this toolbar's tick says. The tick can only
+  // ADD a stamp to letters that would otherwise be official.
+  const push = usePush()
+  // Matches offer-requests.delete — see RequestForm for why it is gated.
+  const { isManager } = useViewer()
   const [wmOn, setWmOn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sigOpen, setSigOpen] = useState(false)
   const sigRef = useRef<HTMLDivElement | null>(null)
 
   const n = selectedIds.length
-  const wm = (): WatermarkOpt => ({ on: wmOn, text: 'SAMPLE' })
+  const unpushedIds = selectedIds.filter((id) => !push.isPushed(id))
+  const pushedIds = selectedIds.filter((id) => push.isPushed(id))
+  const unpushedCount = unpushedIds.length
+  const pushedCount = pushedIds.length
+  /** Render options for ONE record: its own official state, plus the tick. */
+  const optsFor = (id: string): LetterRenderOpts => ({ official: push.isOfficial(id), stamp: wmOn })
 
   const recFor = (id: string): OfferRecord | undefined => api.records.find((r) => r.id === id)
 
@@ -121,7 +134,7 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
       api.toast('Select at least one candidate.', true)
       return
     }
-    const w = wm()
+    const w = { on: wmOn }
     api.toast(
       'Generating ' +
         ids.length +
@@ -132,11 +145,13 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
     )
     const used: Record<string, number> = {}
     const files: ZipFile[] = []
+    let overlong = 0
     for (const id of ids) {
       const r = recFor(id)
       if (!r) continue
       try {
-        const bytes = await letterToPdfBytes(r, w)
+        const { bytes, atFloor } = await letterToPdf(r, optsFor(id))
+        if (atFloor) overlong++
         let base = safeFileBase(r.data.employeeName || 'New Hire', 'letter')
         const seen = used[base]
         if (seen) {
@@ -156,7 +171,15 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
     }
     downloadBlob(zipBlob(files), 'Offer_Letters_' + dstamp() + '.zip')
     api.toast(
-      'Generated a zip with ' + files.length + ' PDF' + plural(files.length, '', 's') + '.',
+      'Generated a zip with ' +
+        files.length +
+        ' PDF' +
+        plural(files.length, '', 's') +
+        '. ' +
+        (overlong
+          ? overlong +
+            ' needed a second page — too long to fit one without dropping below readable type.'
+          : 'Every letter fits one page.'),
     )
   }
 
@@ -166,7 +189,7 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
       api.toast('Select at least one candidate.', true)
       return
     }
-    const w = wm()
+    const w = { on: wmOn }
     const enc = new TextEncoder()
     const used: Record<string, number> = {}
     const files: ZipFile[] = []
@@ -174,7 +197,7 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
       const r = recFor(id)
       if (!r) continue
       try {
-        const o = letterDocHTML(r, w)
+        const o = letterDocHTML(r, optsFor(id))
         let base = safeFileBase(o.name || 'New Hire', 'letter')
         const seen = used[base]
         if (seen) {
@@ -250,6 +273,25 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
     }
   }
 
+  /** Hand every checked request to HR (or, for HR, pull them back). */
+  async function pushSelected(ids: string[], on: boolean) {
+    if (!ids.length) {
+      api.toast('Select at least one request.', true)
+      return
+    }
+    const ok = await push.push(ids, on)
+    if (!ok) {
+      api.toast('Could not update those requests.', true)
+      return
+    }
+    api.toast(
+      on
+        ? ids.length + ' request' + plural(ids.length, '', 's') + ' pushed to HR.'
+        : ids.length + ' request' + plural(ids.length, '', 's') + ' returned to the hiring manager.',
+    )
+    onClearSelection()
+  }
+
   return (
     <div className="sel-bar" role="toolbar" aria-label="Actions for the selected requests">
       <span className="sel-count">
@@ -276,6 +318,31 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
           }}
         >
           Assign
+        </button>
+      ) : null}
+
+      {/* The handoff. Pushing is the hiring manager's whole purpose, so it is
+          the prominent action here; returning is HR's and only shows for them. */}
+      {push.canPush && unpushedCount > 0 ? (
+        <button
+          className="btn-primary"
+          type="button"
+          disabled={busy}
+          title="Hand these requests to HR so a final letter can be issued"
+          onClick={() => void pushSelected(unpushedIds, true)}
+        >
+          Push {unpushedCount} to HR
+        </button>
+      ) : null}
+      {push.canReturn && pushedCount > 0 ? (
+        <button
+          className="btn-light"
+          type="button"
+          disabled={busy}
+          title="Send these back to the hiring manager (their letters revert to SAMPLE)"
+          onClick={() => void pushSelected(pushedIds, false)}
+        >
+          Return {pushedCount}
         </button>
       ) : null}
 
@@ -330,9 +397,11 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
       >
         Export CSV
       </button>
-      <button className="btn-danger" type="button" onClick={() => deleteSelected(selectedIds)}>
-        Delete
-      </button>
+      {isManager ? (
+        <button className="btn-danger" type="button" onClick={() => deleteSelected(selectedIds)}>
+          Delete
+        </button>
+      ) : null}
     </div>
   )
 }

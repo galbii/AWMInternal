@@ -12,7 +12,7 @@
 // sending mail as somebody else is a write with a paper trail outside the app.
 
 import { hasRole } from '@/access/roles'
-import { deny, getViewer, type Viewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer, type Viewer } from '@/lib/auth/viewer'
 import { emailStatus, sendEmail } from '@/lib/email/send'
 
 export const dynamic = 'force-dynamic'
@@ -20,9 +20,8 @@ export const dynamic = 'force-dynamic'
 async function gate(): Promise<{ v: Viewer } | { err: Response }> {
   const v = await getViewer()
   if (!v) return { err: deny(401) }
-  if (v.isEmulating) {
-    return { err: deny(403, 'Read-only: exit view-as before sending a test email.') }
-  }
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return { err: blocked }
   if (!hasRole(v.actor, 'admin', 'dev')) return { err: deny(403) }
   return { v }
 }

@@ -8,14 +8,12 @@
 // Callers resolve the viewer themselves via requireApp()/requireSession() and
 // pass it in; this component makes no auth call of its own.
 
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import React from 'react'
 
 import { hasRole } from '@/access/roles'
-import { appsFor, getApp } from '@/lib/apps/registry'
-import { BAR_COOKIE, parseBarPref } from '@/lib/bar'
-import type { Viewer } from '@/lib/auth/viewer'
+import { appsFor, getApp, userApps } from '@/lib/apps/registry'
+import { mayActAs, type Viewer } from '@/lib/auth/viewer'
 
 import AppSwitcher from './AppSwitcher'
 import SessionBar, { type SessionUserOption } from './SessionBar'
@@ -37,7 +35,10 @@ export default async function AppShell({
   const v = viewer
 
   // Identical to (offers)/(authed)/layout.tsx's users-list query: admin/dev
-  // get the "view as" dropdown, self and emulation-blocked users excluded.
+  // get the "view as" picker, self and emulation-blocked users excluded.
+  // `canManage` is the ACTOR's role, so the roster is here while emulating too
+  // — that is what lets SessionBar's Switch pill hop straight to the next
+  // person. The person being viewed as stays IN the list, marked "now".
   const canManage = hasRole(v.actor, 'admin', 'dev')
   let users: SessionUserOption[] = []
   if (canManage) {
@@ -62,9 +63,6 @@ export default async function AppShell({
   // created before usernames existed and not yet backfilled.
   const profileHref = v.actor.username ? `/u/${v.actor.username}` : '/u/me'
 
-  // Folded or not is a cookie so the first paint already agrees with the user.
-  const barMinimized = parseBarPref((await cookies()).get(BAR_COOKIE)?.value) === 'min'
-
   return (
     <>
       <SessionBar
@@ -73,9 +71,11 @@ export default async function AppShell({
         viewerLabel={v.viewer.name || v.viewer.email}
         canManage={canManage}
         isEmulating={v.isEmulating}
+        isActing={v.isActing}
+        canAct={v.isEmulating && mayActAs(v.viewer)}
+        viewerId={String(v.viewer.id)}
         users={users}
         profileHref={profileHref}
-        initialMinimized={barMinimized}
         leading={
           <div className="as-switcher">
             {/* Next forces a hard navigation between route groups with
@@ -112,8 +112,12 @@ export default async function AppShell({
           name: v.actor.name || v.actor.email,
           username: typeof v.actor.username === 'string' ? v.actor.username : '',
           roles: Array.isArray(v.actor.roles) ? v.actor.roles.filter(Boolean) : [],
+          // From the VIEWER, not the actor: an admin viewing as a hiring
+          // manager must see that person's capabilities (offers/official.ts).
+          apps: userApps(v.viewer),
           isManager: canManage && !v.isEmulating,
           isEmulating: v.isEmulating,
+          isActing: v.isActing,
         }}
       >
         {children}

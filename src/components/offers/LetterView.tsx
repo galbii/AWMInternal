@@ -14,10 +14,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { useOffers } from '@/components/offers/OffersProvider'
+import { usePush } from '@/components/offers/PushProvider'
+import { backLabel } from '@/components/offers/view-labels'
+import { STAMP_TEXT } from '@/lib/offers/official'
 import { esc, safeFileBase } from '@/lib/offers/format'
 import { generateLetterHTML, letterWrap, resolveLetter, setByPath } from '@/lib/offers/letter'
 import { letterDocHTML, offerPacketHTML } from '@/lib/offers/letter-exports'
-import { letterToPdfBytes } from '@/lib/offers/pdf'
+import { PRINT_CONTENT_H_PT, fitCss, planLetterFit } from '@/lib/offers/letter-fit'
+import { letterToPdf } from '@/lib/offers/pdf'
 import { downloadBlob } from '@/lib/offers/spreadsheet'
 import {
   AUTO_ROWS,
@@ -222,6 +226,13 @@ export default function LetterView({
   const api = useOffers()
   const rec: OfferRecord | null = api.records.find((r) => r.id === api.currentId) || null
 
+  // Is this letter official, or is it a draft that must carry the SAMPLE
+  // stamp? Both halves of the answer live in src/lib/offers/official.ts; here
+  // it only ever reaches the export handlers, which pass it to resolveLetter.
+  const push = usePush()
+  const official = rec ? push.isOfficial(rec.id) : false
+  const stamped = rec ? push.whyStamped(rec.id) : null
+
   const [L, setL] = useState<LetterConfig | null>(null)
   const [contentKey, setContentKey] = useState(0)
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null)
@@ -262,6 +273,9 @@ export default function LetterView({
   const LRef = useRef<LetterConfig | null>(null)
   const recRef = useRef<OfferRecord | null>(null)
   const apiRef = useRef<OffersApi>(api)
+  /** Read by the imperative export handlers, which are not re-created per render. */
+  const officialRef = useRef<boolean>(official)
+  officialRef.current = official
   const initedFor = useRef<string | null>(null)
   /** `letterSig` of the last letter state THIS view wrote or loaded. */
   const ownSigRef = useRef<string>('')
@@ -367,7 +381,7 @@ export default function LetterView({
     const r = a.records.find((x) => x.id === recId)
     if (!r) return
     initedFor.current = recId
-    const resolved = resolveLetter(r)
+    const resolved = resolveLetter(r, officialRef.current)
     LRef.current = resolved
     setL(resolved)
     // Always rebuilt from the record. The letter body is no longer editable in
@@ -389,7 +403,7 @@ export default function LetterView({
     const a = apiRef.current
     const r = a.records.find((x) => x.id === recId)
     if (!r) return
-    const resolved = resolveLetter(r)
+    const resolved = resolveLetter(r, officialRef.current)
     LRef.current = resolved
     setL(resolved)
     regen(resolved, recId)
@@ -500,20 +514,64 @@ export default function LetterView({
   // S3 443 — print only the sheet. The print rules can only print the VISIBLE
   // sheet: from the details tab it sits in a display:none pane and the dialog
   // prints blank pages, so switch to the letter first and print a frame later.
+  //
+  // 2026-09-27 — one page here too. CSS cannot measure, so the fit is resolved
+  // first (against the LIVE sheet body, so hand edits count) and handed to the
+  // print rules as a scoped stylesheet: the step's variables plus the width/zoom
+  // pair that reproduces what the PDF does by rasterizing wide and mapping down.
+  // Both are torn down with the print class, so the on-screen sheet never moves.
   const onPrint = useCallback(() => {
-    const doPrint = (): void => {
+    const doPrint = async (): Promise<void> => {
+      let style: HTMLStyleElement | null = null
+      try {
+        const body = (contentRef.current && contentRef.current.innerHTML) || ''
+        if (body) {
+          const fit = await planLetterFit(body, PRINT_CONTENT_H_PT)
+          const scope = 'body.printing-letter #letterSheet.letter-sheet'
+          const vars = Object.keys(fit.step.vars)
+            .map((k) => k + ':' + fit.step.vars[k])
+            .join(';')
+          style = document.createElement('style')
+          style.textContent =
+            scope +
+            '{' +
+            vars +
+            '}' +
+            // Without `zoom` the sheet would lay out wider than the page and be
+            // clipped, so the scale is only applied where it is supported; the
+            // spacing variables above still tighten the letter either way.
+            '@supports (zoom:1){' +
+            scope +
+            '{width:' +
+            fit.step.widthPx +
+            'px!important;zoom:' +
+            fit.step.zoom +
+            '}}' +
+            fitCss(scope)
+          document.head.appendChild(style)
+          if (fit.atFloor)
+            apiRef.current.toast(
+              'This letter is too long for one page at readable type — printing ' +
+                fit.pages +
+                ' pages.',
+            )
+        }
+      } catch {
+        /* a fit we could not measure must never block the print itself */
+      }
       document.body.classList.add('printing-letter')
       window.print()
       window.setTimeout(() => {
         document.body.classList.remove('printing-letter')
+        if (style) style.remove()
       }, 700)
     }
     if (apiRef.current.sub !== 'letter') {
       apiRef.current.openLetter()
-      window.setTimeout(doPrint, 120)
+      window.setTimeout(() => void doPrint(), 120)
       return
     }
-    doPrint()
+    void doPrint()
   }, [])
 
   // A real PDF file — the same rasterizer the pipeline's bulk export uses
@@ -530,19 +588,21 @@ export default function LetterView({
     }
     setPdfBusy(true)
     try {
-      const cur = LRef.current
-      const wm =
-        cur && cur.watermark && cur.watermark.on
-          ? { on: true, text: cur.watermark.text || 'SAMPLE' }
-          : null
-      const bytes = await letterToPdfBytes(r, wm)
-      const buf = new ArrayBuffer(bytes.length)
-      new Uint8Array(buf).set(bytes)
+      // The stamp is decided by resolveLetter(rec, official), not here.
+      const out = await letterToPdf(r, { official: officialRef.current })
+      const buf = new ArrayBuffer(out.bytes.length)
+      new Uint8Array(buf).set(out.bytes)
       downloadBlob(
         new Blob([buf], { type: 'application/pdf' }),
         'Offer_Letter_' + safeFileBase(r.data.employeeName || 'New Hire', 'letter') + '.pdf',
       )
-      a.toast('PDF saved.')
+      a.toast(
+        out.atFloor
+          ? 'PDF saved — ' +
+              out.pages +
+              ' pages. This letter is too long to fit one page without dropping below readable type.'
+          : 'PDF saved — one page.',
+      )
     } catch (e) {
       a.toast('Could not build the PDF: ' + (e instanceof Error ? e.message : String(e)), true)
     } finally {
@@ -551,18 +611,25 @@ export default function LetterView({
   }, [])
 
   // S3 314–350 — self-contained shareable offer packet.
-  const onShare = useCallback(() => {
+  const onShare = useCallback(async () => {
     const r = recRef.current
     if (!r) {
       apiRef.current.toast('Add the new hire details first, then export.', true)
       return
     }
-    const o = offerPacketHTML(r)
-    downloadBlob(
-      new Blob([o.doc], { type: 'text/html' }),
-      'Offer_Packet_' + safeFileBase(o.name, 'record') + '.html',
-    )
-    apiRef.current.toast('Shareable offer packet exported.')
+    try {
+      const o = await offerPacketHTML(r, { official: officialRef.current })
+      downloadBlob(
+        new Blob([o.doc], { type: 'text/html' }),
+        'Offer_Packet_' + safeFileBase(o.name, 'record') + '.html',
+      )
+      apiRef.current.toast('Shareable offer packet exported.')
+    } catch (e) {
+      apiRef.current.toast(
+        'Could not build the offer packet: ' + (e instanceof Error ? e.message : String(e)),
+        true,
+      )
+    }
   }, [])
 
   // S3 386–391 — editable Word (.doc) export.
@@ -572,7 +639,7 @@ export default function LetterView({
       apiRef.current.toast('Add the new hire details first, then export.', true)
       return
     }
-    const o = letterDocHTML(r, null)
+    const o = letterDocHTML(r, { official: officialRef.current })
     downloadBlob(
       new Blob(['﻿' + o.doc], { type: 'application/msword' }),
       'Offer_Letter_' + safeFileBase(o.name, 'letter') + '.doc',
@@ -634,11 +701,18 @@ export default function LetterView({
         >
           Regenerate
         </button>
-        <label className="la-check" title="Show a SAMPLE watermark on this letter (print / PDF)">
+        {/* A draft letter is stamped by resolveLetter itself, so the toggle
+            would be lying if it looked switchable: it is pinned on and says
+            why instead (src/lib/offers/official.ts). */}
+        <label
+          className={stamped ? 'la-check la-check-locked' : 'la-check'}
+          title={stamped ? STAMP_TEXT[stamped] : 'Show a SAMPLE watermark on this letter (print / PDF)'}
+        >
           <input
             type="checkbox"
             id="letterWmOn"
-            checked={!!(L && L.watermark && L.watermark.on)}
+            checked={!!stamped || !!(L && L.watermark && L.watermark.on)}
+            disabled={!!stamped}
             onChange={(e) => {
               onWatermarkToggle(e.target.checked)
             }}
@@ -695,10 +769,13 @@ export default function LetterView({
           className="btn-ghost la-btn la-back"
           id="letterClose"
           onClick={() => {
-            api.showView('pipeline')
+            // Was a hardcoded showView('pipeline'), which dropped you somewhere
+            // you had not been if you opened the record from Hired or All, and
+            // skipped the pending-autosave flush that closeEditor does.
+            api.closeEditor()
           }}
         >
-          Back to Pipeline
+          {backLabel(api.returnView)}
         </button>
       )}
     </div>

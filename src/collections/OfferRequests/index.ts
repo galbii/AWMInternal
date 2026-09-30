@@ -8,25 +8,50 @@
 // that schema and let Payload coerce/reformat the literal strings the letter
 // text depends on. Unknown keys from old backups must survive round-trips.
 
-import type { CollectionConfig } from 'payload'
+import type { Access, CollectionConfig, Where } from 'payload'
 
 import { authenticated } from '../../access/authenticated'
-import { adminOrDev, adminOrDevFieldAccess } from '../../access/roles'
+import { adminOrDevFieldAccess, hasRole } from '../../access/roles'
+import type { User } from '@/payload-types'
+
 import { linkApplicant } from './hooks/linkApplicant'
 import { recordOfferDeletion, recordOfferEvents } from './hooks/recordOfferEvents'
 import { syncOfferMeta } from './hooks/syncOfferMeta'
 
+/**
+ * Deleting an offer is admin/dev — EXCEPT your own unsaved-by-hand draft.
+ *
+ * Without the exception, "+ New Request" → type → Cancel is broken for every
+ * plain user: the client drops the record, `/api/offer-records` refuses the
+ * removal with overrideAccess:false, and the draft quietly survives in Mongo
+ * to reappear on the next load. Cancel is the population's main exit, so the
+ * rule has to admit it.
+ *
+ * Kept as narrow as it can be — YOUR row (`createdBy`), and only while it is
+ * still a `draft`. A complete record, or anyone else's, stays admin/dev. Public
+ * /apply submissions have no `createdBy` at all, so they are never matched.
+ */
+export const deleteOfferRequest: Access<User> = ({ req: { user } }) => {
+  if (!user) return false
+  if (hasRole(user, 'admin', 'dev')) return true
+  const own: Where = {
+    and: [{ createdBy: { equals: user.id } }, { status: { equals: 'draft' } }],
+  }
+  return own
+}
+
 export const OfferRequests: CollectionConfig = {
   slug: 'offer-requests',
   // Access Option A ("shared workspace"): every logged-in user reads/edits all
-  // offers; only admin/dev delete or manage assignments. Flipping to
-  // "need to know" later is a swap of these three functions — the indexed
-  // `assignedUsers` mirror below already supports the Where constraint.
+  // offers; admin/dev delete and manage assignments, with ONE exception for
+  // your own draft (see deleteOfferRequest). Flipping to "need to know" later
+  // is a swap of these functions — the indexed `assignedUsers` mirror below
+  // already supports the Where constraint.
   access: {
     create: authenticated,
     read: authenticated,
     update: authenticated,
-    delete: adminOrDev,
+    delete: deleteOfferRequest,
   },
   // The app's own authenticated route handler is the only door.
   endpoints: false,
@@ -165,6 +190,31 @@ export const OfferRequests: CollectionConfig = {
         position: 'sidebar',
         description: "Linked automatically from the new hire's email (or name) on every save.",
       },
+    },
+
+    // PUSH TO HR (2026-09-29) — the handoff from the `hiring` app to `offers`.
+    // Deliberately BESIDE the frozen OfferRecord shape, exactly like
+    // `assignments`: toOfferDoc() never writes these, so the client blob can
+    // neither set nor clobber them and the byte-stable round trip is untouched
+    // (tests/int/offers/payload-doc.int.spec.ts). /api/offer-push is the door.
+    //
+    // A letter is official only when this is true AND the viewer may issue —
+    // see src/lib/offers/official.ts.
+    {
+      name: 'pushedToHr',
+      type: 'checkbox',
+      index: true,
+      admin: {
+        readOnly: true,
+        description: 'Handed to HR for a final letter. Set from the app, never by hand.',
+      },
+    },
+    { name: 'pushedAt', type: 'date', admin: { readOnly: true } },
+    {
+      name: 'pushedBy',
+      type: 'relationship',
+      relationTo: 'users',
+      admin: { readOnly: true },
     },
 
     {

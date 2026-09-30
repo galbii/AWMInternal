@@ -27,7 +27,7 @@ import {
   userApps,
   type AppDef,
 } from '@/lib/apps/registry'
-import { deny, getViewer, type Viewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer, type Viewer } from '@/lib/auth/viewer'
 import type { User } from '@/payload-types'
 
 export const dynamic = 'force-dynamic'
@@ -106,9 +106,8 @@ export async function GET(request: Request): Promise<Response> {
   // Same gate as POST: reading who else has access is user management, and a
   // manager opens every app anyway, so there is nothing left for canUseApp
   // to decide here.
-  if (v.isEmulating) {
-    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.')
-  }
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return blocked
   if (!hasRole(v.actor, 'admin', 'dev')) return deny(403)
 
   const snap = await snapshot(v, app)
@@ -118,9 +117,8 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) {
-    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.')
-  }
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return blocked
   if (!hasRole(v.actor, 'admin', 'dev')) return deny(403)
 
   let body: { app?: unknown; add?: unknown; remove?: unknown }

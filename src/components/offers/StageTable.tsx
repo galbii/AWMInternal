@@ -33,6 +33,9 @@ import { useAssignments } from './AssignmentsProvider'
 import AssignPopover, { type AssignState, type AssignTarget } from './AssignPopover'
 import BulkToolbar from './BulkToolbar'
 import { useOffers } from './OffersProvider'
+import { useViewer } from '@/components/shell/ViewerProvider'
+import { usePush } from './PushProvider'
+import { useAppBase } from './useAppBase'
 
 // S3 464
 export function stageOf(r: OfferRecord): Stage {
@@ -93,6 +96,10 @@ export interface StageTableProps {
 export default function StageTable({ stage }: StageTableProps) {
   const api = useOffers()
   const asg = useAssignments()
+  const push = usePush()
+  const base = useAppBase()
+  // Matches offer-requests.delete — see RequestForm for why it is gated.
+  const { isManager } = useViewer()
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   /** "Assigned to me" — narrows to offers naming the viewer. */
   const [mine, setMine] = useState(false)
@@ -198,6 +205,16 @@ export default function StageTable({ stage }: StageTableProps) {
   // one place.
   function openEmailFor(id: string) {
     if (api.records.some((r) => r.id === id)) api.composeEmail(id)
+  }
+
+  /** Individual handoff — the row's counterpart to the selection bar's batch. */
+  async function pushRow(id: string, on: boolean) {
+    const ok = await push.push([id], on)
+    if (!ok) {
+      api.toast('Could not update that request.', true)
+      return
+    }
+    api.toast(on ? 'Pushed to HR.' : 'Returned to the hiring manager.')
   }
 
   // S3 748
@@ -315,17 +332,43 @@ export default function StageTable({ stage }: StageTableProps) {
           >
             Export Excel (.xlsx)
           </button>
-          <div className="menu-sep"></div>
-          <button
-            type="button"
-            className="menu-danger"
-            onClick={() => {
-              setMenuId(null)
-              deleteRow(id)
-            }}
-          >
-            Delete…
-          </button>
+          {push.canPush && !push.isPushed(id) ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuId(null)
+                void pushRow(id, true)
+              }}
+            >
+              Push to HR
+            </button>
+          ) : null}
+          {push.canReturn && push.isPushed(id) ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuId(null)
+                void pushRow(id, false)
+              }}
+            >
+              Return to hiring manager
+            </button>
+          ) : null}
+          {isManager ? (
+            <>
+              <div className="menu-sep"></div>
+              <button
+                type="button"
+                className="menu-danger"
+                onClick={() => {
+                  setMenuId(null)
+                  deleteRow(id)
+                }}
+              >
+                Delete…
+              </button>
+            </>
+          ) : null}
         </div>
       </span>
     )
@@ -524,11 +567,17 @@ export default function StageTable({ stage }: StageTableProps) {
                   <td>
                     <Link
                       className="rowname"
-                      href={'/offers/' + r.id}
+                      href={base + '/' + r.id}
                       title="Open this offer — letter, details, assigned users and history"
                     >
                       {d.employeeName || d.preferredName || '(no name)'}
                     </Link>
+                    {/* The handoff, visible where the funnel is read. */}
+                    {push.isPushed(r.id) ? (
+                      <span className="hr-pill" title="Pushed to HR — a final letter can be issued">
+                        HR
+                      </span>
+                    ) : null}
                   </td>
                   {stage === 'all' ? (
                     <td className="c-stage">

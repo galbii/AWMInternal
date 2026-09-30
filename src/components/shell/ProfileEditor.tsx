@@ -2,15 +2,26 @@
 
 // The editable half of /u/<username>. Replaces the old "My settings" modal.
 //
-// Four INDEPENDENT sections — profile, password, roles, apps — each with its own
+// Four INDEPENDENT sections — profile, roles, apps, password — each with its own
 // save button and its own status line. That is deliberate: a failed password
 // change must never discard a typed name, and saving a name must never require
 // re-entering a password.
 //
+// ORDER MATTERS (2026-09-29): identity, then access, then the password —
+// rarest last, and collapsed, so the default view of the page is the things
+// people actually came to change. The page's rail builds its jump list in this
+// same order; keep the two in step, and keep each section's `id`.
+//
 // Every write goes to PATCH /api/profile, which re-derives permissions
 // server-side; nothing here is a security boundary. `canEditRoles` only decides
 // whether the roles UI is worth rendering.
+//
+// A successful save calls router.refresh(): the identity rail is SERVER
+// rendered, so without it the chips beside this form would keep stating the
+// old roles, apps and name until a manual reload. Local field state survives a
+// refresh, so nothing anyone has typed is disturbed.
 
+import { useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 
 import type { Role } from '@/access/roles'
@@ -40,6 +51,9 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 
 /** The membership-managed apps a person can be granted. */
 const APP_OPTIONS = membershipApps()
+
+/** The rail's "Password" link points here; arriving must OPEN the card. */
+const PASSWORD_HASH = '#pf-password'
 
 interface CheckResponse {
   available: boolean
@@ -104,6 +118,8 @@ async function patchProfile(body: Record<string, unknown>): Promise<PatchResult>
 }
 
 export default function ProfileEditor({ profile }: ProfileEditorProps): React.JSX.Element {
+  const router = useRouter()
+
   // ---- Profile section -----------------------------------------------------
   const [name, setName] = useState(profile.name)
   const [username, setUsername] = useState(profile.username)
@@ -207,32 +223,7 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
     if (saved.email !== undefined) setEmail(saved.email)
     setProfileStatus({ kind: 'saved', message: 'Saved' })
     setProfileBusy(false)
-  }
-
-  // ---- Password section ----------------------------------------------------
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [pwBusy, setPwBusy] = useState(false)
-  const [pwStatus, setPwStatus] = useState<Status>(IDLE)
-
-  const pwLongEnough = password.length >= 8
-  const pwMatches = password.length > 0 && password === confirm
-  const pwReady = pwLongEnough && pwMatches
-
-  const savePassword = async (): Promise<void> => {
-    if (pwBusy || !pwReady) return
-    setPwStatus(IDLE)
-    setPwBusy(true)
-    const result = await patchProfile({ id: profile.id, password })
-    if (!result.ok) {
-      setPwStatus({ kind: 'error', message: result.message })
-      setPwBusy(false)
-      return
-    }
-    setPassword('')
-    setConfirm('')
-    setPwStatus({ kind: 'saved', message: 'Password updated' })
-    setPwBusy(false)
+    router.refresh()
   }
 
   // ---- Roles section -------------------------------------------------------
@@ -266,6 +257,9 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
     setRoles(result.profile.roles)
     setRolesStatus({ kind: 'saved', message: 'Roles saved' })
     setRolesBusy(false)
+    // Granting admin also changes what the Apps card below means, and both the
+    // rail's chips and `isManager` come from the server. Refresh says so.
+    router.refresh()
   }
 
   // ---- Apps section --------------------------------------------------------
@@ -292,6 +286,48 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
     setApps(result.profile.apps ?? [])
     setAppsStatus({ kind: 'saved', message: 'App access saved' })
     setAppsBusy(false)
+    router.refresh()
+  }
+
+  // ---- Password section ----------------------------------------------------
+  // Collapsed by default: two password fields are the rarest thing on the page
+  // and used to sit at full height above the access cards an admin came for.
+  const [pwOpen, setPwOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwStatus, setPwStatus] = useState<Status>(IDLE)
+
+  const pwLongEnough = password.length >= 8
+  const pwMatches = password.length > 0 && password === confirm
+  const pwReady = pwLongEnough && pwMatches
+
+  // Following the rail's "Password" link has to OPEN the card, not just scroll
+  // a shut one into view. A browser only auto-expands <details> for a fragment
+  // INSIDE it, and the anchor is the element itself.
+  useEffect(() => {
+    const sync = (): void => {
+      if (window.location.hash === PASSWORD_HASH) setPwOpen(true)
+    }
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+
+  const savePassword = async (): Promise<void> => {
+    if (pwBusy || !pwReady) return
+    setPwStatus(IDLE)
+    setPwBusy(true)
+    const result = await patchProfile({ id: profile.id, password })
+    if (!result.ok) {
+      setPwStatus({ kind: 'error', message: result.message })
+      setPwBusy(false)
+      return
+    }
+    setPassword('')
+    setConfirm('')
+    setPwStatus({ kind: 'saved', message: 'Password updated' })
+    setPwBusy(false)
   }
 
   const statusLine = (status: Status): React.JSX.Element => (
@@ -303,7 +339,7 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
 
   return (
     <>
-      <section className="pe-section" aria-busy={profileBusy}>
+      <section className="pe-section" id="pf-profile" aria-busy={profileBusy}>
         <h2 className="pe-title">Profile</h2>
         <p className="pe-desc">
           {profile.isSelf
@@ -396,70 +432,8 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
         </div>
       </section>
 
-      <section className="pe-section" aria-busy={pwBusy}>
-        <h2 className="pe-title">Password</h2>
-        <p className="pe-desc">
-          {profile.isSelf
-            ? 'Set a new password. You stay signed in on this device.'
-            : 'Set a new password for this account, then share it with them directly.'}
-        </p>
-
-        <div className="pe-field">
-          <label className="pe-label" htmlFor="pe-password">
-            New password
-          </label>
-          <input
-            className="pe-input"
-            id="pe-password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value)
-              setPwStatus(IDLE)
-            }}
-          />
-          <p className={`pe-hint${password && !pwLongEnough ? ' pe-hint-bad' : ''}`}>
-            Use at least 8 characters.
-          </p>
-        </div>
-
-        <div className="pe-field">
-          <label className="pe-label" htmlFor="pe-confirm">
-            Confirm new password
-          </label>
-          <input
-            className="pe-input"
-            id="pe-confirm"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => {
-              setConfirm(e.target.value)
-              setPwStatus(IDLE)
-            }}
-          />
-          {confirm.length > 0 && !pwMatches && (
-            <p className="pe-hint pe-hint-bad">Both fields must match.</p>
-          )}
-          {pwReady && <p className="pe-hint pe-hint-ok">Ready to save.</p>}
-        </div>
-
-        <div className="pe-actions">
-          <button
-            className="pe-save"
-            type="button"
-            onClick={() => void savePassword()}
-            disabled={pwBusy || !pwReady}
-          >
-            {pwBusy ? 'Saving…' : 'Update password'}
-          </button>
-          {statusLine(pwStatus)}
-        </div>
-      </section>
-
       {profile.canEditRoles && (
-        <section className="pe-section" aria-busy={rolesBusy}>
+        <section className="pe-section" id="pf-roles" aria-busy={rolesBusy}>
           <h2 className="pe-title">Roles</h2>
           <p className="pe-desc">
             Developer and Admin manage users and can open every app; they carry the same
@@ -501,8 +475,8 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
       )}
 
       {profile.canEditApps && (
-        <section className="pe-section" aria-busy={appsBusy}>
-          <h2 className="pe-title">Apps</h2>
+        <section className="pe-section" id="pf-apps" aria-busy={appsBusy}>
+          <h2 className="pe-title">App access</h2>
           <p className="pe-desc">
             {isManager
               ? 'Admins and developers open every app, so this list changes nothing for them.'
@@ -544,6 +518,79 @@ export default function ProfileEditor({ profile }: ProfileEditorProps): React.JS
           )}
         </section>
       )}
+
+      <details
+        className="pe-section pe-fold"
+        id="pf-password"
+        open={pwOpen}
+        aria-busy={pwBusy}
+        onToggle={(e) => setPwOpen(e.currentTarget.open)}
+      >
+        <summary className="pe-summary">
+          <span className="pe-title">Password</span>
+          <span className="pe-summary-hint">
+            {profile.isSelf
+              ? 'Set a new one. You stay signed in on this device.'
+              : 'Set a new one, then share it with them directly.'}
+          </span>
+          <span className="pe-summary-mark" aria-hidden="true" />
+        </summary>
+
+        <div className="pe-fold-body">
+          <div className="pe-field">
+            <label className="pe-label" htmlFor="pe-password">
+              New password
+            </label>
+            <input
+              className="pe-input"
+              id="pe-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setPwStatus(IDLE)
+              }}
+            />
+            <p className={`pe-hint${password && !pwLongEnough ? ' pe-hint-bad' : ''}`}>
+              Use at least 8 characters.
+            </p>
+          </div>
+
+          <div className="pe-field">
+            <label className="pe-label" htmlFor="pe-confirm">
+              Confirm new password
+            </label>
+            <input
+              className="pe-input"
+              id="pe-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => {
+                setConfirm(e.target.value)
+                setPwStatus(IDLE)
+              }}
+            />
+            {confirm.length > 0 && !pwMatches && (
+              <p className="pe-hint pe-hint-bad">Both fields must match.</p>
+            )}
+            {pwReady && <p className="pe-hint pe-hint-ok">Ready to save.</p>}
+          </div>
+
+          <div className="pe-actions">
+            <button
+              className="pe-save"
+              type="button"
+              onClick={() => void savePassword()}
+              disabled={pwBusy || !pwReady}
+            >
+              {pwBusy ? 'Saving…' : 'Update password'}
+            </button>
+            {statusLine(pwStatus)}
+          </div>
+        </div>
+      </details>
     </>
   )
 }

@@ -51,12 +51,28 @@ export interface AppDef {
 }
 
 export const APPS: AppDef[] = [
+  // TWO DOORS ONTO ONE COLLECTION (2026-09-29). `hiring` and `offers` are the
+  // same application; membership decides which one you get and, through it,
+  // whether you may issue a final letter — see src/lib/offers/official.ts for
+  // the access matrix. Keep both membership-managed: HR grants `offers` to its
+  // own people from the app's Users view, and neither is role-gated.
+  {
+    id: 'hiring',
+    name: 'New Hire Requests',
+    short: 'Hiring',
+    description:
+      'Raise and track new-hire requests, preview the offer, and push it to HR when it is ready.',
+    href: '/hiring',
+    icon: '🧑‍💼',
+    status: 'live',
+    group: 'People',
+  },
   {
     id: 'offers',
-    name: 'Offer & New Hire Manager',
+    name: 'Offer Letters',
     short: 'Offers',
     description:
-      'New-hire requests, generated offer letters, and the hiring pipeline from offer to hired.',
+      'HR: issue final offer letters for requests pushed by hiring managers, and run the pipeline to hired.',
     href: '/offers',
     icon: '📄',
     status: 'live',

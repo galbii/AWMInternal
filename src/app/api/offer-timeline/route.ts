@@ -11,7 +11,7 @@
 //      (admin/dev only; blocked while emulating).
 
 import { hasRole } from '@/access/roles'
-import { deny, getViewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, canWrite, deny, getViewer, writeUser } from '@/lib/auth/viewer'
 import { toActivityEvent } from '@/lib/offers/activity'
 import type { User } from '@/payload-types'
 
@@ -148,7 +148,7 @@ export async function GET(request: Request): Promise<Response> {
     }
   }
 
-  const canAssign = !v.isEmulating && hasRole(v.actor, 'admin', 'dev')
+  const canAssign = canWrite(v) && hasRole(writeUser(v), 'admin', 'dev')
   let users: { id: string; label: string }[] = []
   if (canAssign) {
     const usersRes = await v.payload.find({
@@ -168,8 +168,9 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) return deny(403, 'Read-only while viewing as another user.')
-  if (!hasRole(v.actor, 'admin', 'dev')) return deny(403)
+  const blocked = blockEmulatedWrite(v, 'acting-ok')
+  if (blocked) return blocked
+  if (!hasRole(writeUser(v), 'admin', 'dev')) return deny(403)
 
   let body: { id?: unknown; assignments?: unknown }
   try {

@@ -24,8 +24,17 @@ export interface ActivityEvent {
   targetRole: string
   editCount: number
   actorLabel: string
+  /**
+   * Whose seat the actor was in. Empty unless an admin was ACTING as someone
+   * through view-as — the feed then reads "Chance (as Dana)", so the trail can
+   * never be read as though Dana did it herself.
+   */
+  actingAsLabel: string
   at: string
 }
+
+/** Longest note a human may add to the feed. Shared by the composer and the route. */
+export const MAX_NOTE = 2000
 
 export const KIND_LABEL: Record<string, string> = {
   created: 'Created',
@@ -33,13 +42,16 @@ export const KIND_LABEL: Record<string, string> = {
   'stage-change': 'Stage',
   'letter-updated': 'Letter',
   'email-sent': 'Emailed',
+  note: 'Note',
+  'pushed-to-hr': 'Pushed to HR',
+  'returned-to-hiring': 'Returned',
   assigned: 'Assigned',
   unassigned: 'Unassigned',
   'assignment-role-change': 'Role',
   deleted: 'Deleted',
 }
 
-export type ActivityFilter = 'all' | 'edits' | 'stage' | 'people' | 'letter'
+export type ActivityFilter = 'all' | 'edits' | 'stage' | 'people' | 'letter' | 'handoff' | 'notes'
 
 export const ACTIVITY_FILTERS: { id: ActivityFilter; label: string }[] = [
   { id: 'all', label: 'Everything' },
@@ -47,6 +59,8 @@ export const ACTIVITY_FILTERS: { id: ActivityFilter; label: string }[] = [
   { id: 'stage', label: 'Stage moves' },
   { id: 'people', label: 'Assignments' },
   { id: 'letter', label: 'Letters' },
+  { id: 'handoff', label: 'HR handoff' },
+  { id: 'notes', label: 'Notes' },
 ]
 
 const FILTER_KINDS: Record<Exclude<ActivityFilter, 'all'>, string[]> = {
@@ -54,6 +68,8 @@ const FILTER_KINDS: Record<Exclude<ActivityFilter, 'all'>, string[]> = {
   stage: ['stage-change'],
   people: ['assigned', 'unassigned', 'assignment-role-change'],
   letter: ['letter-updated', 'email-sent'],
+  handoff: ['pushed-to-hr', 'returned-to-hiring'],
+  notes: ['note'],
 }
 
 /** The event kinds a filter admits; null for "everything" (no where clause). */
@@ -94,6 +110,7 @@ export function toActivityEvent(e: OfferEvent): ActivityEvent {
     targetRole: e.targetRole || '',
     editCount: e.editCount ?? 1,
     actorLabel: label(e.actor) || 'System',
+    actingAsLabel: label(e.actingAs),
     at: e.createdAt,
   }
 }

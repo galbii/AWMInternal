@@ -7,7 +7,9 @@
 //  - Click toggles; outside click, Escape (focus returns to the trigger) and
 //    tabbing out all close it.
 //  - Arrow keys walk the items. Items opt in with `data-shm-item`; a native
-//    <select> inside keeps its own arrow keys.
+//    <select> inside keeps its own arrow keys, and a text <input> (the view-as
+//    filter) keeps Home/End/ArrowUp for editing — ArrowDown leaves it for the
+//    list.
 //  - Activating an item closes the popover, except a <select>, which stays
 //    open while it is being used.
 //  - The closed panel is `inert` and visibility:hidden, so it is neither
@@ -27,7 +29,9 @@ export interface ShellMenuProps {
   /** Set when every item is a menuitem*; leave unset for mixed content. */
   panelRole?: 'menu'
   panelLabel?: string
-  children: React.ReactNode | ((close: () => void) => React.ReactNode)
+  /** A function child also receives the panel's open state (the view-as
+      filter uses it to take focus and to reset itself on close). */
+  children: React.ReactNode | ((close: () => void, open: boolean) => React.ReactNode)
 }
 
 const ITEM = '[data-shm-item]'
@@ -93,6 +97,7 @@ export default function ShellMenu({
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     const target = e.target as HTMLElement
     if (target.tagName === 'SELECT' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) return
+    if (target.tagName === 'INPUT' && e.key !== 'ArrowDown') return
     const list = items()
     if (!list.length) return
     const i = list.indexOf(document.activeElement as HTMLElement)
@@ -147,7 +152,7 @@ export default function ShellMenu({
         onKeyDown={onPanelKeyDown}
         onClick={onPanelClick}
       >
-        {typeof children === 'function' ? children(close) : children}
+        {typeof children === 'function' ? children(close, open) : children}
       </div>
     </div>
   )

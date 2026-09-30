@@ -64,6 +64,9 @@ import { useViewer } from '@/components/shell/ViewerProvider'
 import AnalysisView from './AnalysisView'
 import LetterView from './LetterView'
 import { useOffers } from './OffersProvider'
+import { usePush } from './PushProvider'
+import { useAppBase } from './useAppBase'
+import { VIEW_TITLE } from './view-labels'
 import RecordList from './RecordList'
 import RequestForm from './RequestForm'
 import StageTable from './StageTable'
@@ -95,21 +98,20 @@ const STAGE_NAV: NavItem[] = [
 ]
 
 /** The title row above each view's content, now that the header no longer names the page. */
-const VIEW_HEAD: Record<Exclude<View, 'editor'>, { title: string; blurb: string }> = {
-  pipeline: { title: 'Pipeline', blurb: 'Offers out and awaiting a decision.' },
-  hired: { title: 'Hired', blurb: 'Accepted offers, ready for onboarding.' },
-  archived: { title: 'Archived', blurb: 'Declined, withdrawn or expired requests.' },
-  all: { title: 'All requests', blurb: 'Every request, across every stage.' },
-  analysis: { title: 'Analysis', blurb: 'Acceptance rates and monthly volume.' },
-  users: { title: 'Users', blurb: 'Who can open the Offer & New Hire Manager.' },
+const VIEW_BLURB: Record<Exclude<View, 'editor'>, string> = {
+  pipeline: 'Offers out and awaiting a decision.',
+  hired: 'Accepted offers, ready for onboarding.',
+  archived: 'Declined, withdrawn or expired requests.',
+  all: 'Every request, across every stage.',
+  analysis: 'Acceptance rates and monthly volume.',
+  users: 'Who can open the Offer & New Hire Manager.',
 }
 
 function ViewHead({ view }: { view: Exclude<View, 'editor'> }) {
-  const h = VIEW_HEAD[view]
   return (
     <div className="om-view-head">
-      <h2>{h.title}</h2>
-      <p className="om-view-blurb">{h.blurb}</p>
+      <h2>{VIEW_TITLE[view]}</h2>
+      <p className="om-view-blurb">{VIEW_BLURB[view]}</p>
     </div>
   )
 }
@@ -132,6 +134,9 @@ export default function OfferManager() {
 
   // The Users view is administrative: admin/dev only, hidden while emulating.
   const { isManager } = useViewer()
+  // Which of the app's two doors this is, and what this viewer may issue.
+  const base = useAppBase()
+  const push = usePush()
 
   const [codeOpen, setCodeOpen] = useState(false)
   const [codeText, setCodeText] = useState('')
@@ -211,19 +216,26 @@ export default function OfferManager() {
   }, [records, toast])
 
   // S3 314–350
-  const onShare = useCallback(() => {
+  const onShare = useCallback(async () => {
     const rec = currentId ? records.find((r) => r.id === currentId) : undefined
     if (!rec) {
       toast('Add the new hire details first, then share.', true)
       return
     }
-    const { name, doc } = offerPacketHTML(rec)
-    downloadBlob(
-      new Blob([doc], { type: 'text/html' }),
-      'Offer_Packet_' + safeFileBase(name, 'record') + '.html',
-    )
-    toast('Shareable offer packet exported.')
-  }, [currentId, records, toast])
+    try {
+      const { name, doc } = await offerPacketHTML(rec, { official: push.isOfficial(rec.id) })
+      downloadBlob(
+        new Blob([doc], { type: 'text/html' }),
+        'Offer_Packet_' + safeFileBase(name, 'record') + '.html',
+      )
+      toast('Shareable offer packet exported.')
+    } catch (e) {
+      toast(
+        'Could not build the offer packet: ' + (e instanceof Error ? e.message : String(e)),
+        true,
+      )
+    }
+  }, [currentId, push, records, toast])
 
   // S2 946–953 — spreadsheet import.
   const onImportFile = useCallback(
@@ -452,7 +464,7 @@ export default function OfferManager() {
                   <PanelLeftClose size={17} strokeWidth={1.75} aria-hidden="true" />
                 )}
               </button>
-              <h1>Offer &amp; New Hire Request Manager</h1>
+              <h1>{base === '/hiring' ? 'New Hire Requests' : 'Offer & New Hire Request Manager'}</h1>
             </header>
 
             <nav className="tabbar" aria-label="Views">

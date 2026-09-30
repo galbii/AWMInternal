@@ -24,7 +24,7 @@ import { Forbidden, NotFound } from 'payload'
 import { hasRole, type Role } from '@/access/roles'
 import { withApps } from '@/lib/apps/membership'
 import { isMembershipApp } from '@/lib/apps/registry'
-import { deny, getViewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer } from '@/lib/auth/viewer'
 import type { User } from '@/payload-types'
 import { toProfileView } from '@/lib/users/profile'
 import { slugifyUsername, validateUsername } from '@/lib/users/username'
@@ -95,9 +95,8 @@ interface ProfileUpdate {
 export async function PATCH(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) {
-    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.')
-  }
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return blocked
 
   let body: PatchBody
   try {

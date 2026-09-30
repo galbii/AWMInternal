@@ -170,7 +170,7 @@ export default function PasskeyManager(): React.JSX.Element {
   }
 
   return (
-    <section className="pk-section" aria-busy={adding || loading}>
+    <section className="pk-section" id="pf-passkeys" aria-busy={adding || loading}>
       <div className="pk-head">
         <div className="pk-title">Passkeys</div>
         <div className="pk-sub">

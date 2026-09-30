@@ -62,14 +62,21 @@ export const recordOfferEvents: CollectionAfterChangeHook = async ({
   req,
 }) => {
   const { payload } = req
-  const actorId = req.user ? String(req.user.id) : null
+  // DUAL ATTRIBUTION. While an admin is ACTING as someone, the write runs as
+  // that person (so their real limits apply) — but `actor` must still name the
+  // real human, or the trail would claim the emulated user did it. The route
+  // puts the real id in context; `actingAs` then carries whose seat it was.
+  const actingFor = (req.context as { actingFor?: string } | undefined)?.actingFor
+  const reqUserId = req.user ? String(req.user.id) : null
+  const actorId = actingFor ?? reqUserId
+  const actingAs = actingFor ? reqUserId : null
   const offerId = String(doc.id)
   const offerTitle = String(doc.employeeName || doc.id)
 
   const write = async (data: EventInput): Promise<void> => {
     await payload.create({
       collection: 'offer-events',
-      data: { offerId, offerTitle, actor: actorId, ...data },
+      data: { offerId, offerTitle, actor: actorId, actingAs, ...data },
       req,
     })
   }
@@ -91,6 +98,10 @@ export const recordOfferEvents: CollectionAfterChangeHook = async ({
             { offerId: { equals: offerId } },
             { kind: { equals: kind } },
             { actor: { equals: actorId } },
+            // Same human, DIFFERENT seat = a different event. Merging an
+            // admin's own edits with edits they made acting as someone would
+            // hide the seat the work was done from.
+            actingAs ? { actingAs: { equals: actingAs } } : { actingAs: { exists: false } },
             { windowEndsAt: { greater_than: new Date().toISOString() } },
           ],
         },
@@ -226,13 +237,18 @@ export const recordOfferEvents: CollectionAfterChangeHook = async ({
 
 export const recordOfferDeletion: CollectionAfterDeleteHook = async ({ doc, req }) => {
   const { payload } = req
+  // Same dual attribution as recordOfferEvents — a delete made while acting
+  // must name the real human first.
+  const actingFor = (req.context as { actingFor?: string } | undefined)?.actingFor
+  const reqUserId = req.user ? String(req.user.id) : null
   try {
     await payload.create({
       collection: 'offer-events',
       data: {
         offerId: String(doc.id),
         offerTitle: String(doc.employeeName || doc.id),
-        actor: req.user ? String(req.user.id) : null,
+        actor: actingFor ?? reqUserId,
+        actingAs: actingFor ? reqUserId : null,
         kind: 'deleted',
         summary: `Deleted ${String(doc.employeeName || doc.id)}`,
       },

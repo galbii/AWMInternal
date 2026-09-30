@@ -15,7 +15,7 @@ import { Forbidden, NotFound } from 'payload'
 import { hasRole, type Role } from '@/access/roles'
 import { withApps } from '@/lib/apps/membership'
 import { isMembershipApp } from '@/lib/apps/registry'
-import { deny, getViewer, type Viewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer, type Viewer } from '@/lib/auth/viewer'
 import type { User } from '@/payload-types'
 import { toDirectoryUser } from '@/lib/users/directory'
 
@@ -28,9 +28,10 @@ const fail = (status: 400 | 404, msg: string): Response => new Response(msg, { s
 async function gate(): Promise<{ v: Viewer } | { err: Response }> {
   const v = await getViewer()
   if (!v) return { err: deny(401) }
-  if (v.isEmulating) {
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) {
     return {
-      err: deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.'),
+      err: blocked,
     }
   }
   if (!hasRole(v.actor, 'admin', 'dev')) return { err: deny(403) }

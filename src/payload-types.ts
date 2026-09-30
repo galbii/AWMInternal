@@ -76,6 +76,7 @@ export interface Config {
     'offer-events': OfferEvent;
     applicants: Applicant;
     passkeys: Passkey;
+    'emulation-events': EmulationEvent;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -105,6 +106,7 @@ export interface Config {
     'offer-events': OfferEventsSelect<false> | OfferEventsSelect<true>;
     applicants: ApplicantsSelect<false> | ApplicantsSelect<true>;
     passkeys: PasskeysSelect<false> | PasskeysSelect<true>;
+    'emulation-events': EmulationEventsSelect<false> | EmulationEventsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -490,7 +492,7 @@ export interface User {
   /**
    * Apps this person can open. Admins and developers open every app regardless.
    */
-  apps?: ('offers' | 'kern')[] | null;
+  apps?: ('hiring' | 'offers' | 'kern')[] | null;
   /**
    * Prevent dev "view as" from emulating this account.
    */
@@ -899,6 +901,12 @@ export interface OfferRequest {
    * Linked automatically from the new hire's email (or name) on every save.
    */
   applicant?: (string | null) | Applicant;
+  /**
+   * Handed to HR for a final letter. Set from the app, never by hand.
+   */
+  pushedToHr?: boolean | null;
+  pushedAt?: string | null;
+  pushedBy?: (string | null) | User;
   createdBy?: (string | null) | User;
   updatedBy?: (string | null) | User;
   updatedAt: string;
@@ -969,11 +977,18 @@ export interface OfferEvent {
     | 'stage-change'
     | 'letter-updated'
     | 'email-sent'
+    | 'note'
+    | 'pushed-to-hr'
+    | 'returned-to-hiring'
     | 'assigned'
     | 'unassigned'
     | 'assignment-role-change'
     | 'deleted';
   actor?: (string | null) | User;
+  /**
+   * Set when the actor was acting as this user.
+   */
+  actingAs?: (string | null) | User;
   summary?: string | null;
   changes?:
     | {
@@ -1028,6 +1043,22 @@ export interface Passkey {
    */
   label?: string | null;
   lastUsedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * View-as / act-as sessions. Append-only.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emulation-events".
+ */
+export interface EmulationEvent {
+  id: string;
+  actor: string | User;
+  target?: (string | null) | User;
+  action: 'start' | 'mode' | 'stop';
+  mode?: ('view' | 'act') | null;
+  summary?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1256,6 +1287,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'passkeys';
         value: string | Passkey;
+      } | null)
+    | ({
+        relationTo: 'emulation-events';
+        value: string | EmulationEvent;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -1652,6 +1687,9 @@ export interface OfferRequestsSelect<T extends boolean = true> {
       };
   assignedUsers?: T;
   applicant?: T;
+  pushedToHr?: T;
+  pushedAt?: T;
+  pushedBy?: T;
   createdBy?: T;
   updatedBy?: T;
   updatedAt?: T;
@@ -1666,6 +1704,7 @@ export interface OfferEventsSelect<T extends boolean = true> {
   offerTitle?: T;
   kind?: T;
   actor?: T;
+  actingAs?: T;
   summary?: T;
   changes?:
     | T
@@ -1715,6 +1754,19 @@ export interface PasskeysSelect<T extends boolean = true> {
   backedUp?: T;
   label?: T;
   lastUsedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emulation-events_select".
+ */
+export interface EmulationEventsSelect<T extends boolean = true> {
+  actor?: T;
+  target?: T;
+  action?: T;
+  mode?: T;
+  summary?: T;
   updatedAt?: T;
   createdAt?: T;
 }

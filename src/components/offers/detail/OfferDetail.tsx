@@ -43,6 +43,8 @@ import { completion, offerFacts } from '@/lib/offers/summary'
 import type { EditorSub, Stage } from '@/lib/offers/types'
 import { initialsOf } from '@/lib/users/initials'
 
+import { usePush } from '@/components/offers/PushProvider'
+import { useAppBase } from '@/components/offers/useAppBase'
 import OfferSidebar from './OfferSidebar'
 import { useOfferTimeline } from './useOfferTimeline'
 
@@ -97,6 +99,8 @@ export default function OfferDetail({
   readOnly,
 }: OfferDetailProps): React.JSX.Element {
   const api = useOffers()
+  const base = useAppBase()
+  const push = usePush()
   const router = useRouter()
 
   const rec = api.records.find((r) => r.id === recordId) || null
@@ -262,7 +266,7 @@ export default function OfferDetail({
       <header className={'od-bar' + (stuck ? ' stuck' : '')} ref={barRef}>
         <div className="od-bar-in">
           <div className="od-bar-row">
-            <Link className="od-back" href="/offers">
+            <Link className="od-back" href={base}>
               ← All requests
             </Link>
             <span className="od-avatar" aria-hidden="true">
@@ -295,6 +299,35 @@ export default function OfferDetail({
             </button>
             {readOnly ? null : (
               <div className="od-head-actions">
+                {/* The handoff, where the request is actually worked. */}
+                {push.canPush && !push.isPushed(recordId) ? (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    title="Hand this request to HR so a final letter can be issued"
+                    onClick={() => {
+                      void push.push([recordId], true).then((ok) => {
+                        api.toast(ok ? 'Pushed to HR.' : 'Could not push to HR.', !ok)
+                      })
+                    }}
+                  >
+                    Push to HR
+                  </button>
+                ) : null}
+                {push.canReturn && push.isPushed(recordId) ? (
+                  <button
+                    type="button"
+                    className="btn-light"
+                    title="Send this back to the hiring manager — its letter reverts to SAMPLE"
+                    onClick={() => {
+                      void push.push([recordId], false).then((ok) => {
+                        api.toast(ok ? 'Returned to the hiring manager.' : 'Could not return.', !ok)
+                      })
+                    }}
+                  >
+                    Return
+                  </button>
+                ) : null}
                 {stageActions.map(([to, label, cls]) => (
                   <button
                     key={to}
@@ -349,7 +382,7 @@ export default function OfferDetail({
                       {otherOffers.map((o) => (
                         <Link
                           className="od-chip"
-                          href={'/offers/' + o.id}
+                          href={base + '/' + o.id}
                           key={o.id}
                           title={[o.position, o.branch].filter(Boolean).join(' · ') || o.title}
                         >
@@ -476,7 +509,7 @@ export default function OfferDetail({
 
           <div className={subViewCls('details')}>
             <div className={readOnly ? 'od-details od-details-locked' : 'od-details'}>
-              <RequestForm standalone onDeleted={() => router.push('/offers')} />
+              <RequestForm standalone onDeleted={() => router.push(base)} />
             </div>
           </div>
         </div>
@@ -485,6 +518,11 @@ export default function OfferDetail({
           events={tl ? tl.events : null}
           error={timeline.error}
           onRefresh={timeline.reload}
+          offerId={recordId}
+          // The feed is the page's single fetch; a new note reloads it rather
+          // than being spliced in locally, so the rail and the Analysis feed
+          // can never disagree about what happened.
+          onNoteAdded={() => timeline.reload()}
         />
       </div>
 

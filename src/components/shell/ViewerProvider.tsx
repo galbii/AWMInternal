@@ -24,9 +24,22 @@ export interface ShellViewer {
   name: string
   username: string
   roles: string[]
+  /**
+   * The VIEWER's membership-managed app ids (`users.apps`) — the emulated
+   * user's while viewing as, so an app's own capability checks show the
+   * target's restrictions rather than the admin's. Managers open every app
+   * without appearing on any list, which is what `isManager` is for.
+   */
+  apps: string[]
   /** Admin or developer, and NOT viewing as someone else. */
   isManager: boolean
   isEmulating: boolean
+  /**
+   * Emulating in WRITE mode — actions run as the emulated user and are audited
+   * to both identities. Still not a manager: you are in their seat, with their
+   * limits. Deny-by-default outside a provider.
+   */
+  isActing: boolean
 }
 
 /**
@@ -38,8 +51,10 @@ const ANON: ShellViewer = {
   name: '',
   username: '',
   roles: [],
+  apps: [],
   isManager: false,
   isEmulating: false,
+  isActing: false,
 }
 
 const ViewerContext = createContext<ShellViewer>(ANON)

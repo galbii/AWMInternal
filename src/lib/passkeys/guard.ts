@@ -8,7 +8,7 @@
 //
 // Every passkey route therefore acts as the ACTOR, never the viewer.
 
-import { deny, getViewer, type Viewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer, type Viewer } from '@/lib/auth/viewer'
 
 export const EMULATION_MESSAGE =
   'Read-only: you are viewing as another user. Exit view-as to manage passkeys.'
@@ -17,6 +17,9 @@ export const EMULATION_MESSAGE =
 export async function requirePasskeyActor(): Promise<Response | Viewer> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) return deny(403, EMULATION_MESSAGE)
+  // 'never': absolute in BOTH modes. A credential enrolled while acting as
+  // someone is a permanent backdoor, not a peek.
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return deny(403, EMULATION_MESSAGE)
   return v
 }

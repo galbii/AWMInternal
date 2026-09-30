@@ -23,6 +23,7 @@ import { missingRequired, nowIso, uid } from '@/lib/offers/schema'
 import {
   INBOX_KEY,
   importedSids,
+  lastSyncError,
   loadRecords,
   markImported,
   persistRecords,
@@ -102,6 +103,31 @@ export function OffersProvider({
   /** The mounted form's debounced-autosave flush (S2 670 / 680 `if(dirty)commitCurrent(true)`). */
   const pendingFlushRef = useRef<(() => void) | null>(null)
 
+  /* ---- leaving the editor (2026-09-29) ----
+   * "+ New Request" dropped you into the editor with no way out: the only exit
+   * was the sidebar, which rests collapsed to a rail, and Delete on an
+   * uncommitted form just called newRecord() again. Worse, the 600ms autosave
+   * means one keystroke creates a DRAFT — so backing out by hand left litter
+   * in the pipeline.
+   *
+   * Two refs fix it. `newDraftIdRef` is the record THIS editor session created
+   * from "+ New Request" and that the user has not deliberately saved, so
+   * Cancel knows what it may throw away; it is deliberately NOT set for a
+   * record opened from a list, where discarding would be catastrophic.
+   * `lastListViewRef` is where Cancel/Close returns to. */
+  const startedNewRef = useRef(false)
+  const newDraftIdRef = useRef<string | null>(null)
+  const [newDraftId, setNewDraftId] = useState<string | null>(null)
+  const lastListViewRef = useRef<Exclude<View, 'editor'>>('pipeline')
+  /** Mirrored as state so the back control can NAME where it will land. */
+  const [returnView, setReturnView] = useState<Exclude<View, 'editor'>>('pipeline')
+
+  const clearNewDraft = useCallback(() => {
+    startedNewRef.current = false
+    newDraftIdRef.current = null
+    setNewDraftId(null)
+  }, [])
+
   // Records hydrate here, never during SSR render. `loadRecords` is async now
   // (it fetches from Payload); anything the user created before the fetch
   // resolved is kept and the server list merged in behind it.
@@ -131,7 +157,11 @@ export function OffersProvider({
       setRecords(next)
       const persist = standalone ? persistRecordsUpsertOnly : persistRecords
       void persist(next).then((ok) => {
-        if (!ok) toast('Could not save to the server — will retry on the next change.', true)
+        if (ok) return
+        // A refusal carries the server's own wording ("Read-only while viewing
+        // as another user…"); only an unreachable server is worth retrying.
+        const why = lastSyncError()
+        toast(why ?? 'Could not save to the server — will retry on the next change.', true)
       })
     },
     [standalone, toast],
@@ -156,6 +186,10 @@ export function OffersProvider({
   }, [])
 
   const showView = useCallback((v: View) => {
+    if (v !== 'editor') {
+      lastListViewRef.current = v
+      setReturnView(v)
+    }
     setView(v)
     scrollTop()
   }, [])
@@ -192,7 +226,12 @@ export function OffersProvider({
           next[idx] = { ...next[idx], data: d, status, updated: nowIso() }
           commit(next)
         }
-        if (manual) toast('Request saved')
+        // A deliberate save makes it a record like any other — Cancel stops
+        // offering to throw it away and becomes a plain Close.
+        if (manual) {
+          toast('Request saved')
+          clearNewDraft()
+        }
         return cur
       }
 
@@ -203,10 +242,17 @@ export function OffersProvider({
       const now = nowIso()
       commit([{ id, data: d, status, created: now, updated: now }, ...list])
       setCurrent(id)
-      if (manual) toast('Request saved')
+      if (startedNewRef.current && !manual) {
+        newDraftIdRef.current = id
+        setNewDraftId(id)
+      }
+      if (manual) {
+        toast('Request saved')
+        clearNewDraft()
+      }
       return id
     },
-    [commit, setCurrent, toast],
+    [clearNewDraft, commit, setCurrent, toast],
   )
 
   // S2 670–678. View switching stays with the caller (S3 742 does
@@ -215,29 +261,62 @@ export function OffersProvider({
     (id: string) => {
       if (!recordsRef.current.some((r) => r.id === id)) return
       flushPending() // S2 670
+      // Opening an existing record is never something Cancel may discard.
+      clearNewDraft()
       setCurrent(id)
       scrollTop()
     },
-    [flushPending, setCurrent],
+    [clearNewDraft, flushPending, setCurrent],
   )
 
   // S2 679–685 plus S3 758: "+ New Request" always lands on the details sub-tab.
   const newRecord = useCallback(() => {
     flushPending() // S2 680
+    // Arms Cancel: the record the next autosave creates is this session's, and
+    // may be discarded. Cleared the moment it is deliberately saved.
+    startedNewRef.current = true
+    newDraftIdRef.current = null
+    setNewDraftId(null)
     setCurrent(null)
     setView('editor')
     setSub('details')
     scrollTop()
   }, [flushPending, setCurrent])
 
+  /** Leave the editor for the list the user came from. Saves pending edits. */
+  const closeEditor = useCallback(() => {
+    flushPending()
+    clearNewDraft()
+    setView(lastListViewRef.current)
+    scrollTop()
+  }, [clearNewDraft, flushPending])
+
+  /**
+   * Throw away the request "+ New Request" started and leave. Deliberately does
+   * NOT flush: the pending autosave would re-create the very draft we are
+   * deleting. The caller (RequestForm) cancels its own timer first.
+   */
+  const discardNewRecord = useCallback(() => {
+    const id = newDraftIdRef.current
+    if (id) {
+      commit(recordsRef.current.filter((r) => r.id !== id))
+    }
+    clearNewDraft()
+    pendingFlushRef.current = null
+    setCurrent(null)
+    setView(lastListViewRef.current)
+    scrollTop()
+  }, [clearNewDraft, commit, setCurrent])
+
   // The two delete paths use different words — S2 936–939 says "Request deleted.",
   // S3 748 says "Deleted." — so the toast belongs to the caller, not here.
   const deleteRecord = useCallback(
     (id: string) => {
       commit(recordsRef.current.filter((r) => r.id !== id))
+      if (newDraftIdRef.current === id) clearNewDraft()
       if (currentIdRef.current === id) setCurrent(null)
     },
-    [commit, setCurrent],
+    [clearNewDraft, commit, setCurrent],
   )
 
   // S3 737 (bulk delete from the pipeline table). As with `deleteRecord`, the
@@ -245,9 +324,10 @@ export function OffersProvider({
   const deleteRecords = useCallback(
     (ids: string[]) => {
       commit(recordsRef.current.filter((r) => ids.indexOf(r.id) < 0))
+      if (newDraftIdRef.current && ids.indexOf(newDraftIdRef.current) >= 0) clearNewDraft()
       if (currentIdRef.current && ids.indexOf(currentIdRef.current) >= 0) setCurrent(null)
     },
-    [commit, setCurrent],
+    [clearNewDraft, commit, setCurrent],
   )
 
   // S2 940–944. The caller commits any pending edit first, then hands us the
@@ -454,6 +534,10 @@ export function OffersProvider({
       commitForm,
       openRecord,
       newRecord,
+      newDraftId,
+      returnView,
+      closeEditor,
+      discardNewRecord,
       registerPendingFlush,
       deleteRecord,
       deleteRecords,
@@ -478,6 +562,10 @@ export function OffersProvider({
       commitForm,
       openRecord,
       newRecord,
+      newDraftId,
+      returnView,
+      closeEditor,
+      discardNewRecord,
       registerPendingFlush,
       deleteRecord,
       deleteRecords,

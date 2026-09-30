@@ -8,6 +8,7 @@ import React from 'react'
 
 import OfferDetail from '@/components/offers/detail/OfferDetail'
 import { OffersProvider } from '@/components/offers/OffersProvider'
+import { PushProvider } from '@/components/offers/PushProvider'
 import { getViewer } from '@/lib/auth/viewer'
 import { toOfferRecord } from '@/lib/offers/payload-doc'
 
@@ -37,11 +38,13 @@ export default async function OfferDetailPage({
 
   return (
     <OffersProvider standalone initialRecords={[record]} initialCurrentId={record.id}>
-      <OfferDetail
-        recordId={record.id}
-        name={record.data.employeeName || 'Offer letter'}
-        readOnly={v.isEmulating}
-      />
+      <PushProvider>
+        <OfferDetail
+          recordId={record.id}
+          name={record.data.employeeName || 'Offer letter'}
+          readOnly={v.isEmulating && !v.isActing}
+        />
+      </PushProvider>
     </OffersProvider>
   )
 }

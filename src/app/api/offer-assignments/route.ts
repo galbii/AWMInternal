@@ -14,7 +14,7 @@
 // Roles are still set per offer on /offers/[id] (/api/offer-timeline).
 
 import { hasRole } from '@/access/roles'
-import { deny, getViewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, canWrite, deny, getViewer, writeUser } from '@/lib/auth/viewer'
 import {
   applyAssignmentEdit,
   isAssignRole,
@@ -95,7 +95,9 @@ export async function GET(): Promise<Response> {
   const byOffer: Record<string, Assignee[]> = {}
   for (const d of docs) byOffer[String(d.id)] = rowsOf(d.assignments as RawRow[] | null | undefined)
 
-  const canAssign = !v.isEmulating && hasRole(v.actor, 'admin', 'dev')
+  // Evaluated against the identity a write would RUN as: acting is strictly
+  // downward, so acting-as-a-plain-user correctly cannot assign.
+  const canAssign = canWrite(v) && hasRole(writeUser(v), 'admin', 'dev')
   const users = canAssign ? (await userLabels(v)).users : []
 
   return Response.json({ me: String(v.viewer.id), canAssign, users, byOffer })
@@ -107,8 +109,9 @@ const strings = (x: unknown): string[] =>
 export async function POST(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) return deny(403, 'Read-only while viewing as another user.')
-  if (!hasRole(v.actor, 'admin', 'dev')) return deny(403)
+  const blocked = blockEmulatedWrite(v, 'acting-ok')
+  if (blocked) return blocked
+  if (!hasRole(writeUser(v), 'admin', 'dev')) return deny(403)
 
   let body: { ids?: unknown; add?: unknown; remove?: unknown }
   try {
@@ -132,7 +135,7 @@ export async function POST(request: Request): Promise<Response> {
         collection: 'offer-requests',
         id,
         depth: 0,
-        user: v.actor,
+        user: writeUser(v),
         overrideAccess: false,
       })
       const current = rowsOf(doc.assignments as RawRow[] | null | undefined, labels)
@@ -157,7 +160,7 @@ export async function POST(request: Request): Promise<Response> {
           })),
         },
         depth: 0,
-        user: v.actor,
+        user: writeUser(v),
         overrideAccess: false,
       })
       byOffer[id] = next

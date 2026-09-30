@@ -264,11 +264,26 @@ export function deepAssign(base: LetterConfig, patch: StoredLetterConfig): Lette
 
 /* merge saved letter OPTIONS, but always re-derive comp rows from the current answers (true auto-pilot) */
 // S3 156
-export function resolveLetter(rec: OfferRecord): LetterConfig {
+//
+// THE WATERMARK CHOKEPOINT (2026-09-29). Every path that puts this letter in
+// front of a human — the on-screen sheet, print, the PDF, the Word file, the
+// HTML packet, the emailed attachment — resolves its config here and nowhere
+// else. So `official` is enforced ONCE, here, rather than at six call sites
+// that each used to carry their own `wm` argument and could contradict the
+// record (three of them did: the Word export and the packet passed null, and
+// the bulk toolbar had its own checkbox).
+//
+// It can only ever ADD the stamp, never remove one the record asked for, and
+// it defaults to `true` so every existing caller and test keeps its behaviour.
+// Who may pass `false`: src/lib/offers/official.ts.
+export function resolveLetter(rec: OfferRecord, official: boolean = true): LetterConfig {
   const base = defaultLetter(rec)
   if (rec.letter) {
     deepAssign(base, rec.letter)
     base.rows = defaultLetter(rec).rows
+  }
+  if (!official) {
+    base.watermark = { on: true, text: (base.watermark && base.watermark.text) || 'SAMPLE' }
   }
   return base
 }

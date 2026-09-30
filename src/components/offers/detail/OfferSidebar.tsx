@@ -24,6 +24,7 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 
 import ActivityFeed from '@/components/offers/ActivityFeed'
+import NoteComposer from '@/components/offers/NoteComposer'
 
 import type { TimelineEvent } from './useOfferTimeline'
 
@@ -32,6 +33,10 @@ interface OfferSidebarProps {
   events: TimelineEvent[] | null
   error: string | null
   onRefresh: () => void
+  /** The offer these events belong to — the note composer posts against it. */
+  offerId: string
+  /** A note just added, shown at once rather than waiting for a refetch. */
+  onNoteAdded: (event: TimelineEvent) => void
 }
 
 /** localStorage key for the pinned state (a new key; the frozen onhr_* set is untouched). */
@@ -41,6 +46,8 @@ export default function OfferSidebar({
   events,
   error,
   onRefresh,
+  offerId,
+  onNoteAdded,
 }: OfferSidebarProps): React.JSX.Element {
   // Rests collapsed. Only an explicit pin opens it, so the letter gets the
   // width by default and the feed is a hover away.
@@ -107,6 +114,8 @@ export default function OfferSidebar({
               </button>
             </div>
           </div>
+          {/* Above the feed: a note IS a feed entry, written on purpose. */}
+          <NoteComposer offerId={offerId} onAdded={onNoteAdded} />
           {error && <div className="od-error">{error}</div>}
           {!events && !error && <div className="od-dim">Loading…</div>}
           {events && events.length === 0 && <div className="od-dim">Nothing yet.</div>}

@@ -12,6 +12,14 @@
  *     HTML references these class names as strings, exports/PDF/print depend
  *     on these exact metrics, and the sheet stays white paper in both themes.
  *     Do not edit below the marker.
+ *
+ *     ONE documented exception (2026-09-27): the @page margin now matches the
+ *     page box in src/lib/offers/letter-fit.ts, because print and the PDF have
+ *     to agree on how much room a page has before either can fit a letter onto
+ *     one. Change them together or not at all. Everything else down there,
+ *     including every length the letter itself is set in, is still the port's.
+ *     The one-page compression rides in as a scoped stylesheet LetterView
+ *     injects for the duration of the print, so it leaves no mark on this file.
  */
 
 /* ===== letter workspace chrome ===== */
@@ -93,5 +101,6 @@
   /* never split a table row, list item, or heading across a page */
   body.printing-letter .comp-table tr,body.printing-letter .comp-table td,body.printing-letter .cp-table tr,body.printing-letter #letterContent li,body.printing-letter #letterContent h3{break-inside:avoid!important;page-break-inside:avoid!important}
   body.printing-letter #letterContent h3{break-after:avoid!important;page-break-after:avoid!important}
-  @page{size:letter;margin:0.55in 0.7in 0.55in}
+  /* = MARGIN in src/lib/offers/letter-fit.ts (34pt 40pt 34pt). Keep in step. */
+  @page{size:letter;margin:0.472in 0.556in 0.472in}
 }

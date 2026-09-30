@@ -2,9 +2,14 @@
 
 // The Users app's one screen: search and filter the directory, create an
 // account, and act on a row — grant or revoke admin/developer, grant or revoke
-// each membership-managed app, block or allow view-as, open the profile,
+// each membership-managed app, start or block view-as, open the profile,
 // delete. Changes apply optimistically and go through /api/directory, which
 // re-checks admin/dev and refuses emulation.
+//
+// "View as <name>" is the second door onto emulation, beside the session bar's
+// own picker: this is the page where you already see who is who. It posts to
+// /api/emulate (which authorizes off the real actor) and then lands on the hub
+// as that person — this admin screen has nothing to show while emulating.
 //
 // `canManage` is false while emulating: rows still render, actions do not.
 
@@ -18,6 +23,7 @@ import { withApps } from '@/lib/apps/membership'
 import { membershipApps } from '@/lib/apps/registry'
 import type { DirectoryUser } from '@/lib/users/directory'
 import { initialsOf } from '@/lib/users/initials'
+import { rememberViewAs } from '@/lib/users/view-as-recent'
 
 interface UsersDirectoryProps {
   rows: DirectoryUser[]
@@ -47,7 +53,8 @@ interface MenuPos {
   bottom?: number
   right: number
 }
-const MENU_HEIGHT = 250
+/** Rough tallest-menu height, only used to decide whether to flip upward. */
+const MENU_HEIGHT = 286
 const MENU_GAP = 6
 
 function menuPosition(r: DOMRect): MenuPos {
@@ -164,6 +171,28 @@ export default function UsersDirectory({ rows: initial, me, canManage }: UsersDi
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That account could not be deleted.')
     } finally {
+      setBusyId(null)
+    }
+  }
+
+  /** Start viewing as this person, then land on their hub. */
+  async function viewAs(u: DirectoryUser) {
+    setError(null)
+    setBusyId(u.id)
+    try {
+      const res = await fetch('/api/emulate', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ userId: u.id }),
+      })
+      if (!res.ok) throw new Error(await readMessage(res, 'View-as could not be started.'))
+      rememberViewAs(u.id)
+      // A full navigation: the chrome and every app's data are rendered on the
+      // server as the viewer, so nothing short of a load can switch identity.
+      window.location.href = '/'
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'View-as could not be started.')
       setBusyId(null)
     }
   }
@@ -403,6 +432,18 @@ export default function UsersDirectory({ rows: initial, me, canManage }: UsersDi
             </>
           ) : null}
           <div className="us-menu-sep" />
+          {menuFor.id !== me && !menuFor.emulationBlocked ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(null)
+                void viewAs(menuFor)
+              }}
+            >
+              View as {menuFor.name}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

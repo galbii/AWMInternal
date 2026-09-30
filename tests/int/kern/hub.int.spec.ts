@@ -49,6 +49,9 @@ describe('Kern Org Manager on the hub', () => {
   test('it renders under its own Operations heading, apart from offers', () => {
     const groups = appsByGroup(appsFor(user(['admin'])))
     expect(groups.find((g) => g.group === 'Operations')!.apps.map((a) => a.id)).toEqual(['kern'])
-    expect(groups.find((g) => g.group === 'People')!.apps.map((a) => a.id)).toEqual(['offers'])
+    expect(groups.find((g) => g.group === 'People')!.apps.map((a) => a.id)).toEqual([
+      'hiring',
+      'offers',
+    ])
   })
 })

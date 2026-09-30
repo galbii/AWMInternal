@@ -41,13 +41,28 @@ export const OfferEvents: CollectionConfig = {
         { label: 'Stage change', value: 'stage-change' },
         { label: 'Letter updated', value: 'letter-updated' },
         { label: 'Emailed', value: 'email-sent' },
+        { label: 'Note', value: 'note' },
+        { label: 'Pushed to HR', value: 'pushed-to-hr' },
+        { label: 'Returned to hiring', value: 'returned-to-hiring' },
         { label: 'Assigned', value: 'assigned' },
         { label: 'Unassigned', value: 'unassigned' },
         { label: 'Assignment role change', value: 'assignment-role-change' },
         { label: 'Deleted', value: 'deleted' },
       ],
     },
+    // DUAL ATTRIBUTION (2026-09-29). `actor` is ALWAYS the real human. When an
+    // admin is ACTING as someone (view-as in write mode), the write itself runs
+    // as that person — so `actingAs` names them and the feed reads
+    // "Chance (as Dana)". Recording only the emulated identity would forge the
+    // trail; recording only the admin would hide whose limits applied.
     { name: 'actor', type: 'relationship', relationTo: 'users', index: true },
+    {
+      name: 'actingAs',
+      type: 'relationship',
+      relationTo: 'users',
+      index: true,
+      admin: { readOnly: true, description: 'Set when the actor was acting as this user.' },
+    },
     { name: 'summary', type: 'text' },
     {
       name: 'changes',

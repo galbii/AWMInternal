@@ -16,7 +16,7 @@
 // like the collection's own hooks: a failed audit must not report a sent email
 // as failed, because the email is already gone.
 
-import { deny, getViewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer } from '@/lib/auth/viewer'
 import { sendEmail } from '@/lib/email/send'
 import {
   MAX_ATTACHMENT_BASE64,
@@ -44,9 +44,8 @@ const bad = (message: string, status: 400 | 404 | 413 = 400): Response =>
 export async function POST(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) {
-    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to send email.')
-  }
+  const blocked = blockEmulatedWrite(v, 'never')
+  if (blocked) return blocked
 
   let body: SendBody
   try {

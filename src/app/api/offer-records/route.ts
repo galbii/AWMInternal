@@ -10,7 +10,7 @@
 
 import { createLocalReq } from 'payload'
 
-import { deny, getViewer } from '@/lib/auth/viewer'
+import { blockEmulatedWrite, deny, getViewer, writeContext, writeUser } from '@/lib/auth/viewer'
 import { toOfferDoc, toOfferRecord } from '@/lib/offers/payload-doc'
 import type { OfferRecord } from '@/lib/offers/types'
 
@@ -46,9 +46,8 @@ export async function GET(): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const v = await getViewer()
   if (!v) return deny(401)
-  if (v.isEmulating) {
-    return deny(403, 'Read-only: you are viewing as another user. Exit view-as to make changes.')
-  }
+  const blocked = blockEmulatedWrite(v, 'acting-ok')
+  if (blocked) return blocked
 
   let body: SyncBody
   try {
@@ -62,7 +61,11 @@ export async function POST(request: Request): Promise<Response> {
   if (!upsert.length && !reorder.length && !remove.length) return Response.json({ ok: true })
 
   const { payload } = v
-  const req = await createLocalReq({ user: v.actor }, payload)
+  // While ACTING the write runs as the emulated user, so their real limits
+  // apply; `writeContext` carries the real human for the audit hooks.
+  const writer = writeUser(v)
+  const req = await createLocalReq({ user: writer }, payload)
+  req.context = { ...(req.context ?? {}), ...writeContext(v) }
   const transactionID = await payload.db.beginTransaction()
   if (transactionID) req.transactionID = transactionID
 
@@ -73,7 +76,7 @@ export async function POST(request: Request): Promise<Response> {
         where: { id: { in: remove } },
         depth: 0,
         req,
-        user: v.actor,
+        user: writer,
         overrideAccess: false,
       })
     }
@@ -87,7 +90,7 @@ export async function POST(request: Request): Promise<Response> {
         pagination: false,
         select: { id: true },
         req,
-        user: v.actor,
+        user: writer,
         overrideAccess: false,
       })
       const have = new Set(existing.map((d) => String(d.id)))
@@ -100,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
             data,
             depth: 0,
             req,
-            user: v.actor,
+            user: writer,
             overrideAccess: false,
           })
         } else {
@@ -109,7 +112,7 @@ export async function POST(request: Request): Promise<Response> {
             data: { ...data, id: u.rec.id },
             depth: 0,
             req,
-            user: v.actor,
+            user: writer,
             overrideAccess: false,
           })
         }
@@ -123,7 +126,7 @@ export async function POST(request: Request): Promise<Response> {
         data: { pos: r.pos },
         depth: 0,
         req,
-        user: v.actor,
+        user: writer,
         overrideAccess: false,
       })
     }

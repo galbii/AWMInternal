@@ -27,6 +27,9 @@ describe('activity filters', () => {
         'email-sent',
         'field-edit',
         'letter-updated',
+        'note',
+        'pushed-to-hr',
+        'returned-to-hiring',
         'stage-change',
         'unassigned',
       ].sort(),
@@ -90,8 +93,27 @@ describe('toActivityEvent', () => {
       targetRole: '',
       editCount: 3,
       actorLabel: 'Chance N',
+      actingAsLabel: '',
       at: '2026-09-21T10:00:00.000Z',
     })
+  })
+
+  it('carries BOTH identities when the actor was acting as someone', () => {
+    // The trail must never be readable as "Dana did this" — the work was done
+    // by the admin, from Dana's seat (src/lib/auth/viewer.ts).
+    const doc = {
+      ...base,
+      actor: { id: 'u1', name: 'Chance N' },
+      actingAs: { id: 'u2', name: 'Dana Reyes' },
+    }
+    const out = toActivityEvent(doc as unknown as OfferEvent)
+    expect(out.actorLabel).toBe('Chance N')
+    expect(out.actingAsLabel).toBe('Dana Reyes')
+  })
+
+  it('leaves actingAsLabel empty for an ordinary, un-emulated write', () => {
+    const doc = { ...base, actor: { id: 'u1', name: 'Chance N' }, actingAs: null }
+    expect(toActivityEvent(doc as unknown as OfferEvent).actingAsLabel).toBe('')
   })
 
   it('names an actorless event "System" and an unpopulated actor by id', () => {

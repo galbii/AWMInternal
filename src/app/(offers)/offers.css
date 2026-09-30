@@ -320,7 +320,12 @@ aside{display:none}
 /* 24px matches every other view's gutter. The cap is the fix for a 1040px
    text input: at 960 the field column lands near 650px, a readable measure,
    and the form reads as a document rather than a stretched table row. */
-main{padding:0 24px 96px;max-width:960px;margin:0 auto}
+/* The editor used to sit in a 960px column with the rest of the window empty
+   either side. It now takes the room it is given — but widening ALONE would
+   just stretch every input, so the card bodies go two-up above 1200px (see the
+   .grp-body grid below) and the extra width becomes a second column of
+   questions rather than one very long Employee Name box. */
+main{padding:0 24px 96px;max-width:min(1560px, 100%);margin:0 auto}
 
 .formhead{display:flex;align-items:baseline;gap:14px;margin:20px 0 8px;flex-wrap:wrap}
 .formhead h2{
@@ -353,6 +358,34 @@ section.grp{
   display:flex;align-items:center;gap:10px;
 }
 .grp-body{padding:6px 18px 16px}
+/* TWO-UP (2026-09-29). Only where there is genuinely room; below 1200px this
+   is a plain stack exactly as before. Questions that need the full measure —
+   composites, free text, a stacked radio list — opt back out below. */
+@media (min-width:1200px){
+  /* `.rf-card` too: the Pay section renders SUB-CARDS whose questions are
+     direct children of the card itself, not of a .grp-body — which is most of
+     the money questions, and exactly the ones that looked worst stretched. */
+  .grp-body,.rf-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:30px}
+  /* A row border across two columns reads as a checkerboard, so in grid mode
+     the separator goes and the gap does the work. */
+  .grp-body>.fld,.rf-card>.fld{border-bottom:none;padding:11px 0}
+  /* A card's blurb is a direct child too, and as a plain cell it pushed
+     question 1 into the right-hand column with dead space beside it. Anything
+     that is not a question spans the row. */
+  .grp-body>*:not(.fld),.rf-card>*:not(.fld){grid-column:1 / -1}
+  /* Anything that is wider than a single question spans the row. `:has()` is
+     already load-bearing in this stylesheet (the /offers/[id] rails). */
+  .grp-body>.fld:has(textarea),.rf-card>.fld:has(textarea),
+  .grp-body>.fld:has(.bonus),.rf-card>.fld:has(.bonus),
+  .grp-body>.fld:has(.bw-inputs),.rf-card>.fld:has(.bw-inputs),
+  .grp-body>.fld:has(.radios:not(.inline)),.rf-card>.fld:has(.radios:not(.inline)),
+  .grp-body>.fld:has(.other-wrap-long),.rf-card>.fld:has(.other-wrap-long){grid-column:1 / -1}
+  /* The Group F override note belongs with the question it warns about. */
+  .rf-card>.fld:has(.rf-overridden){grid-column:1 / -1}
+}
+/* A name or an email in a 700px box reads as a mistake, the same reason the
+   date and tel fields already cap. */
+.fld input[type=text],.fld input[type=email]{max-width:560px}
 .fld{padding:12px 0;border-bottom:1px solid var(--awm-line)}
 .fld:last-child{border-bottom:none}
 .fld label.q{display:block;font-weight:600;margin-bottom:7px;color:var(--awm-ink)}
@@ -496,6 +529,42 @@ input[type=file]{display:none}
 }
 .sel-clear:hover{background:rgba(0,98,159,.12)}
 .sel-spacer{flex:1}
+/* ==================================================================
+   PUSH TO HR (2026-09-29) — the handoff between the two doors onto this
+   app. One pill in the funnel, one locked state on the letter's watermark
+   tick, one notice in the send modal. See src/lib/offers/official.ts.
+   ================================================================== */
+/* "Chance as Dana" — the emulated seat, never merged into the actor's name. */
+/* ADD A NOTE (2026-09-29) — the composer at the head of the activity rail.
+   A note is a feed entry written on purpose, so it lives with the feed rather
+   than in the record. See src/app/api/offer-note/route.ts. */
+.nc-open{
+  width:100%;text-align:left;margin:0 0 10px;padding:8px 11px;border-radius:9px;
+  background:var(--awm-mist);border:1px dashed var(--awm-line);color:var(--awm-slate);
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+}
+.nc-open:hover{border-color:var(--awm-blue);color:var(--awm-ink);border-style:solid}
+.nc{margin:0 0 12px}
+.nc-input{width:100%;font-size:12.5px;line-height:1.45;min-height:64px;resize:vertical}
+.nc-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:7px}
+/* Says whose note it will be BEFORE you type it. */
+.nc-acting{margin:6px 0 0;font-size:11.5px;line-height:1.4;font-style:italic;
+  color:var(--awm-warn)}
+.nc-error{margin:6px 0 0;font-size:11.5px;color:var(--awm-danger)}
+.nc-readonly{margin:0 0 10px;font-size:11.5px;line-height:1.4;color:var(--awm-slate)}
+
+.od-acting{font-style:italic;color:var(--awm-warn,#9a6700)}
+
+.hr-pill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:99px;
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;vertical-align:middle;
+  background:var(--awm-ok-bg,rgba(22,138,90,.14));color:var(--awm-ok,#0f7a4d);
+  border:1px solid var(--awm-ok-line,rgba(22,138,90,.32))}
+/* A pinned tick is not a control — say so rather than looking broken. */
+.la-check-locked{opacity:.85;cursor:not-allowed}
+.la-check-locked input{cursor:not-allowed}
+.sle-stamp{margin:10px 0 0;padding:8px 11px;border-radius:8px;font-size:12.5px;line-height:1.45;
+  background:var(--awm-danger-bg);color:var(--awm-danger);border:1px solid var(--awm-danger-line)}
+
 .wm-toggle{
   display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--awm-ink);font-weight:600;
   background:var(--awm-card);border:1px solid var(--awm-line);padding:7px 10px;border-radius:8px;cursor:pointer;
@@ -753,28 +822,65 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 .od-body{flex:1 0 auto;display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:18px;
   align-items:start;width:100%;max-width:1680px;margin:0 auto;padding:16px 20px}
 .od-main{min-width:0}
-.od-letter-locked,.od-details-locked{pointer-events:none;opacity:.85}
+/* Read-only (view-as in `view` mode). The pane must stay READABLE: scrolling,
+   text selection and the letter's rails all keep working, and only the
+   CONTROLS go dead. `pointer-events:none` on the whole pane — what this was —
+   also ate the wheel, and `.od-letter .letter-overlay` is a fixed-height box
+   whose columns scroll internally, so an emulated session could not scroll the
+   letter at all: it could only ever read the top of it. `.lp-peek-tab` is
+   exempt because the rail drawer is navigation, not a change. The footer is
+   nothing BUT actions, so it stays dead whole. */
+.od-letter-locked,.od-details-locked{opacity:.92}
+.od-letter-locked :is(input,select,textarea,button:not(.lp-peek-tab)),
+.od-details-locked :is(input,select,textarea,button){pointer-events:none}
 .od-foot-locked{pointer-events:none;opacity:.7}
 .od-letter,.od-details{border:1px solid var(--awm-line);border-radius:12px}
 .od-letter{overflow:hidden}
 .od-details{background:var(--awm-card)}
-/* The letter pane fills exactly what the sticky chrome leaves, so the page
-   never needs to scroll on the letter tab; inside it, each column scrolls on
-   its own (letter.css). Its fourth column — the actions — is the footer now,
-   so the grid is three columns here. Placement is EXPLICIT: letter.css and
-   the SPA's viewport rules address the same classes, and must not be able to
-   move this pane's columns. */
-.od-letter .letter-overlay{
-  height:calc(100vh - var(--od-top) - var(--od-bar-h) - var(--od-foot-h) - 32px);
-  min-height:480px}
+/* THE LETTER FLOWS WITH THE PAGE (2026-09-29). It used to be an island: the
+   pane was pinned to `calc(100vh - chrome)` and every column scrolled inside
+   it, so a letter taller than the screen was CLIPPED mid-paragraph inside a
+   bordered box and you scrolled a widget, not the page. Now the preview grows
+   to the sheet's real height and the document scrolls once. `min-height` keeps
+   a short letter filling the screen, so the pane never looks stranded.
+
+   What holds it together: the summary bar and the action footer are already
+   sticky, and the pane's own chrome — the drawer tab and both panels — is
+   sticky too (below), so it stays with you down a three-page letter.
+
+   Its fourth column — the actions — is the footer now, so the grid is three
+   columns here. Placement is EXPLICIT: letter.css and the SPA's viewport rules
+   address the same classes, and must not be able to move this pane's columns. */
+.od-letter{overflow:clip}
+.od-letter .letter-overlay{height:auto;
+  min-height:calc(100vh - var(--od-top) - var(--od-bar-h) - var(--od-foot-h) - 32px)}
+/* letter.css makes these internal scrollers for the SPA's viewport-height
+   pane. Here the page is the scroller, so they must not trap it. */
+.od-letter .letter-overlay .letter-body-wrap{overflow:visible}
+.od-letter .letter-overlay .letter-preview-area{overflow:visible}
 /* Column 1 is the drawer's tab (`.lp-peek-tab`), which is present in BOTH
    states — pinned it is the collapse control, at rest it is the thing you point
    at. 44px of permanent chrome buys the letter ~490px whenever the drawer is
    resting, which is the default. */
 .od-letter .letter-overlay .letter-body-wrap{grid-template-columns:44px 176px 312px minmax(0,1fr);
-  grid-template-rows:minmax(0,1fr)}
-.od-letter .letter-overlay .lp-peek-tab{grid-row:1;grid-column:1}
-.od-letter .letter-overlay .lp-rail{grid-row:1;grid-column:2}
+  grid-template-rows:auto}
+/* Every piece of chrome sticks to the top of the viewport while the sheet
+   scrolls past it. A sticky grid item needs `align-self:start` (otherwise it
+   stretches to the row's full height and has nowhere to travel) and a row tall
+   enough to travel IN — which is the sheet's height. The offset is the session
+   bar plus the summary bar, both already sticky above this. */
+.od-letter .letter-overlay :is(.lp-peek-tab,.lp-rail,.letter-options){
+  position:sticky;top:calc(var(--od-top) + var(--od-bar-h) + 12px);align-self:start;
+  /* The FOOTER is subtracted too. Without it the panel ran to the bottom of
+     the viewport and its last controls sat underneath the sticky action bar —
+     the activity rail (`.od-side-closed`) and the form's `.rf-nav` already
+     take the footer off their height; this was the one that did not. */
+  max-height:calc(100vh - var(--od-top) - var(--od-bar-h) - var(--od-foot-h) - 24px)}
+/* Bounded now, so the overflow has to go somewhere: the options column scrolls
+   inside itself rather than spilling past the end of its box. */
+.od-letter .letter-overlay .letter-options{overflow-y:auto;scrollbar-width:thin}
+.od-letter .letter-overlay .lp-peek-tab{grid-row:1;grid-column:1;height:min(46vh,420px)}
+.od-letter .letter-overlay .lp-rail{grid-row:1;grid-column:2;overflow:auto}
 .od-letter .letter-overlay .letter-options{grid-row:1;grid-column:3}
 /* The preview is a size container app-wide (see the zoom ladder below); this
    rule only places it in the grid. Folding either rail grows the sheet
@@ -795,27 +901,37 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
    its containing block, which would pin them back into the columns they just
    left. */
 .od-letter .letter-overlay.lp-collapsed .letter-body-wrap{
-  grid-template-columns:44px minmax(0,1fr);grid-template-rows:minmax(0,1fr);
+  grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto;
   position:relative}
 .od-letter .letter-overlay.lp-collapsed .lp-peek-tab{grid-row:1;grid-column:1}
 .od-letter .letter-overlay.lp-collapsed .letter-preview-area{grid-row:1;grid-column:2}
+/* The peek panels SHARE the tab's 44px sticky column and simply overflow it to
+   the right. A grid column is a fixed track, so nothing reflows when they
+   appear — the same guarantee the old `position:absolute` bought, but sticky,
+   so a peek still lands beside the tab three pages down. (Absolute would
+   anchor them to the TOP of a now page-tall wrap, i.e. off-screen.) */
 .od-letter .letter-overlay.lp-collapsed .lp-rail,
 .od-letter .letter-overlay.lp-collapsed .letter-options{
-  grid-area:auto;position:absolute;top:0;bottom:0;max-height:none;z-index:12;
+  grid-row:1;grid-column:1;justify-self:start;z-index:12;
   visibility:hidden;opacity:0;transform:translateX(-10px);
   transition:opacity .18s ease,transform .2s cubic-bezier(.22,.68,.35,1)}
-.od-letter .letter-overlay.lp-collapsed .lp-rail{display:block;left:44px;width:176px}
+.od-letter .letter-overlay.lp-collapsed .lp-rail{display:block;margin-left:44px;width:176px}
 /* Sideways, not downward: this slides out over the sheet from the left, and a
    drop shadow is what separates it from the paper underneath. */
-.od-letter .letter-overlay.lp-collapsed .letter-options{left:220px;width:312px;
+.od-letter .letter-overlay.lp-collapsed .letter-options{margin-left:220px;width:312px;
   box-shadow:16px 0 44px -22px rgba(2,20,33,.55)}
 /* The section rail leaves the peek at the SAME width it leaves the pinned
    layout (the 1740px budget below) — below that the pinned drawer has no rail
    either, and a peek must not invent one. */
 @media (max-width:1740px){
   .od-letter .letter-overlay.lp-collapsed .lp-rail{display:none}
+  /* `100%` here is the 44px TAB COLUMN, not the pane — the peeked panel shares
+     that track and overflows it. `calc(100% - 44px)` therefore resolved to 0
+     and the drawer opened ~33px wide, which reads as "hover does nothing" and
+     is why this had to be clicked to be useful. Measure against the viewport,
+     which is the thing the overlay actually has to fit inside. */
   .od-letter .letter-overlay.lp-collapsed .letter-options{
-    left:44px;width:min(312px,calc(100% - 44px))}
+    margin-left:44px;width:min(312px,calc(100vw - 140px))}
 }
 /* The reveal. One forgiving :has() list: the tab, or either panel once the tab
    has already revealed it — that second half is what lets the pointer travel
@@ -1503,8 +1619,6 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
    header + tab strip + sub-tabs). Inside the sidebar shell only the session
    bar and the sub-tabs sit above it, so the letter gets the room back. */
 .om-content .letter-overlay{height:calc(100dvh - 92px)}
-/* With the session bar folded to its 12px strip, the letter gets the rest. */
-body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 58px)}
 
 /* ================================================================
    ACTION HUB — the corner disc and the card it unfolds into
@@ -1513,6 +1627,9 @@ body:has(.session-bar.sb-min) .om-content .letter-overlay{height:calc(100dvh - 5
    Request as the hero row and the file operations grouped beneath.
    Under the toast (z 100) and the modals (z 200); gone in print.
    ================================================================ */
+.rf-back{display:inline-flex;align-items:center;gap:6px}
+.rf-back svg{color:var(--awm-blue)}
+
 .ah{position:fixed;right:24px;bottom:24px;z-index:90}
 .ah-fab{
   width:56px;height:56px;padding:0;border-radius:50%;justify-content:center;

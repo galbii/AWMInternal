@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import { Applicants } from './collections/Applicants'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
+import { EmulationEvents } from './collections/EmulationEvents'
 import { OfferEvents } from './collections/OfferEvents'
 import { OfferRequests } from './collections/OfferRequests'
 import { Pages } from './collections/Pages'
@@ -63,7 +64,18 @@ export default buildConfig({
   db: mongooseAdapter({
     url: env.DATABASE_URL,
   }),
-  collections: [Pages, Posts, Media, Categories, Users, OfferRequests, OfferEvents, Applicants, Passkeys],
+  collections: [
+    Pages,
+    Posts,
+    Media,
+    Categories,
+    Users,
+    OfferRequests,
+    OfferEvents,
+    Applicants,
+    Passkeys,
+    EmulationEvents,
+  ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, SiteSettings],
   plugins,

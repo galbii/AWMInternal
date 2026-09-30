@@ -99,6 +99,32 @@ test.describe('Offer & New Hire Request Manager @ /offers', () => {
     // delete never reaches the server and smoke rows accumulate in the DB.
     await page.waitForTimeout(1500)
   })
+
+  test('cancel discards a new request and returns to the pipeline', async ({ page }) => {
+    await signIn(page)
+
+    const name = 'Playwright Cancel ' + Date.now().toString(36)
+    await page.getByRole('button', { name: 'Quick actions' }).click()
+    await page.getByRole('menuitem', { name: /New Request/ }).click()
+    await page.locator('[data-fid="employeeName"] input').fill(name)
+
+    // Past the 600ms autosave, so a DRAFT really exists to be discarded —
+    // cancelling before the debounce would prove nothing.
+    await page.waitForTimeout(1200)
+
+    // On a new request the button is "Cancel"; on an opened record, "Close".
+    // Every view stays MOUNTED and is shown/hidden by `.view.active`, so the
+    // editor's buttons never leave the DOM — the active tab is the signal.
+    await page.locator('#btnCancel').click()
+    const modalContinue = page.getByRole('button', { name: 'Continue' })
+    if (await modalContinue.isVisible().catch(() => false)) await modalContinue.click()
+
+    // Back on a list view, and the draft is gone rather than left as litter.
+    const pipelineBody = page.locator('table.stage-table tbody').first()
+    await expect(page.locator('nav.tabbar button.tab.active')).toContainText('Pipeline')
+    await expect(pipelineBody).not.toContainText(name, { timeout: 5000 })
+    await page.waitForTimeout(1500)
+  })
 })
 
 // The Kern Org Manager (src/app/(kern)) at /kern. Phase 1 keeps its org

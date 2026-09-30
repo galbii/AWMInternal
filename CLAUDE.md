@@ -11,8 +11,9 @@ underneath and is untouched by app work.
 | Route | What |
 |---|---|
 | `/` | The hub — app launcher, filtered by the viewer's roles |
-| `/offers` | **Offer & New Hire Request Manager** (the first and largest app) |
-| `/offers/[id]` | Per-offer letter page + history/assignments sidebar |
+| `/hiring` | **New Hire Requests** — hiring managers' door onto the SAME app; letters are stamped SAMPLE until pushed to HR |
+| `/offers` | **Offer Letters** — HR's door: issue final letters, run the pipeline |
+| `/offers/[id]`, `/hiring/[id]` | Per-offer letter page + history/assignments sidebar (one component, two doors) |
 | `/apply` | **Public** new-hire request form (no sign-in) → creates a pipeline record via `/api/apply` |
 | `/users` | **Users app** (admin/dev): the account directory — create, roles, view-as block, delete |
 | `/login` | Sign in (honours `?next=`) |
@@ -148,9 +149,10 @@ Rules for a new app:
 | `calc.ts` | Base-wage conversion, guarantee math, bonus sentence builders |
 | `letter.ts` | Letter language constants + HTML generation (`resolveLetter`, `generateLetterHTML`) |
 | `letter-exports.ts` | Word `.doc` + shareable HTML packet + Outlook email helpers |
+| `letter-fit.ts` | **THE ONE-PAGE FIT** — the ladder, `fitCss`, `chooseFit`; shared by PDF, print, packet |
 | `logo.ts` | Base64 logo data-URI (embedded in exports so files work offline) |
 | `spreadsheet.ts` | xlsx/CSV import+export, template workbook, backup/restore (dynamic `import('xlsx')`) |
-| `pdf.ts` | Letter → paginated PDF via jspdf+html2canvas (client-only, dynamic imports) |
+| `pdf.ts` | Letter → one-page (else paginated) PDF via jspdf+html2canvas (client-only, dynamic imports) |
 | `zip.ts` | Hand-rolled STORE zip writer (mass-export bundles) |
 | `intake.ts` | Intake code/link encode/decode |
 | `summary.ts` | The `/offers/[id]` header facts + completion chip + `relativeTime` |
@@ -174,6 +176,59 @@ import/export/backup actions that used to be the header toolbar. Views:
 column, row moves following each row's own stage), `AnalysisView`,
 `LetterView` (contenteditable letter sheet — an imperative island rendered
 once via `dangerouslySetInnerHTML`; never re-render it while the user types).
+
+## Two doors, one app (2026-09-29)
+
+`hiring` and `offers` are the SAME application served at two paths over one
+`offer-requests` collection. They render the same components and the same
+stylesheets on purpose. What differs is one capability, and it is decided by
+**app membership, never by a role and never by the URL**:
+
+- **`src/lib/offers/official.ts` is the one place that answers "who may issue a
+  final letter".** It carries the access matrix. `mayIssueFinal(user)` =
+  admin/dev, or `users.apps` includes `offers`. `letterIsOfficial(pushedToHr,
+  mayIssue)` needs BOTH halves — so HR opening a request nobody pushed still
+  sees SAMPLE, because it has not been through the process.
+- **No new `Role` was added and none should be.** `users.roles` stays
+  `dev | admin | user`, a suite-wide axis; "HR" is one app's vocabulary.
+  Membership already has four tested write paths through `withApps()`
+  (`/api/app-members`, `/api/directory`, `/api/profile`, the directory UI).
+  **All four are admin/dev only**, as is `users.apps`' own field access — so
+  granting HR membership is an admin action, and an HR person who is only
+  `user` + apps:['offers'] cannot add anyone or even open the roster
+  (`/api/app-members` refuses them on GET too).
+- **Route-derived capability is the trap.** "You are in /hiring, so you are
+  stamped" is bypassed by typing the other URL. The rule travels with the
+  person instead.
+- **`resolveLetter(rec, official)` is THE watermark chokepoint.** Every path
+  that puts the letter in front of a human resolves its config there — screen,
+  print, PDF, Word, packet, emailed attachment. The old `wm: WatermarkOpt |
+  null` argument was a SECOND source of truth and three paths contradicted the
+  record with it (Word passed `null`, the packet had no parameter at all and
+  shipped the RECIPIENT a toggle, the bulk toolbar used its own checkbox).
+  Those parameters are gone: `LetterRenderOpts { official?, stamp? }` can only
+  ever ADD a stamp. **Do not reintroduce a per-path watermark argument** — a
+  new export path must get the rule for free.
+- **The watermark is a GUARDRAIL, not a security boundary.** The PDF is
+  rendered in the browser (`pdf.ts`), so there is no server-side renderer to
+  enforce it. It stops mistakes and shortcuts, not devtools.
+- **Push to HR** is the handoff: `pushedToHr`/`pushedAt`/`pushedBy` on
+  `offer-requests`, owned by `/api/offer-push` and kept BESIDE the frozen
+  `OfferRecord` exactly like `assignments` — `toOfferDoc()` never writes them,
+  so the byte-stable round trip is untouched. Individual (row menu + the
+  workspace bar) and batch (the selection bar). Pushing is anyone's; RETURNING
+  is HR's alone, because it un-issues a letter. Both write `offer-events`
+  (`pushed-to-hr` / `returned-to-hiring`, the "HR handoff" activity filter).
+- `PushProvider` (`usePush()`) carries the state client-side and defaults
+  `isOfficial` to FALSE outside a provider — a tree that cannot prove a letter
+  went through HR must treat it as a draft.
+- **`useAppBase()` builds every in-app link.** Five call sites used to hardcode
+  `/offers`, which would send a hiring manager into HR's app to be bounced by
+  `requireApp`. Never hardcode an app path in `src/components/offers/`.
+- **Keep the two apps from forking.** "Both are exactly the same" is true today
+  and will be asked to stop being true. When it does, the divergence goes in
+  the route group's COMPOSITION, not in a capability conditional inside a
+  shared component.
 
 ## Data & persistence
 
@@ -222,10 +277,45 @@ the profile (`/api/profile`) all do. Accounts that predate the field have NO
 list and see an empty hub: `bun run backfill:apps` (`--dry-run`, `--apps
 offers,kern`) gives them one, Mongo-direct like the other backfills.
 `src/lib/auth/viewer.ts` resolves
-`{ actor, viewer }` — an admin/dev can
-"view as" another user via the `awm-emulate` cookie; emulation is READ-ONLY
-(write routes reject it) and all reads run
+`{ actor, viewer, isEmulating, isActing }` — an admin/dev can
+"view as" another user via the `awm-emulate` cookie, and all reads run
 `{ user: viewer, overrideAccess: false }` so real access control applies.
+
+**View-as has TWO MODES (2026-09-29).** The cookie carries `<id>` to VIEW and
+`<id>|act` to ACT; anything else degrades to view, so every pre-existing cookie
+stays read-only. The pure rules live in `src/lib/auth/emulation.ts` (tested;
+split out of `viewer.ts` precisely because that file imports `@payload-config`
+and cannot be unit-tested) and are re-exported from `viewer.ts`, so callers keep
+one import.
+
+- **`view` stays read-only, and that is load-bearing.** The offers UI WRITES
+  WHILE YOU BROWSE — `LetterView`'s regen effect persists `letterHtml` the
+  moment the Offer Letter tab opens, and `RequestForm` autosaves on 600ms. If
+  every emulated session were write-capable, merely INSPECTING someone's record
+  would rewrite it. Do not "simplify" this into one mode.
+- **`act` writes AS THE VIEWER.** `writeUser(v)` returns the emulated user, so
+  their real limits apply — writing as the admin would silently succeed at
+  things the target cannot do, which is worse than refusing. Routes pass
+  `writeContext(v)` into `req.context`.
+- **Two tiers, via `blockEmulatedWrite(v, tier)`.** `'acting-ok'` =
+  offer-records, offer-assignments, offer-timeline, offer-push. `'never'` =
+  roles/apps/roster/directory/profile/passkeys (attribution laundering; a
+  passkey enrolled while acting is a permanent backdoor) AND anything that
+  leaves the building (offer email, test mail). `canWrite(v)` is the predicate
+  for GET paths that report `canAssign`/`canPush`.
+- **Acting is STRICTLY DOWNWARD** — never as an admin or dev (`mayActAs`),
+  re-checked on every request, so a cookie minted before the target was
+  promoted stops granting writes immediately. 15-minute expiry against an hour
+  for viewing.
+- **DUAL ATTRIBUTION.** `offer-events.actor` is ALWAYS the real human;
+  `actingAs` names whose seat it was, and the feed reads "Chance (as Dana)".
+  Recording only the emulated identity would FORGE the trail. The rolling
+  coalescing window keys on both, so an admin's own edits never merge with
+  edits they made in someone else's seat.
+- Every mode change lands in the append-only `emulation-events` collection —
+  entering view-as used to leave no trace at all.
+- The chrome is a different colour on purpose: amber for viewing, **crimson**
+  for acting (`.session-bar.acting`, `.emu-frame-act`).
 While emulating there is NO second banner: the session bar itself switches
 mode (amber strip, the emulated user's avatar, "Viewing as …", an inline
 "Exit view-as" pill) and a thin fixed `.emu-frame` outlines the window.
@@ -284,14 +374,69 @@ NOT authenticate: auth needs Payload and a database, far too heavy for
 middleware. Keep the `api/` exclusion in its matcher — route handlers answer
 401/403 rather than redirecting.
 
-**Session bar look & fold (2026-09-21):** the bar is BRAND BLUE with white
-type (`.session-bar` in shell.css) so it separates from the white sidebar and
-the dark cards alike; emulation turns the whole bar amber-brown. A chevron at
-its far right folds it into a 12px strip with a restore tab; the choice is the
-`awm-bar` cookie (`src/lib/bar.ts`), read in `AppShell` so the fold survives
-reloads without a jump. Both rails on `/offers/[id]` REST COLLAPSED and unfold
-on hover (see that section), via `onhr_activity_rail` / `onhr_letter_rail` in
-localStorage and `:has()` grid rules, so `OfferDetail` stays unaware of either.
+**Session bar look & auto-hide (2026-09-29):** the bar is BRAND BLUE with
+white type (`.session-bar` in shell.css) so it separates from the white sidebar
+and the dark cards alike; emulation turns the whole bar amber-brown. It GETS
+OUT OF THE WAY on its own — the fold chevron, its restore tab and the `awm-bar`
+cookie (`src/lib/bar.ts`) are gone:
+
+- `position:sticky;top:0;z-index:70`, slid up by a **transform** (`.sb-away`)
+  once the window scrolls past it. Transform, not height — the bar keeps its
+  46px of flow space at the document's top, so nothing below it reflows and
+  `OfferDetail`'s `--od-top` (`root.offsetTop`) stays 46. It comes back at the
+  top of the page, or when the pointer reaches the top edge.
+- The peek zone has hysteresis: 6px while the bar is away (it must not pop open
+  on a drift) and 56px while it is out (the pointer can rest on it).
+  `SessionBar` listens on `pointermove`/`scroll` behind one rAF and re-renders
+  only when the state actually flips.
+- **The two exceptions are CSS, so the component never learns a menu is open:**
+  `.sb-away:has(.shm.open)` (a panel hangs BELOW the bar — the pointer has to
+  reach it) and `.sb-away:has(:focus-visible)`. NOT `:focus-within` — clicking
+  the view-as pill leaves focus on it, which would pin the bar out for the rest
+  of the session; `:focus-visible` keeps it only for the keyboard.
+- Sticky needs the bar to be a direct child of `<body>` (it is — `AppShell`
+  returns a fragment) and no `overflow` on an ancestor. Wrapping it in a div
+  caps it to that div and it scrolls away instead.
+- **While emulating, hiding the bar is safe because `.emu-frame` does not
+  hide**: the fixed 3px amber outline is what marks the window read-only, and
+  it takes no height. Don't make the frame conditional on the bar.
+
+Both rails on `/offers/[id]` REST COLLAPSED and unfold on hover (see that
+section), via `onhr_activity_rail` / `onhr_letter_rail` in localStorage and
+`:has()` grid rules, so `OfferDetail` stays unaware of either.
+
+**"View as" and switching (2026-09-29):** the roster picker is
+`src/components/shell/ViewAsList.tsx` — the CONTENTS of a `ShellMenu` panel,
+never a popover of its own (nesting two would double the outside-click, blur
+and Escape handling). Its host is **one `.sb-viewas` pill in the bar,
+immediately left of the account cluster** — never a row inside the account
+menu, because it is a mode switch, not an account setting. It reads "View as"
+on the blue bar and "Switch" on the amber one, where picking someone else is
+one click instead of exit → reload → reopen → pick.
+
+- **No new server door.** `POST /api/emulate` just overwrites the cookie and
+  authorizes off the real ACTOR, whose role `getViewer()` re-checks on every
+  request. Each pick is a full page load: identity is server-rendered.
+- **It is gated on `canManage`, deliberately NOT on `adminTools`**
+  (`canManage && !isEmulating`). The rest of the admin block stays hidden while
+  emulating so the session still looks like the target's own UI — but the
+  emulation chrome has always been actor-only, exactly like the Exit pill, and
+  `requireApp` already gates app access on the actor for the same reason. Don't
+  "fix" the inconsistency by relaxing `adminTools`.
+- The person being viewed as stays IN the list, marked `now` and disabled;
+  `AppShell` passes `viewerId` for it. Recents are
+  `src/lib/users/view-as-recent.ts` (localStorage, tested, import-safe on the
+  server) and are PRUNED against the roster, so a deleted or view-as-blocked
+  account falls out on its own. They are a hint, never a permission.
+- The panel is the bar's tallest, which is why `.shm-panel` is capped to the
+  window and why `.sb-away:has(.shm.open)` exists (see the auto-hide above).
+- The second door is the Users app's row menu ("View as <name>"), which lands
+  on `/` — that admin screen shows nothing while emulating.
+- `.va-scroll` carries NO `scrollbar-width`: Chrome prefers the standard
+  property over `::-webkit-scrollbar` and `thin` is a macOS OVERLAY bar that
+  reserves nothing, hiding the only hint the list goes on (same trap as
+  `.stage-table-wrap` in offers.css). `.shm-panel` is capped to the window so a
+  short viewport can never clip a panel's foot.
 
 **Users app (`/users`):** the admin directory, built exactly like any other
 hub app (`src/app/(users)/`, registry entry with `roles: ['admin','dev']`,
@@ -437,9 +582,23 @@ of dark chrome). Things to know:
   need LetterView's refs, so LetterView takes `actionsSlotId` and PORTALS its
   action bar (`.la-bar`, same button ids as the SPA's `.letter-actions`
   column) into the footer slot. The SPA editor still renders the column.
+- **The letter FLOWS WITH THE PAGE (2026-09-29).** It used to be an island:
+  `.od-letter .letter-overlay` was pinned to `calc(100vh - chrome)` and every
+  column scrolled inside it, so a three-page letter showed 640px of its 2499px
+  in a bordered box and you scrolled a widget instead of the page (measured).
+  Now the pane's height is `auto` with that calc as its `min-height` — a short
+  letter still fills the screen — the preview stops being an internal scroller,
+  and the document scrolls once. Two things make it hold together: `.od-letter`
+  is `overflow:clip`, NOT `hidden` (hidden makes it a scroll container, and
+  sticky descendants would then stick to a box that never scrolls), and the
+  pane's own chrome — the drawer tab and both panels — is `position:sticky`
+  under the summary bar, with `align-self:start` so it has room to travel.
+  Width is untouched: the column tracks are the same, so the sheet is still a
+  true 816px at 1024–1440 with the activity rail resting.
 - `OfferDetail` measures the bar and footer into `--od-bar-h` / `--od-foot-h`
-  (and `--od-top`, the session bar above) so the letter pane fills exactly
-  what the chrome leaves and the rails (`.od-side`, the form's `.rf-nav`)
+  (and `--od-top`, the session bar above) so a short letter fills exactly
+  what the chrome leaves, the sticky chrome knows its offset, and the rails
+  (`.od-side`, the form's `.rf-nav`)
   stick below the bar. The activity rail is the SAME on both tabs and stays
   on the right down to 1100px; below the full
   width budget the LETTER gives, never the rail — through two independent
@@ -464,11 +623,24 @@ of dark chrome). Things to know:
   Resting buys the preview 240–490px and keeps the sheet at a true 816px down
   to a 1180px viewport (pinned it drops to `zoom:.9` there). Three things to
   keep: the collapsed rules are deliberately 4 classes so they outrank every
-  3-class width-budget override; the overlaid panels set `grid-area:auto`
-  (an absolutely positioned grid child WITH a grid position takes that grid
-  AREA as its containing block); and `@media print` resets the drawer's
+  3-class width-budget override; on `/offers/[id]` the peek panels are STICKY
+  GRID ITEMS sharing the tab's 44px column and overflowing it to the right —
+  a fixed grid track cannot be widened by its contents, so that overlays
+  without reflowing, and unlike the `position:absolute` they replaced (which
+  anchored them to the top of a now page-tall wrap, i.e. off-screen) a peek
+  still lands beside the tab three pages down; and `@media print` resets the drawer's
   `position:relative`, the same trap as the container-query reset beside it —
   `#letterSheet` prints absolute at 0,0 and must resolve against the PAGE.
+  The drawer's chrome subtracts `--od-foot-h` from its `max-height` as well as
+  the bars: without it the options column ran to the bottom of the viewport and
+  its last controls sat UNDER the sticky action footer. It is `overflow-y:auto`
+  so the overflow scrolls rather than spilling. `.od-side-closed` and the form's
+  `.rf-nav` already did this; the letter drawer was the one that did not.
+  A peeked panel SHARES the tab's 44px grid track, so `100%` inside it is
+  44px, not the pane — `width:min(312px,calc(100% - 44px))` therefore resolved
+  to ZERO and the drawer opened ~33px wide below 1740px. Hover fired correctly
+  the whole time; it just revealed a sliver, which is why it had to be clicked
+  to be useful. Size a peeked panel against the VIEWPORT, never a percentage.
   The reveal is one forgiving `:has()` list covering the tab AND both panels,
   which is what lets the pointer travel from the tab into the options without
   the drawer closing behind it. All of it is scoped to `(hover:hover)`; on a
@@ -503,6 +675,41 @@ no trace on the record.
   sandbox — Resend only delivers those to the account owner. Resend's own
   wording is surfaced verbatim in the modal.
 
+**Fitting the letter on one page (2026-09-27):** every path that puts the
+letter on paper asks `src/lib/offers/letter-fit.ts` for a density first. It is
+ONE ladder of 17 steps from the untouched letter to a floor, and every consumer
+takes the GENTLEST step that fits — binary-searched, ~7 layout reads.
+
+- **Two knobs move together along one `t`.** Vertical rhythm (line-height,
+  paragraph/heading/list margins, comp-table padding, the whitespace around the
+  signature) ships as CSS custom properties, so `fitCss(scope)` is ONE static
+  stylesheet whose fallbacks are letter.css's own values — it is inert until a
+  step's variables are set. Type size is the second knob: the letter lays out at
+  `widthPx` and is mapped onto the 532pt page box, so a wider layout means
+  smaller type. That is a real reflow, not a squeeze.
+- **The floor at 8.5pt is the product decision, not a limit of the code.** The
+  letter's length is not fixed — a salaried ops hire fills one comp row, a
+  branch manager with a guarantee and an override fills nine — and the "How It
+  Works" column carries the repayment language verbatim. Measured: 5 of 7
+  realistic letters now land on one page (they used to run 1.3–3.0 pages). The
+  two that do not are the ones with a **monthly guarantee**, whose repayment
+  clause is 17% of a page on its own and puts the letter 10% over. Shortening it
+  is a legal decision — do not "fix" it here.
+- `atFloor` comes back from `letterToPdf` and is surfaced: the letter view and
+  the bulk export say when a letter needed a second page, and why.
+- **Nothing here touches the on-screen sheet.** Print gets the step as a
+  stylesheet `LetterView` injects for the duration of the print (behind
+  `@supports (zoom:1)`, so a browser without `zoom` degrades to the spacing
+  compression instead of clipping) and tears down with the print class. The HTML
+  packet has its fit BAKED IN at export time — it ships no fit code, which is
+  why `offerPacketHTML` is now async. The Word export is the one path that
+  cannot be guaranteed: Word owns its pagination, so it is pinned to fixed
+  compressed metrics and KEEPS 11pt type, because a .doc exists to be edited.
+- The page box lives in `letter-fit.ts` (`MARGIN`, 34pt 40pt 34pt 40pt).
+  letter.css's `@page`, the packet's `@page` and the Word `@page` all repeat it
+  in inches — change them together. `tests/int/offers/letter-fit.int.spec.ts`
+  pins the arithmetic, the ladder's monotonicity and the `fitCss` fallbacks.
+
 **Applicants:** `applicants` is one row per PERSON across all their offers,
 related to `offer-requests` both ways (`offer-requests.applicant` relationship
 + an `applicants.offers` join). Nobody types these in: the `linkApplicant`
@@ -518,6 +725,15 @@ Offers saved before the collection existed link on their next save, or all at
 once with `bun run backfill:applicants` (`--dry-run`; Mongo-direct, like the
 usernames backfill). `applicants` keeps REST open (the admin picker and join
 table read through it), gated by the usual access rules.
+
+**Notes (2026-09-29):** `offer-events` carries a `note` kind — the one row a
+human writes on purpose rather than one a hook derives. `NoteComposer` sits at
+the head of the activity rail (a note IS a feed entry, so it belongs with the
+feed, not on the record) and posts to `/api/offer-note`, tier `'acting-ok'`.
+While ACTING it is attributed to both people exactly like every other event,
+and the composer says so BEFORE you type — a note that quietly claimed to be
+the emulated user's would be the forgery view-as exists to avoid. Notes get
+their own filter in `ACTIVITY_FILTERS`.
 
 **Recent activity, everywhere:** the same audit feed appears twice — the
 per-offer rail on `/offers/[id]` (`/api/offer-timeline`) and, across every
@@ -606,6 +822,50 @@ metrics. (Tailwind + `@/utilities/ui` `cn()` still apply to CMS-side code.)
   anywhere else.
 - `RequestForm` autosaves on a 600ms debounce; record switches flush through
   `registerPendingFlush` — preserve that path if touching navigation.
+- **Leaving the editor (2026-09-29).** "+ New Request" used to be a dead end:
+  the only exit was the sidebar, which rests collapsed to a rail, and Delete on
+  an uncommitted form just called `newRecord()` again. `#btnCancel` is the way
+  out — **"Cancel"** on a request this session started (discards it) and
+  **"Close"** on anything else (saves and leaves). The distinction is
+  `api.newDraftId`: the record `newRecord()` → autosave created and nobody
+  deliberately saved. It is NULL for a record opened from a list, because
+  discarding one of those would be catastrophic. `discardNewRecord()`
+  deliberately does NOT flush — the pending autosave would re-create the draft
+  it is deleting — so the form cancels its own timer and clears its own state
+  first (when nothing autosaved yet, `currentId` is already null and the
+  record-sync effect never fires). SPA only: `/offers/[id]` has `.od-back`.
+- **The way out is the FIRST button in `.form-actions`** (2026-09-29), not a
+  floating disc — it briefly was one, and in the header is where it belongs.
+  It is ONE control (`#btnCancel`): **"Cancel"** discards a request this
+  session started, **"← Back to <view>"** saves and leaves anything else. The
+  old separate "Close" did exactly the latter, so the two are merged rather
+  than sitting side by side doing the same thing. The letter tab keeps its own
+  `#letterClose`.
+- `VIEW_TITLE` / `backLabel()` (`components/offers/view-labels.ts`) name the
+  destination in one place: the view head, `.om-back-fab`, and the letter's
+  `#letterClose` all read from it. `#letterClose` was a hardcoded
+  `showView('pipeline')` — wrong if you opened the record from Hired, and it
+  skipped the autosave flush; it goes through `closeEditor()` now.
+- **Deleting an offer is admin/dev, plus YOUR OWN DRAFT** (`deleteOfferRequest`
+  in the collection, tested). The exception exists because `/api/offer-records`
+  removes with `overrideAccess:false` as the ACTOR, so without it "+ New
+  Request → type → Cancel" silently failed for every plain user: the client
+  dropped the record, the server refused, and the draft came back on the next
+  load. Keep it narrow — `createdBy` is yours AND `status` is still `draft`.
+  Public /apply rows have no `createdBy`, so they never match. The three Delete
+  controls (`#btnDelete`, the row ⋯ menu, the selection bar) are gated on
+  `useViewer().isManager` to match; a plain user ARCHIVES instead.
+- **The editor is WIDE and goes two-up above 1200px.** `main` was pinned to
+  960px with the rest of the window empty; it is `min(1560px, 100%)` now. But
+  widening alone just stretches every input, so `.grp-body` AND `.rf-card`
+  (the Pay section's sub-cards, whose questions are direct children of the card
+  itself — that is where most of the money questions live) become a 2-column
+  grid, and the extra width buys a second column of questions instead of a
+  700px Employee Name box. Three rules keep it honest: anything that is not a
+  `.fld` spans the row (a card's blurb as a plain cell pushed question 1 into
+  the right column); `:has()` spans the composites, textareas and stacked radio
+  lists; and plain text/email inputs cap at 560px. Below 1200px it is the
+  original single stack, untouched.
 - Bulk operations must batch: use `patchRecords` (single persist), never
   `patchRecord` in a loop.
 - `applyImport` is pure and must stay pure (returns new arrays; the provider

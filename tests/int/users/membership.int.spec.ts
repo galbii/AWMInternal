@@ -19,7 +19,10 @@ const user = (roles: string[], apps: string[] = []) => ({ id: '1', roles, apps }
 describe('membership apps', () => {
   test('are the registry entries that list no roles — Users is role-gated', () => {
     const ids = membershipApps().map((a) => a.id)
-    expect(ids).toEqual(['offers', 'kern'])
+    // Both doors onto the offers app are membership-managed — that membership
+    // is what decides who may issue a final letter (src/lib/offers/official.ts).
+    expect(ids).toEqual(['hiring', 'offers', 'kern'])
+    expect(isMembershipApp('hiring')).toBe(true)
     expect(isMembershipApp('offers')).toBe(true)
     expect(isMembershipApp('users')).toBe(false)
     expect(isMembershipApp('nope')).toBe(false)
@@ -41,8 +44,8 @@ describe('membership apps', () => {
     expect(isAppManager(user(['admin']))).toBe(true)
     expect(isAppManager(user(['dev']))).toBe(true)
     expect(isAppManager(user(['user']))).toBe(false)
-    expect(appsFor(user(['admin'])).map((a) => a.id)).toEqual(['offers', 'kern', 'users'])
-    expect(appsFor(user(['dev'], [])).map((a) => a.id)).toEqual(['offers', 'kern', 'users'])
+    expect(appsFor(user(['admin'])).map((a) => a.id)).toEqual(['hiring', 'offers', 'kern', 'users'])
+    expect(appsFor(user(['dev'], [])).map((a) => a.id)).toEqual(['hiring', 'offers', 'kern', 'users'])
   })
 
   test('a missing or malformed list reads as no apps', () => {

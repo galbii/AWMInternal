@@ -30,10 +30,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
  * stands apart from the white sidebar in light mode and the dark cards in
  * dark mode, and reads at a glance. Two quiet clusters on one 46px line —
  * the app breadcrumb on the left (the app's NAME is the switcher) and one
- * account menu on the right (avatar, name, chevron). Both open the same dark
- * popover (.shm-*, ShellMenu.tsx). No outlined buttons live in the bar.
- * A chevron at the far right folds it into a 12px strip (.sb-min). */
-.session-bar{position:relative;display:flex;align-items:center;gap:10px;height:46px;padding:0 10px 0 10px;
+ * account menu on the right (avatar, name, chevron), with the "view as" pill
+ * immediately left of it. Both menus open the same dark popover (.shm-*,
+ * ShellMenu.tsx). No outlined buttons live in the bar.
+ *
+ * It GETS OUT OF THE WAY on its own (2026-09-29, replacing the fold chevron):
+ * sticky at the top of the document, slid up by a TRANSFORM once you scroll
+ * past it — so it keeps its 46px of flow space and nothing below it reflows.
+ * SessionBar.tsx owns when (.sb-away); the two :has()/:focus-within rules
+ * below own the exceptions, so the component never learns a menu is open. */
+.session-bar{position:sticky;top:0;z-index:70;
+  display:flex;align-items:center;gap:10px;height:46px;padding:0 10px 0 10px;
   background:linear-gradient(180deg,#0b76b8,#00629f);color:rgba(255,255,255,.8);
   font-size:13.5px;border-bottom:1px solid rgba(2,20,33,.25);white-space:nowrap;
   box-shadow:0 1px 0 rgba(255,255,255,.08) inset}
@@ -41,22 +48,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
   background:linear-gradient(90deg,rgba(255,255,255,.6),rgba(255,255,255,.22) 40%,rgba(255,255,255,0) 82%)}
 .sb-spacer{flex:1}
 
-/* ---- folded: a 12px strip and one restore tab hanging from it ---- */
-.session-bar.sb-min{height:12px;padding:0;justify-content:flex-end;overflow:visible;z-index:60}
-.sb-restore{position:absolute;right:14px;top:100%;display:inline-flex;align-items:center;gap:5px;
-  height:22px;padding:0 8px 0 3px;border:0;border-radius:0 0 10px 10px;
-  background:#00629f;color:#fff;cursor:pointer;
-  box-shadow:0 6px 16px -8px rgba(0,98,159,.7);transition:background .14s ease}
-.sb-restore:hover{background:#0b76b8}
-.sb-restore:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
-.session-bar.emulating .sb-restore{background:#b45309}
-.session-bar.emulating .sb-restore:hover{background:#d97706}
-.sb-avatar-xs{width:16px;height:16px;font-size:8px}
-.sb-fold{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-  padding:0;border:0;border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;
-  transition:background .14s ease,color .14s ease}
-.sb-fold:hover{background:rgba(255,255,255,.14);color:#fff}
-.sb-fold:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+/* ---- out of the way ----
+ * Two exceptions outrank .sb-away. An OPEN POPOVER, because its panel hangs
+ * BELOW the bar and the pointer has to be able to travel down into it without
+ * the bar sliding out from under it. And KEYBOARD focus — `:has(:focus-visible)`,
+ * not `:focus-within`: clicking the pill leaves focus on it, which would pin
+ * the bar out for the rest of the session. A text field inside the panel
+ * always counts as focus-visible, so typing in the filter holds it too. */
+.session-bar.sb-away{transform:translateY(-100%)}
+.session-bar.sb-away:has(.shm.open),.session-bar.sb-away:has(:focus-visible){transform:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
@@ -99,6 +99,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .shm [aria-expanded='true'] .shm-chev{transform:rotate(180deg)}
 .shm-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:120;
   min-width:228px;max-width:min(92vw,360px);
+  /* A short window must never clip the foot of a panel (Sign out, Stop
+     viewing as): the picker made these tall enough to matter. */
+  max-height:calc(100vh - 66px);overflow-y:auto;
   background:#0a2438;color:#dbe7ef;border:1px solid rgba(148,180,203,.22);border-radius:11px;
   box-shadow:0 18px 44px -14px rgba(0,0,0,.65),0 2px 8px rgba(0,0,0,.25);
   padding:5px;display:flex;flex-direction:column;gap:1px;white-space:normal;text-align:left;
@@ -122,12 +125,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .shm-name{color:#fff;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
 .shm-sub{color:#9db3c2;font-size:12px;overflow:hidden;text-overflow:ellipsis}
 .shm-field{display:flex;flex-direction:column;gap:5px;padding:6px 10px 8px}
+/* Like .shm-field but for a control that draws its own rows edge to edge. */
+.shm-block{display:flex;flex-direction:column;gap:3px;padding:5px 0 2px}
+.shm-block > .shm-label{padding:0 10px 1px}
 .shm-label{font-size:11.5px;font-weight:600;color:#9db3c2}
 .shm-select{font:inherit;font-size:12.5px;padding:6px 8px;border-radius:7px;width:100%;
   border:1px solid rgba(148,180,203,.3);background:#071a2a;color:#e8f1f7;transition:border-color .16s ease}
 .shm-select:hover{border-color:#2ea3d9}
 .shm-select:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
 @media (prefers-reduced-motion:reduce){ .shm-panel,.shm-chev{transition:none} }
+@media (prefers-reduced-motion:no-preference){
+  .session-bar{transition:transform .24s cubic-bezier(.22,.68,.35,1)}
+}
 
 /* ---- "view as", folded into the same bar (no second banner) ----
  * The strip and the avatar turn amber, the label reads "Viewing as", and the
@@ -144,8 +153,80 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .sb-exit:hover{background:rgba(255,255,255,.24);border-color:#fff;color:#fff}
 .sb-exit:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
 .sb-exit:disabled{opacity:.55;cursor:default}
+/* The "view as" pill, immediately left of the account cluster in BOTH states
+ * ("View as" on the blue bar, "Switch" on the amber one). Quieter than Exit —
+ * no outline — so while emulating the way OUT still reads as the primary
+ * action of the cluster. */
+.sb-viewas{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:5px 8px 5px 10px;
+  border-radius:99px;border:1px solid transparent;background:rgba(255,255,255,.14);color:#fff;
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:background .16s ease,border-color .16s ease}
+.sb-viewas:hover,.sb-viewas[aria-expanded='true']{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.3)}
+.sb-viewas:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.sb-viewas:disabled{opacity:.55;cursor:default}
+@media (max-width:560px){ .sb-viewas-label{display:none} .sb-viewas{padding:5px 6px} }
+
+/* ACTING (2026-09-29) — view-as in WRITE mode. Deliberately a different
+   colour from the amber "viewing" state: in this mode the admin's clicks
+   really change the emulated user's data, so the chrome must not look like
+   the read-only peek it sits next to. See src/lib/auth/viewer.ts. */
+.session-bar.acting{background:linear-gradient(180deg,#9f1239,#881337);
+  border-bottom-color:rgba(60,0,15,.4)}
+.session-bar.acting::before{background:linear-gradient(90deg,rgba(255,255,255,.65),rgba(255,255,255,.2) 40%,rgba(255,255,255,0) 82%)}
+.session-bar.acting .sb-restore{background:#9f1239}
+.session-bar.acting .sb-restore:hover{background:#be123c}
+.emu-frame-act{box-shadow:inset 0 0 0 2px rgba(190,18,60,.95) !important}
+/* A second line under a menu item, for a control that needs a consequence
+   spelled out ("Act as …" / "15 minutes, fully audited"). */
+.shm-item-note{display:block;cursor:default;color:var(--sh-muted,#64748b);font-weight:500}
+.shm-item-note:hover{background:transparent}
+.shm-item .shm-hint{display:block;font-size:11.5px;font-weight:400;line-height:1.35;
+  color:var(--sh-muted,#64748b);margin-top:2px;white-space:normal}
+
 .emu-frame{position:fixed;inset:0;pointer-events:none;z-index:9998;
   box-shadow:inset 0 0 0 3px var(--warn)}
+
+/* ---- the view-as people picker (ViewAsList.tsx), inside a .shm-panel ----
+ * Hosted twice: in the account menu (start viewing as) and in the Switch
+ * pill's own panel (hop to the next person). Same rows either way. */
+.va{display:flex;flex-direction:column;gap:3px;min-width:0}
+.va-search{display:flex;align-items:center;gap:6px;margin:1px 5px 3px;padding:5px 8px;border-radius:7px;
+  background:#071a2a;border:1px solid rgba(148,180,203,.3);color:#7f9aad;
+  transition:border-color .16s ease}
+.va-search:focus-within{border-color:#2ea3d9;box-shadow:0 0 0 2px rgba(46,163,217,.35)}
+.va-input{flex:1;min-width:0;border:0;background:transparent;color:#e8f1f7;font:inherit;font-size:12.5px;padding:0}
+.va-input::placeholder{color:#7f9aad}
+.va-input:focus{outline:none}
+.va-scroll{display:flex;flex-direction:column;gap:1px;max-height:min(246px,38vh);
+  overflow-y:auto;overscroll-behavior:contain}
+/* NO `scrollbar-width` (the same trap as .stage-table-wrap in offers.css):
+ * Chrome prefers the standard property over ::-webkit-scrollbar, and `thin`
+ * on macOS is an OVERLAY bar that reserves nothing — which would hide the
+ * only hint that the list goes on past the sixth person. */
+.va-scroll::-webkit-scrollbar{width:8px}
+.va-scroll::-webkit-scrollbar-thumb{background:rgba(148,180,203,.34);border-radius:99px;
+  border:2px solid transparent;background-clip:padding-box}
+.va-scroll::-webkit-scrollbar-track{background:transparent}
+.va-group{padding:6px 10px 3px;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:#7f9aad}
+.va-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  padding:5px 9px;border-radius:7px;border:0;background:transparent;color:#dbe7ef;
+  font:inherit;font-size:13px;font-weight:500;cursor:pointer;
+  transition:background .12s ease,color .12s ease}
+.va-item:hover{background:rgba(46,163,217,.16);color:#fff}
+.va-item:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
+.va-item:disabled{cursor:default}
+.va-item[aria-current='true']{background:rgba(46,163,217,.1);color:#fff}
+.va-item[aria-current='true'] .va-av{background:#2ea3d9;color:#04202f}
+.va-av{flex:0 0 auto;width:22px;height:22px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(148,180,203,.2);color:#cfe0ec;
+  font-size:9.5px;font-weight:700;letter-spacing:.02em}
+.va-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.va-now{margin-left:auto;flex:0 0 auto;padding:1px 6px;border-radius:99px;
+  background:rgba(46,163,217,.22);color:#9fd5ef;font-size:10px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase}
+.va-empty{margin:0;padding:8px 10px 10px;color:#9db3c2;font-size:12.5px}
 
 .login-error{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:8px 10px;font-size:12.5px}
 

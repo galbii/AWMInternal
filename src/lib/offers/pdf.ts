@@ -4,9 +4,27 @@
 // Client-only: `jspdf` and `html2canvas` are dynamically imported inside the
 // function, and the off-screen stage is created and torn down per call (the source
 // used a static `#pdfStage` div in its markup — S1 434).
+//
+// 2026-09-27 — ONE PAGE. The port laid the letter out at a fixed 720px and sliced
+// whatever came out across as many pages as it took (1.3 to 3.0 in practice, and
+// body copy landed at 10.3pt, not the 11pt the sheet shows). It now asks
+// letter-fit.ts for the gentlest density that puts the letter on a single page and
+// rasterizes THAT. The slicing loop below is unchanged and still runs: when a
+// letter is too long even at the readability floor it paginates exactly as before,
+// safe breaks and all. `pages`/`atFloor` come back so callers can say which
+// happened.
 
 import { letterInnerFor, resolveLetter } from '@/lib/offers/letter'
-import type { OfferRecord, WatermarkOpt } from '@/lib/offers/types'
+import {
+  CONTENT_H_PT,
+  CONTENT_W_PT,
+  MARGIN,
+  PAGE_H_PT,
+  PAGE_W_PT,
+  chooseFit,
+  withLetterFitStage,
+} from '@/lib/offers/letter-fit'
+import type { LetterRenderOpts, OfferRecord } from '@/lib/offers/types'
 
 type PdfDoc = {
   setFontSize(size: number): unknown
@@ -69,27 +87,34 @@ function drawWatermark(
   doc.setFontSize(8.5)
 }
 
+export type LetterPdf = {
+  bytes: Uint8Array
+  /** How many pages the file actually has. 1 unless the floor was hit. */
+  pages: number
+  /** What body copy measures on paper, in points. */
+  typePt: number
+  /** The letter overflowed even at the tightest readable density. */
+  atFloor: boolean
+}
+
 // S3 688–715
-export async function letterToPdfBytes(
+export async function letterToPdf(
   rec: OfferRecord,
-  wm: WatermarkOpt | null,
-): Promise<Uint8Array> {
+  opts: LetterRenderOpts = {},
+): Promise<LetterPdf> {
   if (typeof document === 'undefined')
     throw new Error('PDF export is only available in the browser.')
 
-  const L = resolveLetter(rec)
+  // The watermark comes from the resolved config and nowhere else — a draft is
+  // stamped by resolveLetter itself (src/lib/offers/official.ts).
+  const L = resolveLetter(rec, opts.official !== false)
+  if (opts.stamp) L.watermark = { on: true, text: (L.watermark && L.watermark.text) || 'SAMPLE' }
+  const wm = L.watermark && L.watermark.on ? L.watermark : null
   const body = letterInnerFor(rec, L)
 
-  const stage = document.createElement('div')
-  stage.setAttribute(
-    'style',
-    'position:fixed;left:-10000px;top:0;background:#fff;z-index:-1;pointer-events:none',
-  )
-  document.body.appendChild(stage)
-  try {
-    stage.innerHTML =
-      '<div class="letter-content" style="width:720px;padding:0;background:#fff">' + body + '</div>'
-    const el = stage.firstChild as HTMLElement
+  return withLetterFitStage(body, async ({ el, apply, measure }) => {
+    const fit = await chooseFit(measure)
+    apply(fit.step)
 
     const html2canvas = (await import('html2canvas')).default
     const canvas = await html2canvas(el, {
@@ -97,20 +122,20 @@ export async function letterToPdfBytes(
       backgroundColor: '#ffffff',
       useCORS: true,
       logging: false,
+      width: fit.step.widthPx,
+      windowWidth: fit.step.widthPx,
     })
 
     const { jsPDF, GState } = await import('jspdf')
     const doc = new jsPDF({ unit: 'pt', format: 'letter' }) as unknown as PdfDoc
     const makeGState = (o: { opacity: number }): unknown => new GState(o)
 
-    const pageW = 612,
-      pageH = 792,
-      mL = 54,
-      mR = 54,
-      mT = 42,
-      mB = 52
-    const contentW = pageW - mL - mR,
-      contentH = pageH - mT - mB
+    const pageW = PAGE_W_PT,
+      pageH = PAGE_H_PT,
+      mL = MARGIN.left,
+      mT = MARGIN.top
+    const contentW = CONTENT_W_PT,
+      contentH = CONTENT_H_PT
     const cw = canvas.width,
       ch = canvas.height,
       pxPerPt = cw / contentW,
@@ -178,8 +203,19 @@ export async function letterToPdfBytes(
       page++
     }
 
-    return new Uint8Array(doc.output('arraybuffer'))
-  } finally {
-    stage.remove()
-  }
+    return {
+      bytes: new Uint8Array(doc.output('arraybuffer')),
+      pages: Math.max(1, page),
+      typePt: fit.step.typePt,
+      atFloor: fit.atFloor,
+    }
+  })
+}
+
+/** The bytes alone — what callers that do not report on the fit still use. */
+export async function letterToPdfBytes(
+  rec: OfferRecord,
+  opts: LetterRenderOpts = {},
+): Promise<Uint8Array> {
+  return (await letterToPdf(rec, opts)).bytes
 }

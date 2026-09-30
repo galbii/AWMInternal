@@ -121,6 +121,21 @@ export interface ImportResult {
 export interface WatermarkOpt { on: boolean; text: string }
 
 /**
+ * How a letter should be rendered by an export path (PDF / Word / packet).
+ *
+ * Replaces the old `wm: WatermarkOpt | null` argument, which was a SECOND
+ * source of truth that could contradict the record's own config — and did, on
+ * three of the six paths. Both flags can only ever ADD the stamp:
+ * `resolveLetter(rec, official)` is the single place it is decided.
+ */
+export interface LetterRenderOpts {
+  /** false = a draft; the SAMPLE stamp is forced on. Default true. See offers/official.ts. */
+  official?: boolean
+  /** true = stamp even an official letter (the bulk toolbar's "SAMPLE watermark" tick). */
+  stamp?: boolean
+}
+
+/**
  * Context contract between OfferManager (Task 6) and the view components
  * (Tasks 7–9). Task 6 implements it; consumers must not reach around it
  * to mutate records.
@@ -140,6 +155,22 @@ export interface OffersApi {
   commitForm(data: OfferData, manual: boolean): string | null
   openRecord(id: string): void
   newRecord(): void
+  /**
+   * The record "+ New Request" created in THIS editor session and that has not
+   * been deliberately saved — what Cancel is allowed to throw away. Null for a
+   * record opened from a list, where discarding would be catastrophic.
+   */
+  newDraftId: string | null
+  /** The list view `closeEditor()` will return to — so a back control can name it. */
+  returnView: Exclude<View, 'editor'>
+  /** Leave the editor for the list the user came from, saving pending edits. */
+  closeEditor(): void
+  /**
+   * Discard the in-progress new request (deleting the draft autosave created)
+   * and leave. The caller must cancel its own autosave timer first — this does
+   * NOT flush, because flushing would re-create the record being deleted.
+   */
+  discardNewRecord(): void
   /**
    * Register (or clear, with null) the form's pending-autosave flush.
    * `openRecord` / `newRecord` run it before switching, which is the source's

@@ -8,6 +8,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { useAppBase } from './useAppBase'
 import { KIND_LABEL, type ActivityEvent } from '@/lib/offers/activity'
 import { relativeTime } from '@/lib/offers/summary'
 import { initialsOf } from '@/lib/users/initials'
@@ -28,6 +29,7 @@ export default function ActivityFeed({
   /** Name and link the offer on each entry (the cross-offer feed). */
   showOffer?: boolean
 }): React.JSX.Element {
+  const base = useAppBase()
   return (
     <ol className="od-events">
       {events.map((e) => (
@@ -61,7 +63,17 @@ export default function ActivityFeed({
               </details>
             )}
             <div className="od-meta">
-              {e.actorLabel} ·{' '}
+              {e.actorLabel}
+              {/* Never collapse the two into one name: the work was done by the
+                  actor, from the emulated user's seat, and the trail has to say
+                  both (src/lib/auth/viewer.ts). */}
+              {e.actingAsLabel ? (
+                <span className="od-acting" title={`${e.actorLabel} acting as ${e.actingAsLabel}`}>
+                  {' '}
+                  as {e.actingAsLabel}
+                </span>
+              ) : null}{' '}
+              ·{' '}
               <time dateTime={e.at} title={fmtWhen(e.at)}>
                 {relativeTime(e.at)}
               </time>
@@ -71,7 +83,7 @@ export default function ActivityFeed({
                   {e.kind === 'deleted' ? (
                     <span className="od-offer-link od-offer-gone">{e.offerTitle}</span>
                   ) : (
-                    <Link className="od-offer-link" href={'/offers/' + e.offerId}>
+                    <Link className="od-offer-link" href={base + '/' + e.offerId}>
                       {e.offerTitle}
                     </Link>
                   )}

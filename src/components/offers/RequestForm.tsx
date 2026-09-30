@@ -5,6 +5,7 @@
 // Behaviour: autosave S2 613–617, commit S2 618–636, validation S2 598–605,
 // dollar-blur S2 908–910, bonus clear-on-uncheck S2 911–919, letterStale
 // S2 900–907 / 920–922, action buttons S2 925–945.
+import { ArrowLeft } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import FieldBlock from '@/components/offers/fields/FieldBlock'
@@ -19,6 +20,8 @@ import {
   type FormSection,
 } from '@/components/offers/form-sections'
 import { useOffers } from '@/components/offers/OffersProvider'
+import { useViewer } from '@/components/shell/ViewerProvider'
+import { backLabel } from '@/components/offers/view-labels'
 import { fmtDollarStr } from '@/lib/offers/format'
 import { missingRequired } from '@/lib/offers/schema'
 import { removeRecordOnServer } from '@/lib/offers/storage'
@@ -42,6 +45,10 @@ export interface RequestFormProps {
 
 export default function RequestForm({ standalone, onDeleted }: RequestFormProps) {
   const api = useOffers()
+  // `offer-requests.delete` is admin/dev (plus your own draft, which Cancel
+  // handles). Showing Delete to everyone else meant the row vanished
+  // optimistically, the server refused, and it was back on the next load.
+  const { isManager } = useViewer()
 
   const [data, setData] = useState<OfferData>({})
   const [missingIds, setMissingIds] = useState<string[]>([])
@@ -185,10 +192,58 @@ export default function RequestForm({ standalone, onDeleted }: RequestFormProps)
     api.duplicateRecord({ ...d })
   }
 
+  /**
+   * Leave the editor. On a request "+ New Request" started and nobody
+   * deliberately saved, this DISCARDS it — a keystroke is enough to create a
+   * draft through the 600ms autosave, so backing out any other way left litter
+   * in the pipeline. On anything else it is a plain Close that saves first.
+   *
+   * The timer is cancelled before discarding: a pending autosave would
+   * re-create the very record being deleted.
+   */
+  const isNewRequest = !standalone && (api.currentId === null || api.currentId === api.newDraftId)
+
+  const onCancel = (): void => {
+    if (!isNewRequest) {
+      api.closeEditor()
+      return
+    }
+    const d = dataRef.current
+    const anyData = Object.values(d).some((v) => v && String(v).trim() !== '')
+    const discard = (): void => {
+      clearTimer()
+      dirtyRef.current = false
+      api.registerPendingFlush(null)
+      // Clear the form HERE rather than leaning on the record-sync effect:
+      // when the 600ms autosave has not fired yet no record exists, so
+      // currentId is already null and that effect never runs.
+      syncedIdRef.current = null
+      setData({})
+      setMissingIds([])
+      setSaving(false)
+      setFormKey((k) => k + 1)
+      api.discardNewRecord()
+    }
+    // Nothing typed: there is nothing to warn about and nothing to delete.
+    if (!anyData) {
+      discard()
+      return
+    }
+    api.confirmDialog(
+      'Discard this request?',
+      'Everything entered for this new request will be deleted. This cannot be undone.',
+      () => {
+        discard()
+        api.toast('Request discarded.')
+      },
+    )
+  }
+
   const onDelete = (): void => {
     const id = api.currentId
     if (!id) {
-      if (!standalone) api.newRecord()
+      // Was api.newRecord(), which re-entered the editor and stranded you here.
+      if (!standalone) onCancel()
       return
     }
     api.confirmDialog(
@@ -208,8 +263,16 @@ export default function RequestForm({ standalone, onDeleted }: RequestFormProps)
           })
           return
         }
+        // Stand the form down BEFORE deleting. closeEditor() flushes pending
+        // edits, and by then currentId is null — so a dirty form would be
+        // committed as a BRAND NEW record built from the data just deleted.
+        clearTimer()
+        dirtyRef.current = false
         api.deleteRecord(id)
         api.toast('Request deleted.') // S2 934
+        // deleteRecord only clears currentId; without this the user was left
+        // staring at an empty editor with nothing to edit.
+        api.closeEditor()
       },
     )
   }
@@ -394,6 +457,23 @@ export default function RequestForm({ standalone, onDeleted }: RequestFormProps)
       </div>
 
       <div className="form-actions">
+        {/* The way out, in the header rather than floating (2026-09-29). It is
+            ONE control: on a request this session started it discards, on
+            anything else it saves and leaves — which is what the old separate
+            "Close" did, so the two are merged rather than sitting side by side
+            doing the same thing. */}
+        {standalone ? null : (
+          <button className="btn-light rf-back" id="btnCancel" type="button" onClick={onCancel}>
+            {isNewRequest ? (
+              'Cancel'
+            ) : (
+              <>
+                <ArrowLeft size={15} strokeWidth={2.25} aria-hidden="true" />
+                {backLabel(api.returnView)}
+              </>
+            )}
+          </button>
+        )}
         <button className="btn-primary" id="btnSave" type="button" onClick={onSave}>
           Save Request
         </button>
@@ -408,9 +488,11 @@ export default function RequestForm({ standalone, onDeleted }: RequestFormProps)
             Duplicate
           </button>
         )}
-        <button className="btn-danger" id="btnDelete" type="button" onClick={onDelete}>
-          Delete
-        </button>
+        {isManager ? (
+          <button className="btn-danger" id="btnDelete" type="button" onClick={onDelete}>
+            Delete
+          </button>
+        ) : null}
         {/* updateValNote — S2 641–645 */}
         <span
           className="save-status"

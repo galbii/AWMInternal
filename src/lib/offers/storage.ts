@@ -56,6 +56,21 @@ let snapshot = new Map<string, SnapEntry>()
 /** Serializes writes so two in-flight diffs can't reorder. */
 let queue: Promise<boolean> = Promise.resolve(true)
 
+/**
+ * Why the last write failed, for the caller to say out loud.
+ *
+ * A 403 is NOT "will retry": it is a refusal that will never succeed, and the
+ * server's own wording explains it (read-only while viewing as another user,
+ * for instance). Reporting every failure as a retryable hiccup is how a
+ * refused save looks like a broken app.
+ */
+let lastError: string | null = null
+
+/** The server's reason for the most recent failed sync, if it gave one. */
+export function lastSyncError(): string | null {
+  return lastError
+}
+
 async function syncPost(body: SyncBody): Promise<boolean> {
   try {
     const res = await fetch(SYNC_URL, {
@@ -64,8 +79,15 @@ async function syncPost(body: SyncBody): Promise<boolean> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     })
-    return res.ok
+    if (res.ok) {
+      lastError = null
+      return true
+    }
+    const text = await res.text().catch(() => '')
+    lastError = text.trim() || 'The server refused the change (' + res.status + ').'
+    return false
   } catch {
+    lastError = null // unreachable, not refused — the retry wording is right
     return false
   }
 }

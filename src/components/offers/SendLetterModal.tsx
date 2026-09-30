@@ -17,9 +17,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
 
 import Modal from '@/components/shell/Modal'
+import { usePush } from '@/components/offers/PushProvider'
+import { STAMP_TEXT } from '@/lib/offers/official'
 import { checkDraft, parseRecipients } from '@/lib/offers/email'
 import { safeFileBase } from '@/lib/offers/format'
-import { resolveLetter } from '@/lib/offers/letter'
 import { offerEmailBody, offerEmailSubject } from '@/lib/offers/letter-exports'
 import { letterToPdfBytes } from '@/lib/offers/pdf'
 import type { OfferRecord } from '@/lib/offers/types'
@@ -59,6 +60,11 @@ export default function SendLetterModal({
   const [busy, setBusy] = useState<null | 'pdf' | 'send'>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // An un-pushed request, or a viewer who may not issue, sends a SAMPLE PDF.
+  const push = usePush()
+  const official = rec ? push.isOfficial(rec.id) : false
+  const stamped = rec ? push.whyStamped(rec.id) : null
+
   // Refill from the record each time the modal opens: a draft abandoned on one
   // offer must never resurface addressed to the next one.
   const recId = rec ? rec.id : null
@@ -95,9 +101,9 @@ export default function SendLetterModal({
       let attachment: { filename: string; contentBase64: string } | null = null
       if (attach) {
         setBusy('pdf')
-        const L = resolveLetter(rec)
-        const wm = L.watermark && L.watermark.on ? { on: true, text: L.watermark.text || 'SAMPLE' } : null
-        const bytes = await letterToPdfBytes(rec, wm)
+        // A draft letter is stamped by resolveLetter itself, so the attached
+        // PDF carries the SAMPLE mark too (src/lib/offers/official.ts).
+        const bytes = await letterToPdfBytes(rec, { official })
         attachment = {
           filename: 'Offer_Letter_' + safeFileBase(rec.data.employeeName || 'New Hire', 'letter') + '.pdf',
           contentBase64: toBase64(bytes),
@@ -134,7 +140,7 @@ export default function SendLetterModal({
     } finally {
       setBusy(null)
     }
-  }, [rec, busy, to, cc, subject, message, attach, onSent, onClose])
+  }, [rec, busy, to, cc, subject, message, attach, official, onSent, onClose])
 
   return (
     <Modal
@@ -196,6 +202,11 @@ export default function SendLetterModal({
             <span className="od-dim">— exactly what “Download PDF” produces</span>
           </span>
         </label>
+        {stamped ? (
+          <p className="sle-stamp" role="status">
+            <strong>SAMPLE.</strong> {STAMP_TEXT[stamped]}
+          </p>
+        ) : null}
         <p className="sle-note od-dim">
           Sent by All Western Mortgage. Replies come back to you, not to the sending address.
         </p>
