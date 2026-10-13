@@ -366,10 +366,14 @@ export default function BulkToolbar({ selectedIds, onClearSelection, onAssign }:
         </div>
       </div>
 
-      <label className="wm-toggle" title="Stamp a SAMPLE watermark across generated letters">
-        <input type="checkbox" checked={wmOn} onChange={(e) => setWmOn(e.target.checked)} />{' '}
-        SAMPLE watermark
-      </label>
+      {/* The tick can only ADD a stamp, and every letter a non-issuer exports
+          is already stamped, so a hiring manager gets no watermark control. */}
+      {push.mayIssueFinal ? (
+        <label className="wm-toggle" title="Stamp a SAMPLE watermark across generated letters">
+          <input type="checkbox" checked={wmOn} onChange={(e) => setWmOn(e.target.checked)} />{' '}
+          SAMPLE watermark
+        </label>
+      ) : null}
 
       <span className="sel-spacer" />
 

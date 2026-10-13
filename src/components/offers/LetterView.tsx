@@ -703,22 +703,34 @@ export default function LetterView({
         </button>
         {/* A draft letter is stamped by resolveLetter itself, so the toggle
             would be lying if it looked switchable: it is pinned on and says
-            why instead (src/lib/offers/official.ts). */}
-        <label
-          className={stamped ? 'la-check la-check-locked' : 'la-check'}
-          title={stamped ? STAMP_TEXT[stamped] : 'Show a SAMPLE watermark on this letter (print / PDF)'}
-        >
-          <input
-            type="checkbox"
-            id="letterWmOn"
-            checked={!!stamped || !!(L && L.watermark && L.watermark.on)}
-            disabled={!!stamped}
-            onChange={(e) => {
-              onWatermarkToggle(e.target.checked)
-            }}
-          />{' '}
-          Watermark
-        </label>
+            why instead (src/lib/offers/official.ts). A viewer who may never
+            issue (a hiring manager) gets no control at all, only the notice;
+            every view and saved copy still carries the stamp. */}
+        {!push.mayIssueFinal ? (
+          <span
+            className="la-check la-stamp"
+            id="letterWmFixed"
+            title={STAMP_TEXT['may-not-issue']}
+          >
+            SAMPLE watermark
+          </span>
+        ) : (
+          <label
+            className={stamped ? 'la-check la-check-locked' : 'la-check'}
+            title={stamped ? STAMP_TEXT[stamped] : 'Show a SAMPLE watermark on this letter (print / PDF)'}
+          >
+            <input
+              type="checkbox"
+              id="letterWmOn"
+              checked={!!stamped || !!(L && L.watermark && L.watermark.on)}
+              disabled={!!stamped}
+              onChange={(e) => {
+                onWatermarkToggle(e.target.checked)
+              }}
+            />{' '}
+            Watermark
+          </label>
+        )}
       </div>
 
       <div className="la-group">

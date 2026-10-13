@@ -562,6 +562,8 @@ input[type=file]{display:none}
 /* A pinned tick is not a control — say so rather than looking broken. */
 .la-check-locked{opacity:.85;cursor:not-allowed}
 .la-check-locked input{cursor:not-allowed}
+/* A non-issuer's fixed notice: no control to click, just the fact. */
+.la-check.la-stamp,.la-bar .la-check.la-stamp{cursor:default;font-weight:700;letter-spacing:.02em}
 .sle-stamp{margin:10px 0 0;padding:8px 11px;border-radius:8px;font-size:12.5px;line-height:1.45;
   background:var(--awm-danger-bg);color:var(--awm-danger);border:1px solid var(--awm-danger-line)}
 
