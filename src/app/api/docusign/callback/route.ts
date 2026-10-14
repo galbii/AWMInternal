@@ -27,7 +27,13 @@ p{margin:0;color:#4a5562}</style></head>
 }
 
 export async function GET(request: Request): Promise<Response> {
-  if (!env.DOCUSIGN) return page(false, 'DocuSign is not configured', 'Ask the site administrator.')
+  if (!env.DOCUSIGN) {
+    return page(
+      false,
+      'DocuSign is not configured',
+      env.DOCUSIGN_ERROR ?? 'Ask the site administrator.',
+    )
+  }
 
   const denied = new URL(request.url).searchParams.get('error')
   if (denied) return page(false, 'Consent was not granted', `DocuSign said: ${denied}.`)

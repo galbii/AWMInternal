@@ -107,8 +107,12 @@ function pem(key: string, why: string): string {
   const m = v.match(/-----BEGIN (RSA )?PRIVATE KEY-----([\s\S]*?)-----END (RSA )?PRIVATE KEY-----/)
   const body = (m ? m[2] : v).replace(/\\n|\\r|[^A-Za-z0-9+/=]/g, '')
   if (!m && !/^MII/.test(body)) {
+    // Say what arrived without echoing the secret: a multi-line PEM cut at its
+    // first line shows up as ~31 chars with a BEGIN and no END.
     throw new Error(
-      `${key} is not a private key: paste the PEM, or just the base64 between its BEGIN/END lines.`,
+      `${key} is not a private key (got ${v.length} chars, ` +
+        `BEGIN line: ${/-----BEGIN/.test(v) ? 'yes' : 'no'}, END line: ${/-----END/.test(v) ? 'yes' : 'no'}). ` +
+        `Paste just the base64 between the BEGIN/END lines, on one line.`,
     )
   }
   // Without markers, tell PKCS#1 from PKCS#8 by the DER: after the version
@@ -172,6 +176,36 @@ function passkeyConfig(): { rpID: string; rpName: string; origins: string[] } {
   }
 }
 
+function docusignConfig() {
+  if (!docusignKey) return { config: null, error: null }
+  try {
+    return {
+      error: null,
+      config: {
+        integrationKey: docusignKey,
+        userId: requireReal('DOCUSIGN_USER_ID', 'JWT Grant impersonates this user'),
+        accountId: requireReal('DOCUSIGN_ACCOUNT_ID', 'envelopes are created on this account'),
+        privateKey: pem('DOCUSIGN_PRIVATE_KEY', 'JWT Grant signs its assertion with this key'),
+        // Bare host, no scheme: it is the JWT `aud` as well as the token endpoint.
+        authServer: (process.env.DOCUSIGN_AUTH_SERVER || 'account-d.docusign.com')
+          .replace(/^https?:\/\//, '')
+          .replace(/\/+$/, ''),
+        basePath: (process.env.DOCUSIGN_BASE_PATH || 'https://demo.docusign.net/restapi').replace(
+          /\/+$/,
+          '',
+        ),
+        publicOrigin: publicOrigin(),
+      },
+    }
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e)
+    console.error(`[docusign] disabled: ${error}`)
+    return { config: null, error }
+  }
+}
+
+const docusign = docusignConfig()
+
 export const env = {
   DATABASE_URL: validateDatabaseUrl(required('DATABASE_URL')),
   PAYLOAD_SECRET: required('PAYLOAD_SECRET'),
@@ -223,25 +257,13 @@ export const env = {
       }
     : null,
 
-  // Null when the integration key is unset. Like RESEND, a key without the
-  // rest is a misconfiguration: fail at boot rather than at the first JWT.
-  DOCUSIGN: docusignKey
-    ? {
-        integrationKey: docusignKey,
-        userId: requireReal('DOCUSIGN_USER_ID', 'JWT Grant impersonates this user'),
-        accountId: requireReal('DOCUSIGN_ACCOUNT_ID', 'envelopes are created on this account'),
-        privateKey: pem('DOCUSIGN_PRIVATE_KEY', 'JWT Grant signs its assertion with this key'),
-        // Bare host, no scheme: it is the JWT `aud` as well as the token endpoint.
-        authServer: (process.env.DOCUSIGN_AUTH_SERVER || 'account-d.docusign.com')
-          .replace(/^https?:\/\//, '')
-          .replace(/\/+$/, ''),
-        basePath: (process.env.DOCUSIGN_BASE_PATH || 'https://demo.docusign.net/restapi').replace(
-          /\/+$/,
-          '',
-        ),
-        publicOrigin: publicOrigin(),
-      }
-    : null,
+  // Null when the integration key is unset, OR when the rest of the config is
+  // broken — and then DOCUSIGN_ERROR says why. Unlike RESEND this must NOT
+  // throw: env.ts is imported by every page, so one bad paste of the key took
+  // down the whole build (the sitemap route was first to load it). A broken
+  // DocuSign config breaks DocuSign, and /api/docusign/* report the reason.
+  DOCUSIGN: docusign.config,
+  DOCUSIGN_ERROR: docusign.error,
 }
 
 /**

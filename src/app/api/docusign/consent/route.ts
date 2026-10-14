@@ -13,7 +13,12 @@ export const dynamic = 'force-dynamic'
 
 export function GET(): Response {
   if (!env.DOCUSIGN) {
-    return new Response('DocuSign is not configured on this server.', { status: 503 })
+    return new Response(
+      env.DOCUSIGN_ERROR
+        ? `DocuSign is misconfigured on this server: ${env.DOCUSIGN_ERROR}`
+        : 'DocuSign is not configured on this server.',
+      { status: 503 },
+    )
   }
   return Response.redirect(consentUrl(env.DOCUSIGN), 302)
 }
