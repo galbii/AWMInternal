@@ -14,8 +14,8 @@ const SCOPE = 'signature impersonation'
 export type DocusignConfig = NonNullable<typeof env.DOCUSIGN>
 
 /** Where DocuSign sends the user back after consent. Must be registered in Apps and Keys. */
-export function consentRedirectUri(): string {
-  return `${env.PASSKEY.origins[0]}/api/docusign/callback`
+export function consentRedirectUri(cfg: DocusignConfig): string {
+  return `${cfg.publicOrigin}/api/docusign/callback`
 }
 
 export function consentUrl(cfg: DocusignConfig): string {
@@ -23,7 +23,7 @@ export function consentUrl(cfg: DocusignConfig): string {
     response_type: 'code',
     scope: SCOPE,
     client_id: cfg.integrationKey,
-    redirect_uri: consentRedirectUri(),
+    redirect_uri: consentRedirectUri(cfg),
   })
   return `https://${cfg.authServer}/oauth/auth?${q}`
 }

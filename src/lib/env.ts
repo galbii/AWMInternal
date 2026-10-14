@@ -93,16 +93,34 @@ function normalizeShopDomain(input: string): string {
 const docusignKey = real('DOCUSIGN_INTEGRATION_KEY')
 
 /**
- * Hosting UIs (Coolify included) take one-line values, so the PEM usually
- * arrives with literal `\n` escapes; a multi-line .env.local value arrives
- * with real newlines. Accept both — the signer needs real ones.
+ * Hosting UIs mangle a pasted PEM in every way possible: literal `\n`
+ * escapes, newlines collapsed to spaces, the wrapping quotes kept as part of
+ * the value. OpenSSL rejects all of them ("DECODER routines::unsupported").
+ * So don't trust the layout at all — take the base64 between the markers and
+ * rebuild a canonical PEM.
  */
 function pem(key: string, why: string): string {
-  const v = requireReal(key, why).replace(/\\n/g, '\n')
-  if (!/-----BEGIN (RSA )?PRIVATE KEY-----/.test(v)) {
+  const m = requireReal(key, why).match(
+    /-----BEGIN (RSA )?PRIVATE KEY-----([\s\S]*?)-----END (RSA )?PRIVATE KEY-----/,
+  )
+  if (!m) {
     throw new Error(`${key} is not a PEM private key (expected "-----BEGIN RSA PRIVATE KEY-----").`)
   }
-  return v
+  const label = `${m[1] ?? ''}PRIVATE KEY`
+  const body = m[2].replace(/\\n|\\r|[^A-Za-z0-9+/=]/g, '')
+  const lines = body.match(/.{1,64}/g) ?? []
+  return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----\n`
+}
+
+/**
+ * The public origin DocuSign returns to. APP_ORIGIN when it is set (it is the
+ * passkey origin too); otherwise NEXT_PUBLIC_SERVER_URL, which every
+ * deployment already carries — falling straight to localhost sent the live
+ * consent flow back to http://localhost:3000.
+ */
+function publicOrigin(): string {
+  const first = (process.env.APP_ORIGIN || '').split(',')[0]?.trim()
+  return (first || process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000').replace(/\/+$/, '')
 }
 
 const shopifyDomain = optional('SHOPIFY_STORE_DOMAIN')
@@ -211,6 +229,7 @@ export const env = {
           /\/+$/,
           '',
         ),
+        publicOrigin: publicOrigin(),
       }
     : null,
 }
