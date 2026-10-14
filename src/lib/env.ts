@@ -98,16 +98,26 @@ const docusignKey = real('DOCUSIGN_INTEGRATION_KEY')
  * the value. OpenSSL rejects all of them ("DECODER routines::unsupported").
  * So don't trust the layout at all — take the base64 between the markers and
  * rebuild a canonical PEM.
+ *
+ * The markers are optional: the bare base64 body (no BEGIN/END, no spaces) is
+ * the form that survives any single-line input, so it is the recommended one.
  */
 function pem(key: string, why: string): string {
-  const m = requireReal(key, why).match(
-    /-----BEGIN (RSA )?PRIVATE KEY-----([\s\S]*?)-----END (RSA )?PRIVATE KEY-----/,
-  )
-  if (!m) {
-    throw new Error(`${key} is not a PEM private key (expected "-----BEGIN RSA PRIVATE KEY-----").`)
+  const v = requireReal(key, why)
+  const m = v.match(/-----BEGIN (RSA )?PRIVATE KEY-----([\s\S]*?)-----END (RSA )?PRIVATE KEY-----/)
+  const body = (m ? m[2] : v).replace(/\\n|\\r|[^A-Za-z0-9+/=]/g, '')
+  if (!m && !/^MII/.test(body)) {
+    throw new Error(
+      `${key} is not a private key: paste the PEM, or just the base64 between its BEGIN/END lines.`,
+    )
   }
-  const label = `${m[1] ?? ''}PRIVATE KEY`
-  const body = m[2].replace(/\\n|\\r|[^A-Za-z0-9+/=]/g, '')
+  // Without markers, tell PKCS#1 from PKCS#8 by the DER: after the version
+  // INTEGER, PKCS#8 opens an AlgorithmIdentifier SEQUENCE (0x30), PKCS#1 the
+  // modulus INTEGER (0x02).
+  const der = Buffer.from(body, 'base64')
+  const at = der[1] & 0x80 ? 2 + (der[1] & 0x7f) : 2
+  const rsa = m ? Boolean(m[1]) : der[at + 3] !== 0x30
+  const label = `${rsa ? 'RSA ' : ''}PRIVATE KEY`
   const lines = body.match(/.{1,64}/g) ?? []
   return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----\n`
 }
