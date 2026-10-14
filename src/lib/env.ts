@@ -90,6 +90,21 @@ function normalizeShopDomain(input: string): string {
   return host.includes('.') ? host : `${host}.myshopify.com`
 }
 
+const docusignKey = real('DOCUSIGN_INTEGRATION_KEY')
+
+/**
+ * Hosting UIs (Coolify included) take one-line values, so the PEM usually
+ * arrives with literal `\n` escapes; a multi-line .env.local value arrives
+ * with real newlines. Accept both — the signer needs real ones.
+ */
+function pem(key: string, why: string): string {
+  const v = requireReal(key, why).replace(/\\n/g, '\n')
+  if (!/-----BEGIN (RSA )?PRIVATE KEY-----/.test(v)) {
+    throw new Error(`${key} is not a PEM private key (expected "-----BEGIN RSA PRIVATE KEY-----").`)
+  }
+  return v
+}
+
 const shopifyDomain = optional('SHOPIFY_STORE_DOMAIN')
 const shopifyToken = optional('SHOPIFY_STOREFRONT_ACCESS_TOKEN')
 
@@ -177,6 +192,25 @@ export const env = {
          * `overrideRecipientAddress`). Leave unset in production.
          */
         overrideTo: real('RESEND_OVERRIDE_TO'),
+      }
+    : null,
+
+  // Null when the integration key is unset. Like RESEND, a key without the
+  // rest is a misconfiguration: fail at boot rather than at the first JWT.
+  DOCUSIGN: docusignKey
+    ? {
+        integrationKey: docusignKey,
+        userId: requireReal('DOCUSIGN_USER_ID', 'JWT Grant impersonates this user'),
+        accountId: requireReal('DOCUSIGN_ACCOUNT_ID', 'envelopes are created on this account'),
+        privateKey: pem('DOCUSIGN_PRIVATE_KEY', 'JWT Grant signs its assertion with this key'),
+        // Bare host, no scheme: it is the JWT `aud` as well as the token endpoint.
+        authServer: (process.env.DOCUSIGN_AUTH_SERVER || 'account-d.docusign.com')
+          .replace(/^https?:\/\//, '')
+          .replace(/\/+$/, ''),
+        basePath: (process.env.DOCUSIGN_BASE_PATH || 'https://demo.docusign.net/restapi').replace(
+          /\/+$/,
+          '',
+        ),
       }
     : null,
 }
