@@ -1,21 +1,17 @@
 // The shared chrome every app's (authed) layout renders around its own
-// content: the app switcher + session bar. An async SERVER component so it
-// can run the "view as" users-list query itself (mirrors what
-// (offers)/(authed)/layout.tsx did before the multi-app split) without an
-// extra client round trip. The only interactive piece — the "switch app"
-// <select> — is split into the sibling client component AppSwitcher.tsx.
+// content: the dock (SessionBar), pinned to the bottom of the window. An async
+// SERVER component so it can run the "view as" users-list query itself
+// without an extra client round trip, and hand the dock the apps it links to.
 //
 // Callers resolve the viewer themselves via requireApp()/requireSession() and
 // pass it in; this component makes no auth call of its own.
 
-import Link from 'next/link'
 import React from 'react'
 
 import { hasRole } from '@/access/roles'
-import { appsFor, getApp, userApps } from '@/lib/apps/registry'
+import { appsFor, userApps } from '@/lib/apps/registry'
 import { mayActAs, type Viewer } from '@/lib/auth/viewer'
 
-import AppSwitcher from './AppSwitcher'
 import SessionBar, { type SessionUserOption } from './SessionBar'
 import { ViewerProvider } from './ViewerProvider'
 
@@ -55,8 +51,12 @@ export default async function AppShell({
       .map((u) => ({ id: String(u.id), label: u.name || u.email }))
   }
 
-  const current = appId ? getApp(appId) : undefined
-  const available = appsFor(v.actor)
+  // The ACTOR's apps, not the viewer's: the dock has to mirror requireApp's
+  // actor-based gate, so an admin viewing as someone can still get anywhere.
+  // Planned apps have no routes yet, so they get no link.
+  const dockApps = appsFor(v.actor)
+    .filter((a) => a.status !== 'planned')
+    .map((a) => ({ id: a.id, name: a.name, short: a.short, href: a.href, icon: a.icon }))
 
   // Always the ACTOR's own profile, never the emulated viewer's: "Settings"
   // must take the real human to their own account. `/u/me` covers an account
@@ -65,44 +65,6 @@ export default async function AppShell({
 
   return (
     <>
-      <SessionBar
-        actorLabel={v.actor.name || v.actor.email}
-        actorEmail={v.actor.email}
-        viewerLabel={v.viewer.name || v.viewer.email}
-        canManage={canManage}
-        isEmulating={v.isEmulating}
-        isActing={v.isActing}
-        canAct={v.isEmulating && mayActAs(v.viewer)}
-        viewerId={String(v.viewer.id)}
-        users={users}
-        profileHref={profileHref}
-        leading={
-          <div className="as-switcher">
-            {/* Next forces a hard navigation between route groups with
-                different root layouts, so this crosses into (hub) correctly. */}
-            <Link className="as-home" href="/">
-              <span className="as-glyph" aria-hidden="true">
-                ◈
-              </span>
-              Apps
-            </Link>
-            {/* On the hub itself the page IS the app list, so the breadcrumb
-                stops at "Apps"; inside an app, the app's name is the switcher. */}
-            {current ? (
-              <>
-                <span className="as-sep" aria-hidden="true">
-                  /
-                </span>
-                <AppSwitcher
-                  apps={available.map((a) => ({ id: a.id, name: a.name, href: a.href }))}
-                  currentAppId={appId}
-                  currentName={current.name}
-                />
-              </>
-            ) : null}
-          </div>
-        }
-      />
       {/* Client components in every app ask this instead of drilling a prop.
           `isManager` drops while emulating, so view-as shows the plain user's
           UI — the same rule SessionBar's adminTools already follows. */}
@@ -122,6 +84,23 @@ export default async function AppShell({
       >
         {children}
       </ViewerProvider>
+      {/* Holds the dock's height at the end of the page, so the last of an
+          app's content can always be scrolled clear of the fixed bar. */}
+      <div className="sb-room" aria-hidden="true" />
+      <SessionBar
+        actorLabel={v.actor.name || v.actor.email}
+        actorEmail={v.actor.email}
+        viewerLabel={v.viewer.name || v.viewer.email}
+        canManage={canManage}
+        isEmulating={v.isEmulating}
+        isActing={v.isActing}
+        canAct={v.isEmulating && mayActAs(v.viewer)}
+        viewerId={String(v.viewer.id)}
+        users={users}
+        profileHref={profileHref}
+        apps={dockApps}
+        currentAppId={appId}
+      />
     </>
   )
 }

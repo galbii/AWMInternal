@@ -41,6 +41,7 @@ export const OfferEvents: CollectionConfig = {
         { label: 'Stage change', value: 'stage-change' },
         { label: 'Letter updated', value: 'letter-updated' },
         { label: 'Emailed', value: 'email-sent' },
+        { label: 'Sent for signature', value: 'signature-sent' },
         { label: 'Note', value: 'note' },
         { label: 'Pushed to HR', value: 'pushed-to-hr' },
         { label: 'Returned to hiring', value: 'returned-to-hiring' },

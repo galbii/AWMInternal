@@ -132,7 +132,7 @@
   .kern .dlg-body{padding:18px 20px}
   .kern .dlg-body h3{margin:0 0 10px}
   .kern .dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--k-line)}
-  .kern .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+  .kern .toast{position:fixed;bottom:calc(18px + var(--dock-h,0px));left:50%;transform:translateX(-50%) translateY(20px);
     background:#04240f;color:#c9f7d6;border:1px solid var(--k-accent2);padding:10px 16px;border-radius:10px;
     opacity:0;transition:.25s;pointer-events:none;z-index:50;font-weight:600}
   .kern .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}

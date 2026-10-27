@@ -977,6 +977,7 @@ export interface OfferEvent {
     | 'stage-change'
     | 'letter-updated'
     | 'email-sent'
+    | 'signature-sent'
     | 'note'
     | 'pushed-to-hr'
     | 'returned-to-hiring'

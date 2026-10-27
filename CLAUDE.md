@@ -55,12 +55,14 @@ src/app/(offers)/         → the Offer Manager at "/offers" and "/offers/[id]"
                             names; NOT Tailwind, NOT CSS modules)
 src/app/(frontend)/       → CMS site (slugs, posts, search) — template code
 src/app/(payload)/        → /admin — generated Payload UI
-src/app/shell.css         → SHARED chrome CSS: tokens, reset, session bar,
-                            emulation frame, app switcher, login, buttons,
-                            modals. Imported by every app's root layout.
+src/app/shell.css         → SHARED chrome CSS: tokens, reset, the dock
+                            (bottom session bar + launcher), emulation frame,
+                            Manage users modal, login, buttons, modals.
+                            Imported by every app's root layout.
 src/lib/apps/             → registry.ts (THE app list) + guard.ts (requireApp)
-src/components/shell/     → chrome shared by all apps: AppShell, AppSwitcher,
-                            SessionBar, LoginForm, Modal, user modals
+src/components/shell/     → chrome shared by all apps: AppShell, SessionBar
+                            (the dock), AppIcon, ManageUsersModal, LoginForm,
+                            Modal, user modals
 src/lib/offers/           → offers logic, framework-free, unit-tested
 src/components/offers/    → offers UI ('use client'), consumes lib via OffersApi
 ```
@@ -92,10 +94,13 @@ src/app/(myapp)/
 
 ```ts
 { id: 'myapp', name: 'My App', description: '…', href: '/myapp',
-  icon: '🧾', status: 'live', group: 'Operations', roles: ['admin','dev'] }
+  icon: 'file-text', status: 'live', group: 'Operations', roles: ['admin','dev'] }
 ```
 
-The hub renders it automatically. Omit `roles` and the app is
+The hub, the dock's quick links and the launcher grid render it
+automatically. `icon` is an `AppIconName`, not an emoji: a new glyph is one
+name added to that union in the registry and one lucide icon added to
+`APP_ICONS` in `src/components/shell/AppIcon.tsx`. Omit `roles` and the app is
 **membership-managed**: admins/devs always open it, everyone else needs its id
 on their `users.apps` list (granted inside the app's own Users view, in
 `/users`, or on a profile). Set `roles` and it is **role-gated** instead (the
@@ -219,6 +224,11 @@ stylesheets on purpose. What differs is one capability, and it is decided by
   workspace bar) and batch (the selection bar). Pushing is anyone's; RETURNING
   is HR's alone, because it un-issues a letter. Both write `offer-events`
   (`pushed-to-hr` / `returned-to-hiring`, the "HR handoff" activity filter).
+  **The Push button lives on `/hiring` only** (2026-10-27): the two hiring
+  pages compose `<PushProvider allowPush>`, the offers pages do not, so HR
+  never sees it — the first divergence between the doors, made in the
+  composition as the rule below says. `allowPush` only hides the button; the
+  route still lets anyone push, and Return is unaffected.
 - `PushProvider` (`usePush()`) carries the state client-side and defaults
   `isOfficial` to FALSE outside a provider — a tree that cannot prove a letter
   went through HR must treat it as a draft.
@@ -374,32 +384,66 @@ NOT authenticate: auth needs Payload and a database, far too heavy for
 middleware. Keep the `api/` exclusion in its matcher — route handlers answer
 401/403 rather than redirecting.
 
-**Session bar look & auto-hide (2026-09-29):** the bar is BRAND BLUE with
-white type (`.session-bar` in shell.css) so it separates from the white sidebar
-and the dark cards alike; emulation turns the whole bar amber-brown. It GETS
-OUT OF THE WAY on its own — the fold chevron, its restore tab and the `awm-bar`
-cookie (`src/lib/bar.ts`) are gone:
+**The dock (2026-10-27):** the session bar is a fixed GLASS BAR along the
+BOTTOM of every app (`.session-bar` in shell.css, rendered by `SessionBar`
+from `AppShell`). It replaced the blue top bar, its auto-hide and the
+`AppSwitcher` breadcrumb. Three clusters on one 56px grid:
 
-- `position:sticky;top:0;z-index:70`, slid up by a **transform** (`.sb-away`)
-  once the window scrolls past it. Transform, not height — the bar keeps its
-  46px of flow space at the document's top, so nothing below it reflows and
-  `OfferDetail`'s `--od-top` (`root.offsetTop`) stays 46. It comes back at the
-  top of the page, or when the pointer reaches the top edge.
-- The peek zone has hysteresis: 6px while the bar is away (it must not pop open
-  on a drift) and 56px while it is out (the pointer can rest on it).
-  `SessionBar` listens on `pointermove`/`scroll` behind one rAF and re-renders
-  only when the state actually flips.
-- **The two exceptions are CSS, so the component never learns a menu is open:**
-  `.sb-away:has(.shm.open)` (a panel hangs BELOW the bar — the pointer has to
-  reach it) and `.sb-away:has(:focus-visible)`. NOT `:focus-within` — clicking
-  the view-as pill leaves focus on it, which would pin the bar out for the rest
-  of the session; `:focus-visible` keeps it only for the keyboard.
-- Sticky needs the bar to be a direct child of `<body>` (it is — `AppShell`
-  returns a fragment) and no `overflow` on an ancestor. Wrapping it in a div
-  caps it to that div and it scrolls away instead.
-- **While emulating, hiding the bar is safe because `.emu-frame` does not
-  hide**: the fixed 3px amber outline is what marks the window read-only, and
-  it takes no height. Don't make the frame conditional on the bar.
+- **Left:** the logo (a link home) and the name of the app you are in.
+- **Centre:** quick links — Home plus one per app the ACTOR can open (planned
+  apps excluded; `AppShell` builds `dockApps` from `appsFor(v.actor)`, the same
+  actor-based rule `requireApp` uses) — then the **launcher**, a `ShellMenu`
+  whose panel is a grid of every app. Hover labels are CSS (`data-label` →
+  `::after`), so there is no tooltip component.
+- **Right:** the View as pill, the account menu, and Exit view-as while
+  emulating. Labels fold to icons under 1100px.
+- **It minimizes itself.** One second (`MINIMIZE_DELAY`) after the pointer
+  leaves, `SessionBar` adds `.sb-min`: the bar slides below the window and a
+  14px strip with a handle (`.sb-handle`) remains; reaching the strip brings it
+  straight back. The timer re-checks instead of minimizing while the bar is
+  hovered, a `.shm` menu is open, or it holds `:focus-visible` (NOT
+  `:focus-within` — a clicked pill keeps focus and would pin it forever).
+  Keyboard focus expands it. A screen without `(hover: hover)` never
+  minimizes, because nothing could bring it back.
+
+Things to keep:
+
+- **`--dock-h` is the contract with every app.** It is set ONLY while a dock
+  exists — `:root:has(.session-bar){--dock-h:56px}`, 14px while `.sb-min` —
+  so a page without one (`/apply`, `/login`) gets 0. It is an `@property`
+  `<length>` so it TRANSITIONS with the bar: pinned chrome rides along instead
+  of jumping. The bar's own height is a fixed 56px, never the variable.
+- **Full-width bottom chrome opts in with `data-dock-lift`** and publishes its
+  height as `--dock-lift` on `<html>` (`OfferDetail` does, from the same
+  ResizeObserver that measures `--od-foot-h`, and removes it on unmount).
+  While minimized, such a page gets `--dock-h:0` — its footer sits flush — and
+  the handle floats ABOVE the footer instead of in a strip beneath it. Pages
+  without the attribute keep the 14px strip. Anything an app pins to the bottom of the window
+  (toasts, `.od-foot`, the offers `.ah` action hub, kern's toast) uses
+  `bottom: var(--dock-h,0px)`, and every `100vh`/`100dvh` height calc
+  subtracts it. A new app with fixed-bottom chrome must do the same.
+- `AppShell` renders a `.sb-room` spacer after the page so the last content
+  scrolls clear of the bar. The bar stays a direct child of `<body>`.
+- `ShellMenu` panels now open UPWARD (`bottom: calc(100% + 12px)`) and are
+  capped to the window minus the dock. Every bar menu uses it — never a second
+  popover implementation.
+- **The Users app opens as a modal from the dock.** For `adminTools`, its
+  quick link and launcher tile are buttons that open `ManageUsersModal`
+  (`opensModal()` in `SessionBar`) — except on `/users` itself, where they stay
+  links. The modal is the same `UsersDirectory` the
+  `/users` page renders (prop `embedded`), fed by `GET /api/directory`, which
+  runs the same admin/dev + no-emulation `gate()` as the route's writes. The
+  directory's styles live with the component (`users-directory.css`) so it
+  renders in any app; `.mu` re-defines the `--awm-*` tokens it reads. Layering:
+  dock 70 < `.mu-bg` 150 < the directory's row menu 160 < `.modal-bg` 200, so
+  New user and confirm-delete open above it.
+- `/apply` has no `AppShell` and no dock; its top bar is the standalone
+  `.apply-bar` (it used to borrow `.session-bar`, which is now bottom-fixed).
+- **`.emu-frame` stays.** The fixed 3px amber/crimson outline marks the
+  window while emulating, independent of the bar. Don't make it conditional.
+- `@media print` hides the dock, `.sb-room`, `.emu-frame` and `.mu-bg`.
+- The e2e suite asserts `.session-bar .sb-user` ("Signed in as"); keep that
+  element even though it is visually hidden below 1100px.
 
 Both rails on `/offers/[id]` REST COLLAPSED and unfold on hover (see that
 section), via `onhr_activity_rail` / `onhr_letter_rail` in localStorage and
@@ -411,7 +455,7 @@ never a popover of its own (nesting two would double the outside-click, blur
 and Escape handling). Its host is **one `.sb-viewas` pill in the bar,
 immediately left of the account cluster** — never a row inside the account
 menu, because it is a mode switch, not an account setting. It reads "View as"
-on the blue bar and "Switch" on the amber one, where picking someone else is
+on the normal dock and "Switch" on the amber one, where picking someone else is
 one click instead of exit → reload → reopen → pick.
 
 - **No new server door.** `POST /api/emulate` just overwrites the cookie and
@@ -429,7 +473,7 @@ one click instead of exit → reload → reopen → pick.
   server) and are PRUNED against the roster, so a deleted or view-as-blocked
   account falls out on its own. They are a hint, never a permission.
 - The panel is the bar's tallest, which is why `.shm-panel` is capped to the
-  window and why `.sb-away:has(.shm.open)` exists (see the auto-hide above).
+  window minus the dock (see The dock above).
 - The second door is the Users app's row menu ("View as <name>"), which lands
   on `/` — that admin screen shows nothing while emulating.
 - `.va-scroll` carries NO `scrollbar-width`: Chrome prefers the standard
@@ -444,20 +488,19 @@ hub app (`src/app/(users)/`, registry entry with `roles: ['admin','dev']`,
 and role chips plus its own `users.css`. The list is read with
 `overrideAccess: true` and projected through `src/lib/users/directory.ts` —
 an ADMIN projection (includes email and `emulationBlocked`), never to be
-reused for anything a regular user can reach. Writes go through
-`/api/directory` (PATCH roles / emulationBlocked, DELETE), which re-checks
+reused for anything a regular user can reach. Reads (GET, for the dock's
+Manage users modal) and writes go through `/api/directory` (PATCH roles /
+emulationBlocked, DELETE), which re-checks
 admin/dev, refuses emulation, and never lets you change your own roles or
 delete yourself. Creating accounts still uses Payload's `/api/users` via
-`NewUserModal`, now opened from this page (the account menu links here as
-"Manage users").
+`NewUserModal`, opened from the directory — on this page or in the dock's
+Manage users modal, which renders the same `UsersDirectory`.
 
 **Profiles (`/u/<username>`):** every user has a `username` handle on the
 `users` collection, and `/u/<handle>` is their profile + settings page (in the
 `(hub)` group, so it is available from every app). `/u/me` resolves to your
-own. The session bar (2026-09: one 46px line — `◈ Apps / <app name ⌄>` on the
-left, where the app's name is the switcher, and an avatar **account menu** on
-the right; both are `ShellMenu` popovers, `.shm-*` in shell.css) holds
-Settings, Profile, Sign out and, for admin/dev, View-as + New user. "Settings"
+own. The dock's avatar **account menu** (a `ShellMenu`
+popover, `.shm-*` in shell.css) holds Settings, Profile and Sign out. "Settings"
 opens `SettingsModal` (shared chrome: preferences like the theme, plus a link to
 the profile page); identity and passkeys stay on `/u/<handle>` because they
 need real URLs and server checks.
@@ -674,6 +717,28 @@ no trace on the record.
 - Sends fail while `RESEND_FROM_ADDRESS` is the `onboarding@resend.dev`
   sandbox — Resend only delivers those to the account owner. Resend's own
   wording is surfaced verbatim in the modal.
+
+**Sending for signature — DocuSign (2026-10-27):** "Send for signature" sits
+beside ✉ Email on the letter's action bar, on **`/hiring` only**: the two hiring
+pages compose `<SignatureProvider configured={Boolean(env.DOCUSIGN)}>`, the
+offers pages do not, and without a provider the button does not render.
+
+- Only a FINAL letter goes out: pushed to HR AND sent by someone who may issue
+  (`letterIsOfficial`). The button is disabled until then; the modal also
+  refuses a letter stamped by its own Watermark tick (it does not strip the
+  stamp — the record's config stays the one source of truth); and
+  `/api/offer-signature` re-checks against the record as the server reads it.
+  Tier `'never'` under emulation, like email.
+- The PDF is the browser render (`letterToPdf`), which also returns `signAt`:
+  where the acceptance line (`p.ack + table`) landed, in points. A rasterised
+  PDF has no text, so DocuSign anchor tabs cannot work — the sign-here and
+  date tabs are placed by those coordinates (`src/lib/docusign/build.ts`,
+  tested; `readPlacement` is the server's sanity gate on them).
+- One signer, the candidate; DocuSign emails them the link. A sent envelope
+  writes a `signature-sent` event (Letters filter). Envelope status is not
+  tracked back yet — there is no DocuSign Connect webhook.
+- Auth is JWT Grant (`src/lib/docusign/auth.ts`); `/api/docusign/consent` is
+  the one-time consent link and `/api/docusign/callback` proves a token works.
 
 **Fitting the letter on one page (2026-09-27):** every path that puts the
 letter on paper asks `src/lib/offers/letter-fit.ts` for a density first. It is

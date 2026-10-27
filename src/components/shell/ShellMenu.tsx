@@ -1,8 +1,9 @@
 'use client'
 
-// One small dark popover for the session bar. The app switcher and the account
-// menu are both instances of it, so the two halves of the bar open, move and
-// close the same way.
+// One small dark popover for the dock (SessionBar). The app launcher, view-as
+// and the account menu are all instances of it, so they open, move and close
+// the same way. The dock sits at the BOTTOM of the window, so panels open
+// UPWARD (shell.css).
 //
 //  - Click toggles; outside click, Escape (focus returns to the trigger) and
 //    tabbing out all close it.
@@ -19,8 +20,9 @@ import { ChevronDown } from 'lucide-react'
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 export interface ShellMenuProps {
-  /** Contents of the trigger button; a chevron is appended automatically. */
+  /** Contents of the trigger button; a chevron is appended unless `chevron` is false. */
   trigger: React.ReactNode
+  chevron?: boolean
   triggerClassName: string
   /** A short hint shown as the trigger's tooltip ("Switch app"). */
   triggerTitle?: string
@@ -38,6 +40,7 @@ const ITEM = '[data-shm-item]'
 
 export default function ShellMenu({
   trigger,
+  chevron = true,
   triggerClassName,
   triggerTitle,
   align = 'start',
@@ -140,7 +143,9 @@ export default function ShellMenu({
         onKeyDown={onTriggerKeyDown}
       >
         {trigger}
-        <ChevronDown className="shm-chev" size={14} strokeWidth={2} aria-hidden="true" />
+        {chevron ? (
+          <ChevronDown className="shm-chev" size={14} strokeWidth={2} aria-hidden="true" />
+        ) : null}
       </button>
       <div
         ref={panelRef}

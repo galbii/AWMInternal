@@ -36,7 +36,7 @@ export interface PushState {
 export interface PushApi {
   /** False until the first fetch resolves. */
   ready: boolean
-  /** This viewer may hand requests to HR. */
+  /** This viewer may hand requests to HR — and this door offers it (`allowPush`). */
   canPush: boolean
   /** This viewer may pull one back (HR only). */
   canReturn: boolean
@@ -82,7 +82,20 @@ interface Loaded {
   byOffer: Record<string, PushState>
 }
 
-export function PushProvider({ children }: { children: React.ReactNode }) {
+/**
+ * `allowPush` is how a door's COMPOSITION decides whether it offers the
+ * handoff: only the `hiring` pages pass it, so HR's /offers never shows Push
+ * to HR (it is the hiring manager's action). It can only take the button
+ * away — the server's `canPush` still has to agree — and it is a UX choice,
+ * not a permission: /api/offer-push is unchanged.
+ */
+export function PushProvider({
+  children,
+  allowPush = false,
+}: {
+  children: React.ReactNode
+  allowPush?: boolean
+}) {
   const viewer = useViewer()
   // Seeded from membership so the first paint already stamps correctly; the
   // fetch confirms it (and is the value the server actually enforces).
@@ -102,7 +115,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return
       const data = (await res.json()) as Loaded
       setState({
-        canPush: Boolean(data.canPush),
+        canPush: allowPush && Boolean(data.canPush),
         canReturn: Boolean(data.canReturn),
         mayIssueFinal: Boolean(data.mayIssueFinal),
         byOffer: data.byOffer && typeof data.byOffer === 'object' ? data.byOffer : {},
@@ -112,7 +125,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setReady(true)
     }
-  }, [])
+  }, [allowPush])
 
   useEffect(() => {
     void refresh()

@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 
 import { useOffers } from '@/components/offers/OffersProvider'
 import { usePush } from '@/components/offers/PushProvider'
+import { useSignature } from '@/components/offers/SignatureProvider'
 import { backLabel } from '@/components/offers/view-labels'
 import { STAMP_TEXT } from '@/lib/offers/official'
 import { esc, safeFileBase } from '@/lib/offers/format'
@@ -232,6 +233,7 @@ export default function LetterView({
   const push = usePush()
   const official = rec ? push.isOfficial(rec.id) : false
   const stamped = rec ? push.whyStamped(rec.id) : null
+  const signature = useSignature()
 
   const [L, setL] = useState<LetterConfig | null>(null)
   const [contentKey, setContentKey] = useState(0)
@@ -773,6 +775,24 @@ export default function LetterView({
         >
           ✉ Email
         </button>
+        {/* DocuSign — only where a door composes SignatureProvider (/hiring).
+            Disabled, and says why, until the letter is final. */}
+        {signature.available ? (
+          <button
+            type="button"
+            className="btn-light la-btn"
+            id="letterSign"
+            disabled={!official}
+            title={
+              stamped
+                ? STAMP_TEXT[stamped] + ' Only a final letter can go out for signature.'
+                : 'Send this letter to the candidate to sign with DocuSign'
+            }
+            onClick={() => signature.open(rec.id)}
+          >
+            Send for signature
+          </button>
+        ) : null}
       </div>
 
       {standalone ? null : (

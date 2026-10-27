@@ -24,6 +24,7 @@ import {
   chooseFit,
   withLetterFitStage,
 } from '@/lib/offers/letter-fit'
+import type { SignaturePlacement } from '@/lib/docusign/build'
 import type { LetterRenderOpts, OfferRecord } from '@/lib/offers/types'
 
 type PdfDoc = {
@@ -95,6 +96,13 @@ export type LetterPdf = {
   typePt: number
   /** The letter overflowed even at the tightest readable density. */
   atFloor: boolean
+  /**
+   * Where the candidate's acceptance line landed, in points from the page's
+   * top-left — what DocuSign places its sign-here and date tabs on, because a
+   * rasterised PDF has no text for an anchor tab to find. null when the letter
+   * has no acceptance line.
+   */
+  signAt: SignaturePlacement | null
 }
 
 // S3 688–715
@@ -115,6 +123,20 @@ export async function letterToPdf(
   return withLetterFitStage(body, async ({ el, apply, measure }) => {
     const fit = await chooseFit(measure)
     apply(fit.step)
+
+    // The acceptance line is the table right after the `.ack` paragraph
+    // (letter.ts): name cell, a spacer, the Date cell. Its top border IS the
+    // rule. Measured in CSS px from the stage, before rasterising.
+    const ackRow = el.querySelector<HTMLTableElement>('p.ack + table')?.rows[0]
+    const sigCss =
+      ackRow && ackRow.cells.length >= 3
+        ? (() => {
+            const top = el.getBoundingClientRect()
+            const name = ackRow.cells[0].getBoundingClientRect()
+            const date = ackRow.cells[2].getBoundingClientRect()
+            return { x: name.left - top.left, y: name.top - top.top, dateX: date.left - top.left }
+          })()
+        : null
 
     const html2canvas = (await import('html2canvas')).default
     const canvas = await html2canvas(el, {
@@ -174,6 +196,11 @@ export async function letterToPdf(
       return target
     }
 
+    // CSS px on the stage -> canvas px, so the line can be found in a slice.
+    const cssToCanvas = cw / fit.step.widthPx
+    const sigY = sigCss ? sigCss.y * cssToCanvas : -1
+    let signAt: SignaturePlacement | null = null
+
     let y = 0,
       page = 0
     while (y < ch) {
@@ -199,6 +226,14 @@ export async function letterToPdf(
       doc.addImage(img, 'JPEG', mL, mT, contentW, sh / pxPerPt)
       if (wm && wm.on) drawWatermark(doc, pageW, pageH, wm.text, makeGState)
       drawLetterFooter(doc, pageW, pageH)
+      if (sigCss && sigY >= y && sigY < y + sh) {
+        signAt = {
+          page: page + 1,
+          x: mL + (sigCss.x * cssToCanvas) / pxPerPt,
+          y: mT + (sigY - y) / pxPerPt,
+          dateX: mL + (sigCss.dateX * cssToCanvas) / pxPerPt,
+        }
+      }
       y += sh
       page++
     }
@@ -208,6 +243,7 @@ export async function letterToPdf(
       pages: Math.max(1, page),
       typePt: fit.step.typePt,
       atFloor: fit.atFloor,
+      signAt,
     }
   })
 }

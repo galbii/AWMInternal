@@ -51,7 +51,7 @@ export default async function ApplyPage(): Promise<React.JSX.Element> {
 
   return (
     <div className="apply">
-      <div className="session-bar apply-bar">
+      <div className="apply-bar">
         <Image className="apply-mark" src="/brand/awm-logo.png" alt="" width={28} height={28} />
         <span className="apply-brand">All Western Mortgage</span>
         <span className="sb-spacer" />

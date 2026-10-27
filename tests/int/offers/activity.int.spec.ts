@@ -30,6 +30,7 @@ describe('activity filters', () => {
         'note',
         'pushed-to-hr',
         'returned-to-hiring',
+        'signature-sent',
         'stage-change',
         'unassigned',
       ].sort(),

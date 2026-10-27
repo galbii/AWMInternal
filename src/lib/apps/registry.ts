@@ -25,6 +25,9 @@ import type { Role } from '@/access/roles'
 
 export type AppStatus = 'live' | 'beta' | 'planned'
 
+/** The icon names AppIcon knows. Strings, so this file stays server-safe. */
+export type AppIconName = 'user-plus' | 'file-text' | 'network' | 'users'
+
 export interface AppDef {
   /** Stable slug — used by requireApp(), stored in `users.apps`, and the React key. Never reuse. */
   id: string
@@ -36,8 +39,9 @@ export interface AppDef {
   description: string
   /** Where the app lives. Its route group must serve this path. */
   href: string
-  /** Emoji shown on the card. Keep it one glyph. */
-  icon: string
+  /** Line icon for the card, the dock and the launcher — a key of APP_ICONS in
+      src/components/shell/AppIcon.tsx. Add a name there to use a new glyph. */
+  icon: AppIconName
   /**
    * Set this and the app is ROLE-GATED: a user needs at least ONE of the
    * listed roles, and membership cannot grant it. Omit it and the app is
@@ -63,7 +67,7 @@ export const APPS: AppDef[] = [
     description:
       'Raise and track new-hire requests, preview the offer, and push it to HR when it is ready.',
     href: '/hiring',
-    icon: '🧑‍💼',
+    icon: 'user-plus',
     status: 'live',
     group: 'People',
   },
@@ -74,7 +78,7 @@ export const APPS: AppDef[] = [
     description:
       'HR: issue final offer letters for requests pushed by hiring managers, and run the pipeline to hired.',
     href: '/offers',
-    icon: '📄',
+    icon: 'file-text',
     status: 'live',
     group: 'People',
   },
@@ -85,7 +89,7 @@ export const APPS: AppDef[] = [
     description:
       'Divisions → Regions → Areas → Branches — org structure, branch rosters, and production analytics.',
     href: '/kern',
-    icon: '🏢',
+    icon: 'network',
     status: 'beta',
     group: 'Operations',
   },
@@ -95,7 +99,7 @@ export const APPS: AppDef[] = [
     short: 'Users',
     description: 'Accounts, roles and access for everyone who signs in to AWM Internal.',
     href: '/users',
-    icon: '👥',
+    icon: 'users',
     status: 'live',
     group: 'Administration',
     roles: ['admin', 'dev'],

@@ -42,6 +42,7 @@ export const KIND_LABEL: Record<string, string> = {
   'stage-change': 'Stage',
   'letter-updated': 'Letter',
   'email-sent': 'Emailed',
+  'signature-sent': 'DocuSign',
   note: 'Note',
   'pushed-to-hr': 'Pushed to HR',
   'returned-to-hiring': 'Returned',
@@ -67,7 +68,7 @@ const FILTER_KINDS: Record<Exclude<ActivityFilter, 'all'>, string[]> = {
   edits: ['created', 'field-edit', 'deleted'],
   stage: ['stage-change'],
   people: ['assigned', 'unassigned', 'assignment-role-change'],
-  letter: ['letter-updated', 'email-sent'],
+  letter: ['letter-updated', 'email-sent', 'signature-sent'],
   handoff: ['pushed-to-hr', 'returned-to-hiring'],
   notes: ['note'],
 }

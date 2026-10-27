@@ -11,7 +11,9 @@ import React from 'react'
 import OfferDetail from '@/components/offers/detail/OfferDetail'
 import { OffersProvider } from '@/components/offers/OffersProvider'
 import { PushProvider } from '@/components/offers/PushProvider'
+import { SignatureProvider } from '@/components/offers/SignatureProvider'
 import { getViewer } from '@/lib/auth/viewer'
+import { env } from '@/lib/env'
 import { toOfferRecord } from '@/lib/offers/payload-doc'
 
 export const dynamic = 'force-dynamic'
@@ -36,12 +38,14 @@ export default async function HiringDetailPage({ params }: { params: Promise<{ i
 
   return (
     <OffersProvider standalone initialRecords={[record]} initialCurrentId={record.id}>
-      <PushProvider>
-        <OfferDetail
-          recordId={record.id}
-          name={record.data.employeeName || 'Offer letter'}
-          readOnly={v.isEmulating && !v.isActing}
-        />
+      <PushProvider allowPush>
+        <SignatureProvider configured={Boolean(env.DOCUSIGN)}>
+          <OfferDetail
+            recordId={record.id}
+            name={record.data.employeeName || 'Offer letter'}
+            readOnly={v.isEmulating && !v.isActing}
+          />
+        </SignatureProvider>
       </PushProvider>
     </OffersProvider>
   )

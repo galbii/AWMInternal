@@ -12,6 +12,11 @@
 // as that person — this admin screen has nothing to show while emulating.
 //
 // `canManage` is false while emulating: rows still render, actions do not.
+//
+// It has two hosts: the /users page and the dock's Manage users modal, which
+// opens in EVERY app. That is why its styles travel with it (users-directory.css)
+// instead of living in the Users app's own sheet. `embedded` drops the page
+// heading, which the modal supplies itself.
 
 import Link from 'next/link'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -25,11 +30,15 @@ import type { DirectoryUser } from '@/lib/users/directory'
 import { initialsOf } from '@/lib/users/initials'
 import { rememberViewAs } from '@/lib/users/view-as-recent'
 
+import './users-directory.css'
+
 interface UsersDirectoryProps {
   rows: DirectoryUser[]
   /** The ACTOR's id — the row that is "You", which cannot be demoted or deleted here. */
   me: string
   canManage: boolean
+  /** Rendered inside the Manage users modal: no page heading of its own. */
+  embedded?: boolean
 }
 
 type RoleFilter = 'all' | 'admins' | 'users'
@@ -70,7 +79,12 @@ async function readMessage(res: Response, fallback: string): Promise<string> {
   return text && text.length <= 200 && !text.startsWith('<') ? text : fallback
 }
 
-export default function UsersDirectory({ rows: initial, me, canManage }: UsersDirectoryProps) {
+export default function UsersDirectory({
+  rows: initial,
+  me,
+  canManage,
+  embedded = false,
+}: UsersDirectoryProps) {
   const [rows, setRows] = useState<DirectoryUser[]>(initial)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<RoleFilter>('all')
@@ -202,14 +216,18 @@ export default function UsersDirectory({ rows: initial, me, canManage }: UsersDi
   const menuFor = menu ? rows.find((r) => r.id === menu.id) : undefined
 
   return (
-    <div className="us">
+    <div className={embedded ? 'us us-embedded' : 'us'}>
       <header className="us-head">
-        <div>
-          <h1>Users</h1>
-          <p className="us-blurb">
-            Everyone who can sign in to AWM Internal, and what they can do.
-          </p>
-        </div>
+        {embedded ? (
+          <p className="us-blurb">Everyone who can sign in, and what they can do.</p>
+        ) : (
+          <div>
+            <h1>Users</h1>
+            <p className="us-blurb">
+              Everyone who can sign in to AWM Internal, and what they can do.
+            </p>
+          </div>
+        )}
         {canManage ? (
           <button type="button" className="us-btn-primary" onClick={() => setNewOpen(true)}>
             New user
@@ -299,7 +317,7 @@ export default function UsersDirectory({ rows: initial, me, canManage }: UsersDi
                   <td>
                     <div className="us-roles">
                       {ROLE_ORDER.filter((r) => u.roles.includes(r)).map((r) => (
-                        <span className="profile-role" key={r}>
+                        <span className="us-role" key={r}>
                           {ROLE_LABEL[r]}
                         </span>
                       ))}
@@ -317,7 +335,7 @@ export default function UsersDirectory({ rows: initial, me, canManage }: UsersDi
                         </span>
                       ) : (
                         MEMBER_APPS.filter((a) => u.apps.includes(a.id)).map((a) => (
-                          <span className="profile-role" key={a.id} title={a.name}>
+                          <span className="us-role" key={a.id} title={a.name}>
                             {a.short}
                           </span>
                         ))

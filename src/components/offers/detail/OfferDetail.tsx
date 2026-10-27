@@ -223,18 +223,28 @@ export default function OfferDetail({
     const foot = footRef.current
     if (!root || !bar || !foot) return
     const apply = (): void => {
-      // --od-top is whatever sits above this page (the session bar), so the
+      // --od-top is whatever sits above this page (0 since the dock moved to
+      // the bottom; the dock itself is --dock-h in CSS), so the
       // letter pane can fill the viewport exactly at scroll 0.
       root.style.setProperty('--od-top', root.offsetTop + 'px')
       root.style.setProperty('--od-bar-h', bar.offsetHeight + 'px')
       root.style.setProperty('--od-foot-h', foot.offsetHeight + 'px')
+      // The footer is pinned bottom chrome, so the minimized dock's handle
+      // rides above it (`data-dock-lift`, shell.css) instead of under it.
+      document.documentElement.style.setProperty('--dock-lift', foot.offsetHeight + 'px')
     }
     apply()
-    if (typeof ResizeObserver === 'undefined') return
+    const clearLift = (): void => {
+      document.documentElement.style.removeProperty('--dock-lift')
+    }
+    if (typeof ResizeObserver === 'undefined') return clearLift
     const ro = new ResizeObserver(apply)
     ro.observe(bar)
     ro.observe(foot)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      clearLift()
+    }
   }, [])
 
   // A 1px sentinel above the bar: once it scrolls out, the bar is pinned and
@@ -526,7 +536,11 @@ export default function OfferDetail({
         />
       </div>
 
-      <footer className={readOnly ? 'od-foot od-foot-locked' : 'od-foot'} ref={footRef}>
+      <footer
+        className={readOnly ? 'od-foot od-foot-locked' : 'od-foot'}
+        ref={footRef}
+        data-dock-lift
+      >
         <div className="od-foot-in" id={FOOT_SLOT_ID} />
       </footer>
     </div>

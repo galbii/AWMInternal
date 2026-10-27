@@ -29,7 +29,7 @@ import type { OfferRecord } from '@/lib/offers/types'
  * btoa() takes a binary STRING, and spreading a megabyte of bytes into
  * String.fromCharCode in one call overflows the argument stack. Chunk it.
  */
-function toBase64(bytes: Uint8Array): string {
+export function toBase64(bytes: Uint8Array): string {
   const CHUNK = 0x8000
   let binary = ''
   for (let i = 0; i < bytes.length; i += CHUNK) {

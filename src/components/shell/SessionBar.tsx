@@ -1,57 +1,70 @@
 'use client'
 
-// Slim session strip above every app's shell. 2026-09: two quiet clusters —
-// the app breadcrumb on the left (AppShell passes it in as `leading`) and ONE
-// account menu on the right: avatar, name, chevron, opening a dark popover
-// that holds Settings, Profile and Sign out, plus — for admins/devs — "view
-// as" emulation and a link to the Users app (/users, where accounts are
-// created and managed). No outlined buttons live in the bar.
+// THE DOCK (2026-10) — the one bar of chrome, pinned to the BOTTOM of every
+// app. It replaced the blue strip that sat at the top. Frosted glass on the
+// brand navy, three clusters on one 56px line:
 //
-// "View as" lives in the SAME bar, not a second banner: the strip and the
-// avatar turn amber, the label reads "Viewing as <user>", and an inline Exit
-// pill sits beside it. A thin fixed frame keeps the whole window visibly
-// marked while the app is read-only (writes are rejected server-side).
+//   left    the logo (home) and the name of where you are
+//   centre  quick links — Home plus every app you may open — and a launcher
+//           that opens the same apps as a grid
+//   right   for admins/devs: "View as"; then the account menu (avatar →
+//           Settings, Profile, Sign out)
 //
-// While emulating, a "Switch" pill joins that amber cluster (ViewAsList.tsx):
-// hopping from one person to the next used to mean exiting, waiting for a
-// reload, reopening this menu and picking again. It is gated on the ACTOR's
-// role, NOT on `adminTools` — the rest of the admin block stays hidden so the
-// emulated session still looks like the target's own UI, but the emulation
-// chrome itself has always been actor-only, exactly like the Exit pill.
+// The Users app is the one quick link that does not navigate: for an admin it
+// opens ManageUsersModal over the current app instead (except on /users
+// itself, where the page already is the directory).
 //
-// The bar GETS OUT OF THE WAY on its own (2026-09-29, replacing the fold
-// chevron and its awm-bar cookie): it is `position:sticky`, shown at the top
-// of the page, and slides up once you scroll past it. Sliding is a TRANSFORM,
-// so the bar keeps its 46px of flow space at the document's top and nothing
-// below it ever reflows — `--od-top` and the apps' own sticky offsets stay
-// true. It comes back when the pointer reaches the top edge of the window.
+// It MINIMIZES itself: a second after the pointer leaves, it slides down to a
+// slim handle (`.sb-min`), and comes back the moment the pointer reaches the
+// handle. An open menu or keyboard focus keeps it out, and a touch screen —
+// which has no hover to bring it back — never minimizes it. `--dock-h`
+// follows (shell.css), so whatever an app pins above it moves with it.
 //
-// Three rules keep it from vanishing mid-use, two of them in CSS so this
-// component never has to know a menu is open:
-//   - `.session-bar:has(.shm.open)` — a popover is hanging BELOW the bar, so
-//     the pointer has left the peek zone but the bar must stay put.
-//   - `:focus-within` — the same thing for keyboard users.
-//   - the peek zone is 56px while the bar is out (its own height, so the
-//     pointer can rest on it) and 6px while it is away (so it does not pop
-//     open at the slightest drift).
-// Without a hover-capable pointer there is no peek zone at all, so a touch
-// screen gets the familiar rule instead: scrolling UP brings it back.
+// The apps come from AppShell, which reads the registry, so a new app shows up
+// here with no change to this file. The bar is position:fixed and AppShell
+// reserves its height (.sb-room), so nothing scrolls under it unreachably;
+// anything else pinned to the bottom of an app sits on `--dock-h`.
+//
+// "View as" lives in the SAME bar, not a second banner: the dock and the
+// avatar turn amber (crimson while ACTING), the label reads "Viewing as
+// <user>", and an inline Exit pill sits beside it. A thin fixed frame keeps
+// the whole window visibly marked while the app is read-only (writes are
+// rejected server-side).
+//
+// While emulating, a "Switch" pill joins that cluster (ViewAsList.tsx): it is
+// gated on the ACTOR's role, NOT on `adminTools` — the rest of the admin block
+// stays hidden so the emulated session still looks like the target's own UI,
+// but the emulation chrome itself has always been actor-only, exactly like the
+// Exit pill.
 //
 // Identity settings (name, username, passkeys) live on /u/<username>; the
 // settings modal links there rather than duplicating them.
 
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, Home, LayoutGrid } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+import type { AppIconName } from '@/lib/apps/registry'
 import { initialsOf } from '@/lib/users/initials'
 
+import AppIcon from './AppIcon'
+import ManageUsersModal from './ManageUsersModal'
 import SettingsModal from './SettingsModal'
 import ShellMenu from './ShellMenu'
 import ViewAsList, { type ViewAsPerson } from './ViewAsList'
 
 /** The picker owns the shape; AppShell still imports the name from here. */
 export type SessionUserOption = ViewAsPerson
+
+/** One app in the dock — the registry fields it draws, nothing more. */
+export interface DockApp {
+  id: string
+  name: string
+  short: string
+  href: string
+  icon: AppIconName
+}
 
 interface SessionBarProps {
   actorLabel: string
@@ -73,20 +86,16 @@ interface SessionBarProps {
    * account has no username yet.
    */
   profileHref: string
-  /** Optional content rendered first inside the bar (AppShell's app switcher). */
-  leading?: React.ReactNode
+  /** The apps the ACTOR may open, in registry order (AppShell). */
+  apps: DockApp[]
+  /** Registry id of the app on screen; undefined on the hub. */
+  currentAppId?: string
 }
 
-/** How far down the page counts as "still at the top". */
-const AT_TOP = 6
-/** Pointer distance from the top edge that shows the bar / keeps it out. */
-const PEEK_AWAY = 6
-const PEEK_OUT = 56
+/** How long the pointer must be away before the dock minimizes. */
+const MINIMIZE_DELAY = 1000
 
-async function postEmulate(
-  userId: string | null,
-  mode: 'view' | 'act' = 'view',
-): Promise<boolean> {
+async function postEmulate(userId: string | null, mode: 'view' | 'act' = 'view'): Promise<boolean> {
   try {
     const res = await fetch('/api/emulate', {
       method: 'POST',
@@ -111,60 +120,44 @@ export default function SessionBar({
   viewerId,
   users,
   profileHref,
-  leading,
+  apps,
+  currentAppId,
 }: SessionBarProps): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Slid out of sight. The ref mirrors it so the listeners below can read the
-  // current value without re-subscribing, and only re-render on a real flip.
-  const [away, setAway] = useState(false)
-  const awayRef = useRef(false)
+  const [usersOpen, setUsersOpen] = useState(false)
 
-  useEffect(() => {
-    const hoverable = window.matchMedia('(hover:hover)').matches
-    let nearTop = false
-    let lastY = window.scrollY
-    // Touch only: a scroll UP pins the bar until the next scroll down.
-    let pinned = false
-    let frame = 0
+  const navRef = useRef<HTMLElement>(null)
+  const minTimer = useRef<number | undefined>(undefined)
+  const [min, setMin] = useState(false)
 
-    const evaluate = (): void => {
-      frame = 0
-      const next = window.scrollY > AT_TOP && !nearTop && !pinned
-      if (next === awayRef.current) return
-      awayRef.current = next
-      setAway(next)
-    }
-    const schedule = (): void => {
-      if (!frame) frame = requestAnimationFrame(evaluate)
-    }
-
-    const onScroll = (): void => {
-      const y = window.scrollY
-      if (!hoverable) {
-        if (y < lastY - 6) pinned = true
-        else if (y > lastY + 6) pinned = false
-      }
-      lastY = y
-      schedule()
-    }
-    const onMove = (e: PointerEvent): void => {
-      const next = e.clientY <= (awayRef.current ? PEEK_AWAY : PEEK_OUT)
-      if (next === nearTop) return
-      nearTop = next
-      schedule()
-    }
-
-    evaluate()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    if (hoverable) window.addEventListener('pointermove', onMove, { passive: true })
-    return () => {
-      if (frame) cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('pointermove', onMove)
-    }
+  const expand = useCallback((): void => {
+    window.clearTimeout(minTimer.current)
+    setMin(false)
   }, [])
+
+  const scheduleMin = useCallback((): void => {
+    window.clearTimeout(minTimer.current)
+    // No hover means nothing could bring it back: touch screens keep it out.
+    if (!window.matchMedia('(hover: hover)').matches) return
+    const check = (): void => {
+      const nav = navRef.current
+      // Hovered, a menu open, or keyboard focus inside: look again later.
+      if (nav && (nav.matches(':hover') || nav.querySelector('.shm.open, :focus-visible'))) {
+        minTimer.current = window.setTimeout(check, MINIMIZE_DELAY)
+        return
+      }
+      setMin(true)
+    }
+    minTimer.current = window.setTimeout(check, MINIMIZE_DELAY)
+  }, [])
+
+  // Out on arrival, so you see where it lives; then it gets out of the way.
+  useEffect(() => {
+    scheduleMin()
+    return () => window.clearTimeout(minTimer.current)
+  }, [scheduleMin])
 
   const viewAs = async (userId: string, mode: 'view' | 'act' = 'view'): Promise<void> => {
     if (!userId || busy) return
@@ -212,216 +205,336 @@ export default function SessionBar({
   // the bar rather than the account menu — see the header comment.
   const canViewAs = canManage && users.length > 0
   const currentId = isEmulating ? viewerId : null
+  const here = apps.find((a) => a.id === currentAppId)
+  // The Users app opens as a modal from the dock — see the header comment.
+  const opensModal = (a: DockApp): boolean =>
+    a.id === 'users' && adminTools && currentAppId !== 'users'
 
   return (
     <>
       {isEmulating && (
         <div className={isActing ? 'emu-frame emu-frame-act' : 'emu-frame'} aria-hidden="true" />
       )}
-      <div
+      <nav
         className={[
           'session-bar',
           isEmulating ? 'emulating' : '',
           isActing ? 'acting' : '',
-          away ? 'sb-away' : '',
+          min ? 'sb-min' : '',
         ]
           .filter(Boolean)
           .join(' ')}
-        role="status"
+        aria-label="Dashboard"
+        ref={navRef}
+        onPointerEnter={expand}
+        onPointerLeave={scheduleMin}
+        onFocus={expand}
+        onBlur={scheduleMin}
       >
-        {leading}
-        <span className="sb-spacer" />
-        {canViewAs ? (
+        {/* The minimized dock's handle — also the strip the pointer reaches to
+          bring it back. Purely visual; keyboard focus expands it on its own. */}
+        <span className="sb-handle" aria-hidden="true" />
+        <div className="sb-left">
+          {/* Crossing into the (hub) group is a full navigation, by design. */}
+          <Link className="sb-brand" href="/" title="All Western Mortgage — home">
+            <Image src="/brand/awm-logo.png" alt="All Western Mortgage" width={60} height={60} />
+          </Link>
+          <span className="sb-here">{here ? here.name : 'Home'}</span>
+        </div>
+
+        <div className="sb-dock">
+          <Link
+            className="sb-q"
+            href="/"
+            data-label="Home"
+            aria-label="Home"
+            aria-current={here ? undefined : 'page'}
+          >
+            <Home size={18} strokeWidth={1.75} aria-hidden="true" />
+          </Link>
+          {apps.map((a) =>
+            opensModal(a) ? (
+              <button
+                key={a.id}
+                type="button"
+                className="sb-q"
+                data-label={a.name}
+                aria-label={a.name}
+                aria-haspopup="dialog"
+                onClick={() => setUsersOpen(true)}
+              >
+                <AppIcon name={a.icon} />
+              </button>
+            ) : (
+              <Link
+                key={a.id}
+                className="sb-q"
+                href={a.href}
+                data-label={a.name}
+                aria-label={a.name}
+                aria-current={a.id === currentAppId ? 'page' : undefined}
+              >
+                <AppIcon name={a.icon} />
+              </Link>
+            ),
+          )}
+          <span className="sb-dock-sep" aria-hidden="true" />
           <ShellMenu
-            align="end"
-            triggerClassName="sb-viewas"
-            triggerTitle={
-              isEmulating ? 'View as someone else' : 'View the dashboard as someone else'
-            }
-            panelLabel={
-              isEmulating ? 'Switch the person you are viewing as' : 'View as another user'
-            }
+            chevron={false}
+            triggerClassName="sb-q sb-q-all"
+            triggerTitle="All apps"
+            panelLabel="All apps"
             trigger={
               <>
-                <ArrowLeftRight size={13} strokeWidth={2.5} aria-hidden="true" />
-                <span className="sb-viewas-label">{isEmulating ? 'Switch' : 'View as'}</span>
+                <LayoutGrid size={18} strokeWidth={1.75} aria-hidden="true" />
+                <span className="sr-only">All apps</span>
               </>
             }
           >
-            {(close, open) => (
+            {(close) => (
               <>
                 <div className="shm-head">
-                  <div className="shm-name">
-                    {isEmulating
-                      ? `${isActing ? 'Acting as' : 'Viewing as'} ${viewerLabel}`
-                      : 'View as'}
-                  </div>
-                  <div className="shm-sub">
-                    {isEmulating
-                      ? `Pick someone else — still signed in as ${actorLabel}.`
-                      : 'See the dashboard as someone else. Read-only.'}
-                  </div>
+                  <div className="shm-name">Apps</div>
                 </div>
-                <div className="shm-sep" role="separator" />
-                <ViewAsList
-                  people={users}
-                  currentId={currentId}
-                  disabled={busy}
-                  open={open}
-                  autoFocus
-                  onPick={(id) => {
-                    close()
-                    void viewAs(id)
-                  }}
-                />
-                {isEmulating ? (
-                  <>
-                    <div className="shm-sep" role="separator" />
-                    {/* Acting is refused for admins and developers. SAY SO
+                <div className="sb-launch">
+                  <Link
+                    className="sb-launch-item"
+                    href="/"
+                    data-shm-item
+                    aria-current={here ? undefined : 'page'}
+                  >
+                    <span className="sb-launch-icon">
+                      <Home size={20} strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    Home
+                  </Link>
+                  {apps.map((a) =>
+                    opensModal(a) ? (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className="sb-launch-item"
+                        data-shm-item
+                        title={a.name}
+                        aria-haspopup="dialog"
+                        onClick={() => {
+                          close()
+                          setUsersOpen(true)
+                        }}
+                      >
+                        <span className="sb-launch-icon">
+                          <AppIcon name={a.icon} size={20} />
+                        </span>
+                        {a.short}
+                      </button>
+                    ) : (
+                      <Link
+                        key={a.id}
+                        className="sb-launch-item"
+                        href={a.href}
+                        data-shm-item
+                        title={a.name}
+                        aria-current={a.id === currentAppId ? 'page' : undefined}
+                      >
+                        <span className="sb-launch-icon">
+                          <AppIcon name={a.icon} size={20} />
+                        </span>
+                        {a.short}
+                      </Link>
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+          </ShellMenu>
+        </div>
+
+        <div className="sb-right">
+          {canViewAs ? (
+            <ShellMenu
+              align="end"
+              triggerClassName="sb-viewas"
+              triggerTitle={
+                isEmulating ? 'View as someone else' : 'View the dashboard as someone else'
+              }
+              panelLabel={
+                isEmulating ? 'Switch the person you are viewing as' : 'View as another user'
+              }
+              trigger={
+                <>
+                  <ArrowLeftRight size={13} strokeWidth={2.5} aria-hidden="true" />
+                  <span className="sb-viewas-label">{isEmulating ? 'Switch' : 'View as'}</span>
+                </>
+              }
+            >
+              {(close, open) => (
+                <>
+                  <div className="shm-head">
+                    <div className="shm-name">
+                      {isEmulating
+                        ? `${isActing ? 'Acting as' : 'Viewing as'} ${viewerLabel}`
+                        : 'View as'}
+                    </div>
+                    <div className="shm-sub">
+                      {isEmulating
+                        ? `Pick someone else — still signed in as ${actorLabel}.`
+                        : 'See the dashboard as someone else. Read-only.'}
+                    </div>
+                  </div>
+                  <div className="shm-sep" role="separator" />
+                  <ViewAsList
+                    people={users}
+                    currentId={currentId}
+                    disabled={busy}
+                    open={open}
+                    autoFocus
+                    onPick={(id) => {
+                      close()
+                      void viewAs(id)
+                    }}
+                  />
+                  {isEmulating ? (
+                    <>
+                      <div className="shm-sep" role="separator" />
+                      {/* Acting is refused for admins and developers. SAY SO
                         rather than hiding the control — a missing option reads
                         as a broken feature, which is exactly how this landed
                         the first time. */}
-                    {canAct ? (
+                      {canAct ? (
+                        <button
+                          type="button"
+                          className="shm-item"
+                          data-shm-item
+                          disabled={busy}
+                          onClick={() => {
+                            close()
+                            void setMode(isActing ? 'view' : 'act')
+                          }}
+                        >
+                          {isActing ? 'Stop acting (back to read-only)' : `Act as ${viewerLabel}…`}
+                          <span className="shm-hint">
+                            {isActing
+                              ? 'Changes are recorded as you, in their seat.'
+                              : 'Make real changes as them. 15 minutes, fully audited.'}
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="shm-item shm-item-note" role="note">
+                          Acting as {viewerLabel} is not available
+                          <span className="shm-hint">
+                            You can only act as someone with fewer permissions than you — never
+                            another admin or developer. This session is read-only.
+                          </span>
+                        </div>
+                      )}
                       <button
                         type="button"
-                        className="shm-item"
+                        className="shm-item shm-item-quiet"
                         data-shm-item
                         disabled={busy}
                         onClick={() => {
                           close()
-                          void setMode(isActing ? 'view' : 'act')
+                          void exitViewAs()
                         }}
                       >
-                        {isActing ? 'Stop acting (back to read-only)' : `Act as ${viewerLabel}…`}
-                        <span className="shm-hint">
-                          {isActing
-                            ? 'Changes are recorded as you, in their seat.'
-                            : 'Make real changes as them. 15 minutes, fully audited.'}
-                        </span>
+                        Stop viewing as
                       </button>
-                    ) : (
-                      <div className="shm-item shm-item-note" role="note">
-                        Acting as {viewerLabel} is not available
-                        <span className="shm-hint">
-                          You can only act as someone with fewer permissions than
-                          you — never another admin or developer. This session is
-                          read-only.
-                        </span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className="shm-item shm-item-quiet"
-                      data-shm-item
-                      disabled={busy}
-                      onClick={() => {
-                        close()
-                        void exitViewAs()
-                      }}
-                    >
-                      Stop viewing as
-                    </button>
-                  </>
-                ) : null}
+                    </>
+                  ) : null}
+                </>
+              )}
+            </ShellMenu>
+          ) : null}
+          <ShellMenu
+            align="end"
+            triggerClassName="sb-account"
+            triggerTitle={isEmulating ? 'Viewing as another user' : 'Account'}
+            panelLabel="Account"
+            trigger={
+              isEmulating ? (
+                <>
+                  <span className="sb-avatar sb-avatar-emu" aria-hidden="true">
+                    {initialsOf(viewerLabel)}
+                  </span>
+                  <span className="sb-user">
+                    <span className="sr-only">Signed in as {actorLabel}. </span>
+                    <span className="sb-mode">Viewing as</span>
+                    <strong>{viewerLabel}</strong>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="sb-avatar" aria-hidden="true">
+                    {initialsOf(actorLabel)}
+                  </span>
+                  {/* The visually hidden lead-in keeps the trigger's accessible
+                    name a sentence, and the e2e suite's "Signed in as" check. */}
+                  <span className="sb-user">
+                    <span className="sr-only">Signed in as </span>
+                    <strong>{actorLabel}</strong>
+                  </span>
+                </>
+              )
+            }
+          >
+            {(close) => (
+              <>
+                {isEmulating ? (
+                  <div className="shm-head">
+                    <div className="shm-name">Viewing as {viewerLabel}</div>
+                    <div className="shm-sub">Read-only. You are signed in as {actorLabel}.</div>
+                  </div>
+                ) : (
+                  <div className="shm-head">
+                    <div className="shm-name">{actorLabel}</div>
+                    {showEmail ? <div className="shm-sub">{actorEmail}</div> : null}
+                  </div>
+                )}
+                <div className="shm-sep" role="separator" />
+                <button
+                  type="button"
+                  className="shm-item"
+                  data-shm-item
+                  onClick={() => {
+                    close()
+                    setSettingsOpen(true)
+                  }}
+                >
+                  Settings
+                </button>
+                {/* Crossing into the (hub) group is a full navigation, by design. */}
+                <Link href={profileHref} className="shm-item" data-shm-item>
+                  Profile
+                </Link>
+
+                <div className="shm-sep" role="separator" />
+                <button
+                  type="button"
+                  className="shm-item shm-item-quiet"
+                  data-shm-item
+                  disabled={busy}
+                  onClick={() => void signOut()}
+                >
+                  Sign out
+                </button>
               </>
             )}
           </ShellMenu>
-        ) : null}
-        <ShellMenu
-          align="end"
-          triggerClassName="sb-account"
-          triggerTitle={isEmulating ? 'Viewing as another user' : 'Account'}
-          panelLabel="Account"
-          trigger={
-            isEmulating ? (
-              <>
-                <span className="sb-avatar sb-avatar-emu" aria-hidden="true">
-                  {initialsOf(viewerLabel)}
-                </span>
-                <span className="sb-user">
-                  <span className="sr-only">Signed in as {actorLabel}. </span>
-                  <span className="sb-mode">Viewing as</span>
-                  <strong>{viewerLabel}</strong>
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="sb-avatar" aria-hidden="true">
-                  {initialsOf(actorLabel)}
-                </span>
-                {/* The visually hidden lead-in keeps the trigger's accessible
-                    name a sentence, and the e2e suite's "Signed in as" check. */}
-                <span className="sb-user">
-                  <span className="sr-only">Signed in as </span>
-                  <strong>{actorLabel}</strong>
-                </span>
-              </>
-            )
-          }
-        >
-          {(close) => (
-            <>
-              {isEmulating ? (
-                <div className="shm-head">
-                  <div className="shm-name">Viewing as {viewerLabel}</div>
-                  <div className="shm-sub">Read-only. You are signed in as {actorLabel}.</div>
-                </div>
-              ) : (
-                <div className="shm-head">
-                  <div className="shm-name">{actorLabel}</div>
-                  {showEmail ? <div className="shm-sub">{actorEmail}</div> : null}
-                </div>
-              )}
-              <div className="shm-sep" role="separator" />
-              <button
-                type="button"
-                className="shm-item"
-                data-shm-item
-                onClick={() => {
-                  close()
-                  setSettingsOpen(true)
-                }}
-              >
-                Settings
-              </button>
-              {/* Crossing into the (hub) group is a full navigation, by design. */}
-              <Link href={profileHref} className="shm-item" data-shm-item>
-                Profile
-              </Link>
-
-              {adminTools ? (
-                <>
-                  <div className="shm-sep" role="separator" />
-                  <Link href="/users" className="shm-item" data-shm-item>
-                    Manage users
-                  </Link>
-                </>
-              ) : null}
-
-              <div className="shm-sep" role="separator" />
-              <button
-                type="button"
-                className="shm-item shm-item-quiet"
-                data-shm-item
-                disabled={busy}
-                onClick={() => void signOut()}
-              >
-                Sign out
-              </button>
-            </>
-          )}
-        </ShellMenu>
-        {isEmulating ? (
-          <button
-            type="button"
-            className="sb-exit"
-            onClick={() => void exitViewAs()}
-            disabled={busy}
-          >
-            Exit view-as
-          </button>
-        ) : null}
-      </div>
+          {isEmulating ? (
+            <button
+              type="button"
+              className="sb-exit"
+              onClick={() => void exitViewAs()}
+              disabled={busy}
+            >
+              Exit view-as
+            </button>
+          ) : null}
+        </div>
+      </nav>
+      {adminTools ? (
+        <ManageUsersModal open={usersOpen} onClose={() => setUsersOpen(false)} />
+      ) : null}
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

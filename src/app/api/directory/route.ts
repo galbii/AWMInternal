@@ -2,6 +2,8 @@
 // emulating — view-as is read-only everywhere. Every accepted field is copied
 // out by hand; the request body never reaches payload.update.
 //
+// GET    -> { rows, me }       the directory, for the Manage users modal the
+//        dock opens in every app (the /users page reads it server-side).
 // PATCH  { id, roles?, apps?, emulationBlocked? } -> { ok, user }
 //        roles: never on yourself (the same rule /api/profile enforces).
 //        apps: membership-managed app ids only, canonicalised by withApps.
@@ -17,7 +19,7 @@ import { withApps } from '@/lib/apps/membership'
 import { isMembershipApp } from '@/lib/apps/registry'
 import { blockEmulatedWrite, deny, getViewer, type Viewer } from '@/lib/auth/viewer'
 import type { User } from '@/payload-types'
-import { toDirectoryUser } from '@/lib/users/directory'
+import { listDirectory, toDirectoryUser } from '@/lib/users/directory'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +59,14 @@ function explain(err: unknown, v: Viewer, what: string): Response {
   const message = err instanceof Error ? err.message.trim() : ''
   const readable = message.length > 0 && message.length <= 160 && !message.includes('\n')
   return fail(400, readable ? message : 'That change could not be saved.')
+}
+
+export async function GET(): Promise<Response> {
+  const g = await gate()
+  if ('err' in g) return g.err
+  const { v } = g
+  const rows = await listDirectory(v.payload)
+  return Response.json({ rows, me: String(v.actor.id) })
 }
 
 export async function PATCH(request: Request): Promise<Response> {

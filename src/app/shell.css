@@ -1,8 +1,9 @@
 /* AWM Internal — SHARED SHELL STYLESHEET.
  *
  * Imported by EVERY app's root layout. Holds only what is common to all apps:
- * the design tokens, a minimal reset, the session bar, the "view as" emulation
- * chrome, the app switcher, and shared form/error styling.
+ * the design tokens, a minimal reset, the dock (the bottom session bar, its
+ * launcher and the Manage users modal), the "view as" emulation chrome, and
+ * shared form/error styling.
  *
  * Rules here must stay generic. Anything specific to one app belongs in that
  * app's own stylesheet. Note that (offers)/offers.css re-declares the same
@@ -21,93 +22,141 @@ html,body{margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   background:var(--bg);color:#1f2937;font-size:14px;line-height:1.45}
 
-/* ===== session bar / emulation chrome (moved out of offers.css) =====
- * The sign-in page has its own .signin-* styles in (hub)/hub.css; only
- * .login-error survives here because the user/new-user modals reuse it.
+/* ===== THE DOCK (SessionBar.tsx) / emulation chrome =====
  *
- * The bar is CHROME and stays the same in both themes: since 2026-09-21 it
- * is the BRAND BLUE (the logo's sampled #00629f) with white type, so it
- * stands apart from the white sidebar in light mode and the dark cards in
- * dark mode, and reads at a glance. Two quiet clusters on one 46px line —
- * the app breadcrumb on the left (the app's NAME is the switcher) and one
- * account menu on the right (avatar, name, chevron), with the "view as" pill
- * immediately left of it. Both menus open the same dark popover (.shm-*,
- * ShellMenu.tsx). No outlined buttons live in the bar.
+ * 2026-10: the one bar of chrome, FIXED to the bottom of the window in every
+ * app (it replaced the blue strip at the top). Frosted glass on the brand
+ * navy, the same in both themes — chrome, like the sign-in panel. Three
+ * clusters on one 56px line: the logo and where you are (left), quick links
+ * to Home and every app plus the launcher grid (centre), admin tools and the
+ * account menu (right). Its menus are .shm-* popovers that open UPWARD.
  *
- * It GETS OUT OF THE WAY on its own (2026-09-29, replacing the fold chevron):
- * sticky at the top of the document, slid up by a TRANSFORM once you scroll
- * past it — so it keeps its 46px of flow space and nothing below it reflows.
- * SessionBar.tsx owns when (.sb-away); the two :has()/:focus-within rules
- * below own the exceptions, so the component never learns a menu is open. */
-.session-bar{position:sticky;top:0;z-index:70;
-  display:flex;align-items:center;gap:10px;height:46px;padding:0 10px 0 10px;
-  background:linear-gradient(180deg,#0b76b8,#00629f);color:rgba(255,255,255,.8);
-  font-size:13.5px;border-bottom:1px solid rgba(2,20,33,.25);white-space:nowrap;
-  box-shadow:0 1px 0 rgba(255,255,255,.08) inset}
-.session-bar::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,rgba(255,255,255,.6),rgba(255,255,255,.22) 40%,rgba(255,255,255,0) 82%)}
-.sb-spacer{flex:1}
-
-/* ---- out of the way ----
- * Two exceptions outrank .sb-away. An OPEN POPOVER, because its panel hangs
- * BELOW the bar and the pointer has to be able to travel down into it without
- * the bar sliding out from under it. And KEYBOARD focus — `:has(:focus-visible)`,
- * not `:focus-within`: clicking the pill leaves focus on it, which would pin
- * the bar out for the rest of the session. A text field inside the panel
- * always counts as focus-visible, so typing in the filter holds it too. */
-.session-bar.sb-away{transform:translateY(-100%)}
-.session-bar.sb-away:has(.shm.open),.session-bar.sb-away:has(:focus-visible){transform:none}
+ * `--dock-h` exists only while a dock is on the page (:has), so a page
+ * without one (/apply, /login) gets 0. Anything else an app pins to the
+ * bottom of the window adds it: `bottom:var(--dock-h,0px)`. AppShell renders
+ * .sb-room at the end of the page so the last content scrolls clear of it.
+ *
+ * MINIMIZED (.sb-min, SessionBar decides when): the bar slides below the
+ * window and leaves a 14px strip with a handle; `--dock-h` drops to that
+ * strip, so pinned chrome sits above the handle rather than on it. The
+ * property is registered so it can transition — everything riding on it moves
+ * WITH the bar instead of jumping.
+ *
+ * A page with its OWN full-width bottom chrome (the /offers/[id] footer) opts
+ * in with `data-dock-lift` on that element and publishes its height as
+ * `--dock-lift` on <html>. Minimized, the dock then gives the bottom back
+ * entirely (--dock-h 0, the footer sits flush) and the handle floats above
+ * the footer instead of in a strip beneath it. Pages without it are unchanged. */
+@property --dock-h{syntax:'<length>';inherits:true;initial-value:0px}
+:root:has(.session-bar){--dock-h:56px}
+:root:has(.session-bar.sb-min){--dock-h:14px}
+:root:has(.session-bar.sb-min):has([data-dock-lift]){--dock-h:0px}
+.sb-room{height:var(--dock-h,0px);flex:0 0 auto}
+.session-bar{position:fixed;left:0;right:0;bottom:0;z-index:70;
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;
+  height:56px;padding:0 12px;
+  background:rgba(4,30,48,.72);color:rgba(232,242,250,.85);
+  -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+  border-top:1px solid rgba(255,255,255,.12);
+  box-shadow:0 -12px 32px -18px rgba(2,16,28,.55);
+  font-size:13.5px;white-space:nowrap}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-/* ---- left: ◈ Apps / <app name ⌄> ---- */
-.as-switcher{display:flex;align-items:center;gap:6px;min-width:0}
-.as-home{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:6px 8px;border-radius:7px;
-  color:rgba(255,255,255,.92);text-decoration:none;font-weight:600;letter-spacing:.01em;
-  transition:color .16s ease,background .16s ease}
-.as-glyph{color:#fff;font-size:13px;line-height:1}
-.as-home:hover{color:#fff;background:rgba(255,255,255,.14)}
-.as-home:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
-.as-sep{color:rgba(255,255,255,.4);flex:0 0 auto}
-.as-current{color:#fff;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:6px 4px}
-.as-app{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:min(46vw,420px);
-  padding:6px 7px 6px 8px;border-radius:7px;border:0;background:transparent;color:#fff;
-  font:inherit;font-weight:600;cursor:pointer;transition:background .16s ease}
-.as-app-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.as-app:hover,.as-app[aria-expanded='true']{background:rgba(255,255,255,.14)}
-.as-app:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.session-bar.sb-min{transform:translateY(100%);box-shadow:none}
+/* The handle: the strip above the bar, live only while minimized. */
+.sb-handle{position:absolute;left:0;right:0;bottom:100%;height:14px;display:grid;place-items:center;
+  opacity:0;pointer-events:none}
+.sb-handle::before{content:"";width:64px;height:5px;border-radius:99px;
+  background:rgba(4,30,48,.62);box-shadow:0 0 0 1px rgba(255,255,255,.22),0 2px 8px rgba(2,16,28,.3)}
+.sb-min .sb-handle{opacity:1;pointer-events:auto;cursor:pointer}
+:root:has([data-dock-lift]) .sb-min .sb-handle{bottom:calc(100% + var(--dock-lift,0px))}
+.sb-min.emulating .sb-handle::before{background:rgba(154,52,18,.86)}
+.sb-min.acting .sb-handle::before{background:rgba(136,19,55,.88)}
+@media (prefers-reduced-motion:no-preference){
+  :root{transition:--dock-h .26s cubic-bezier(.22,.68,.35,1)}
+  .session-bar{transition:transform .26s cubic-bezier(.22,.68,.35,1),box-shadow .26s ease}
+  .sb-handle{transition:opacity .2s ease}
+}
+
+/* ---- left: logo + where you are ---- */
+.sb-left{display:flex;align-items:center;gap:12px;min-width:0}
+.sb-brand{flex:0 0 auto;display:block;border-radius:8px;line-height:0}
+.sb-brand img{width:30px;height:30px;border-radius:8px;display:block}
+.sb-brand:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(92,195,239,.7)}
+.sb-here{min-width:0;overflow:hidden;text-overflow:ellipsis;color:#cfe3f1;font-weight:500;
+  padding-left:12px;border-left:1px solid rgba(255,255,255,.14)}
+
+/* ---- centre: quick links + launcher ---- */
+.sb-dock{display:flex;align-items:center;gap:4px;padding:4px;border-radius:14px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.sb-dock-sep{width:1px;height:20px;margin:0 4px;background:rgba(255,255,255,.14)}
+.sb-q{position:relative;display:grid;place-items:center;width:38px;height:36px;padding:0;
+  border-radius:10px;border:0;background:transparent;color:#cfe3f1;text-decoration:none;cursor:pointer;
+  transition:background .15s ease,color .15s ease}
+.sb-q:hover,.sb-q[aria-expanded='true']{background:rgba(255,255,255,.09);color:#fff}
+.sb-q:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(92,195,239,.7)}
+.sb-q[aria-current='page']{background:rgba(46,163,217,.24);color:#fff;box-shadow:inset 0 0 0 1px rgba(92,195,239,.45)}
+.sb-q[aria-current='page']::before{content:"";position:absolute;bottom:-5px;left:50%;width:4px;height:4px;
+  margin-left:-2px;border-radius:50%;background:#5cc3ef}
+/* The name, on hover or keyboard focus — the icon alone is the resting state. */
+.sb-q[data-label]::after{content:attr(data-label);position:absolute;bottom:calc(100% + 10px);left:50%;
+  transform:translateX(-50%);padding:4px 8px;border-radius:7px;font-size:11.5px;font-weight:500;color:#e8f2fa;
+  background:rgba(6,40,64,.94);border:1px solid rgba(255,255,255,.12);
+  opacity:0;pointer-events:none;transition:opacity .12s ease}
+.sb-q[data-label]:hover::after,.sb-q[data-label]:focus-visible::after{opacity:1}
+
+/* The launcher's panel: every app as a grid of tiles. */
+.sb-launch{display:grid;grid-template-columns:repeat(3,92px);gap:4px;padding:2px 3px 4px}
+.sb-launch-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 10px;
+  border-radius:11px;color:#d6e7f3;font-size:11.5px;font-weight:500;text-decoration:none;text-align:center;
+  overflow:hidden;text-overflow:ellipsis;transition:background .12s ease,color .12s ease}
+.sb-launch-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.sb-launch-item:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
+.sb-launch-item[aria-current='page']{background:rgba(46,163,217,.18);color:#fff}
+.sb-launch-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;color:#8fd3f4;
+  background:rgba(46,163,217,.16);border:1px solid rgba(92,195,239,.25)}
+
+/* ---- right: admin tools + account ---- */
+.sb-right{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
 
 /* ---- right: the account menu trigger ---- */
 .sb-account{display:inline-flex;align-items:center;gap:9px;padding:4px 7px 4px 4px;border-radius:99px;
   border:0;background:transparent;color:#fff;font:inherit;font-weight:500;cursor:pointer;
   transition:background .16s ease,color .16s ease}
-.sb-account:hover,.sb-account[aria-expanded='true']{background:rgba(255,255,255,.14);color:#fff}
-.sb-account:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
-/* A white disc with blue initials: the one thing on the bar that is not blue. */
-.sb-avatar{flex:0 0 auto;width:26px;height:26px;border-radius:50%;
+.sb-account:hover,.sb-account[aria-expanded='true']{background:rgba(255,255,255,.09);color:#fff}
+.sb-account:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(92,195,239,.7)}
+.sb-avatar{flex:0 0 auto;width:30px;height:30px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
-  background:#fff;color:#00629f;
-  font-size:11px;font-weight:700;letter-spacing:.02em;
-  box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  background:linear-gradient(135deg,#2ea3d9,#00629f);color:#fff;
+  font-size:11px;font-weight:700;letter-spacing:.02em}
 .sb-user{min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .sb-user strong{color:inherit;font-weight:600}
-@media (max-width:640px){ .sb-user{display:none} .sb-account{padding-right:5px} }
+@media (max-width:1100px){ .sb-user{display:none} .sb-account{padding-right:5px} }
+@media (max-width:760px){
+  .session-bar{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;padding:0 8px}
+  .sb-here{display:none}
+  .sb-dock{justify-self:center;max-width:100%;overflow-x:auto}
+}
 
 /* ---- the shared dark popover (ShellMenu.tsx) ---- */
 .shm{position:relative;display:inline-flex;min-width:0}
-.shm-chev{flex:0 0 auto;color:rgba(255,255,255,.7);transition:transform .16s ease}
-.shm [aria-expanded='true'] .shm-chev{transform:rotate(180deg)}
-.shm-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:120;
+.shm-chev{flex:0 0 auto;color:rgba(255,255,255,.7);transform:rotate(180deg);transition:transform .16s ease}
+.shm [aria-expanded='true'] .shm-chev{transform:none}
+/* The dock is at the bottom, so every panel opens UPWARD from its trigger. */
+.shm-panel{position:absolute;bottom:calc(100% + 12px);left:0;z-index:120;
   min-width:228px;max-width:min(92vw,360px);
   /* A short window must never clip the foot of a panel (Sign out, Stop
      viewing as): the picker made these tall enough to matter. */
-  max-height:calc(100vh - 66px);overflow-y:auto;
-  background:#0a2438;color:#dbe7ef;border:1px solid rgba(148,180,203,.22);border-radius:11px;
+  max-height:calc(100vh - var(--dock-h,56px) - 24px);overflow-y:auto;
+  background:rgba(6,40,64,.86);color:#dbe7ef;border:1px solid rgba(255,255,255,.13);border-radius:14px;
+  -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
   box-shadow:0 18px 44px -14px rgba(0,0,0,.65),0 2px 8px rgba(0,0,0,.25);
   padding:5px;display:flex;flex-direction:column;gap:1px;white-space:normal;text-align:left;
-  opacity:0;visibility:hidden;transform:translateY(-4px);
+  opacity:0;visibility:hidden;transform:translateY(4px);
   transition:opacity .14s ease,transform .16s cubic-bezier(.22,.68,.35,1),visibility 0s linear .16s}
 .shm-end .shm-panel{left:auto;right:0}
+.sb-dock .shm-panel{left:50%;translate:-50% 0}
 .shm.open .shm-panel{opacity:1;visibility:visible;transform:none;transition-delay:0s}
 .shm-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
   padding:8px 10px;border-radius:7px;border:0;background:transparent;
@@ -134,16 +183,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .shm-select:hover{border-color:#2ea3d9}
 .shm-select:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(46,163,217,.55)}
 @media (prefers-reduced-motion:reduce){ .shm-panel,.shm-chev{transition:none} }
-@media (prefers-reduced-motion:no-preference){
-  .session-bar{transition:transform .24s cubic-bezier(.22,.68,.35,1)}
-}
 
 /* ---- "view as", folded into the same bar (no second banner) ----
  * The strip and the avatar turn amber, the label reads "Viewing as", and the
  * Exit pill sits inline. The fixed frame keeps the whole window visibly
  * marked read-only without taking any height. */
-.session-bar.emulating{background:linear-gradient(180deg,#c2410c,#9a3412);border-bottom-color:rgba(60,20,0,.35)}
-.session-bar.emulating::before{background:linear-gradient(90deg,rgba(255,255,255,.65),rgba(255,255,255,.2) 40%,rgba(255,255,255,0) 82%)}
+.session-bar.emulating{background:rgba(154,52,18,.86);border-top-color:rgba(253,186,116,.45)}
 .sb-avatar-emu{background:#fff;color:#b45309;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
 .sb-mode{color:rgba(255,255,255,.78);font-weight:500;margin-right:4px}
 .sb-exit{display:inline-flex;align-items:center;flex:0 0 auto;padding:5px 11px;border-radius:99px;
@@ -157,24 +202,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
  * ("View as" on the blue bar, "Switch" on the amber one). Quieter than Exit —
  * no outline — so while emulating the way OUT still reads as the primary
  * action of the cluster. */
-.sb-viewas{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:5px 8px 5px 10px;
-  border-radius:99px;border:1px solid transparent;background:rgba(255,255,255,.14);color:#fff;
+.sb-viewas{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;height:34px;padding:0 10px 0 12px;
+  border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;
   font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
   transition:background .16s ease,border-color .16s ease}
-.sb-viewas:hover,.sb-viewas[aria-expanded='true']{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.3)}
+.sb-viewas:hover,.sb-viewas[aria-expanded='true']{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.24)}
 .sb-viewas:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
 .sb-viewas:disabled{opacity:.55;cursor:default}
-@media (max-width:560px){ .sb-viewas-label{display:none} .sb-viewas{padding:5px 6px} }
+@media (max-width:1100px){ .sb-viewas-label{display:none} .sb-viewas{padding:6px 8px} }
 
 /* ACTING (2026-09-29) — view-as in WRITE mode. Deliberately a different
    colour from the amber "viewing" state: in this mode the admin's clicks
    really change the emulated user's data, so the chrome must not look like
    the read-only peek it sits next to. See src/lib/auth/viewer.ts. */
-.session-bar.acting{background:linear-gradient(180deg,#9f1239,#881337);
-  border-bottom-color:rgba(60,0,15,.4)}
-.session-bar.acting::before{background:linear-gradient(90deg,rgba(255,255,255,.65),rgba(255,255,255,.2) 40%,rgba(255,255,255,0) 82%)}
-.session-bar.acting .sb-restore{background:#9f1239}
-.session-bar.acting .sb-restore:hover{background:#be123c}
+.session-bar.acting{background:rgba(136,19,55,.88);border-top-color:rgba(253,164,175,.45)}
 .emu-frame-act{box-shadow:inset 0 0 0 2px rgba(190,18,60,.95) !important}
 /* A second line under a menu item, for a control that needs a consequence
    spelled out ("Act as …" / "15 minutes, fully audited"). */
@@ -276,6 +317,49 @@ button:active{transform:translateY(1px)}
 }
 @keyframes modal-in{ from{ opacity:0; transform:translateY(10px) scale(.97) } to{ opacity:1; transform:none } }
 @keyframes modal-bg-in{ from{ opacity:0 } to{ opacity:1 } }
+
+/* ===== Manage users (ManageUsersModal.tsx) =====
+ * The Users directory in a dark-glass modal over any app. The directory reads
+ * --awm-* tokens, which not every app defines (kern has its own palette), so
+ * they are pinned here to the dock's dark values — the modal looks the same in
+ * every app and both themes. Above the dock (70), below the shared .modal-bg
+ * (200) so the directory's own dialogs (New user, delete) open on top of it. */
+.mu-bg{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;
+  padding:24px 24px calc(var(--dock-h,0px) + 24px);background:rgba(2,14,24,.55);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.mu{
+  --awm-blue:#00629f; --awm-blue-lift:#0b76b8; --awm-blue-bright:#2ea3d9;
+  --awm-card:rgba(255,255,255,.04); --awm-field:rgba(255,255,255,.05); --awm-mist:rgba(255,255,255,.08);
+  --awm-ink:#e8f2fa; --awm-slate:#9fb9cc; --awm-line:rgba(255,255,255,.12);
+  --awm-chip-bg:rgba(46,163,217,.18); --awm-chip-fg:#8fd3f4; --awm-link:#8fd3f4;
+  --awm-amber-bg:rgba(194,120,40,.18); --awm-amber-fg:#f3c78f;
+  --awm-focus:0 0 0 3px rgba(46,163,217,.4);
+  display:flex;flex-direction:column;width:min(1120px,100%);max-height:100%;
+  color:var(--awm-ink);background:rgba(6,34,54,.9);border:1px solid rgba(255,255,255,.13);border-radius:18px;
+  -webkit-backdrop-filter:blur(24px) saturate(150%);backdrop-filter:blur(24px) saturate(150%);
+  box-shadow:0 30px 80px -24px rgba(0,0,0,.6);overflow:hidden}
+.mu-head{display:flex;align-items:center;gap:12px;padding:16px 18px 14px 22px;border-bottom:1px solid var(--awm-line)}
+.mu-head h2{margin:0;margin-right:auto;font-size:16px;font-weight:600;color:#fff}
+.mu-link{font-size:12.5px;font-weight:600;color:var(--awm-link);text-decoration:none}
+.mu-link:hover{text-decoration:underline}
+.mu-close{display:grid;place-items:center;width:32px;height:32px;padding:0;border-radius:9px;
+  background:transparent;color:#cfe3f1;border:1px solid transparent}
+.mu-close:hover{background:rgba(255,255,255,.08);color:#fff}
+.mu-close:focus-visible{outline:none;box-shadow:var(--awm-focus)}
+.mu-body{padding:18px 22px 4px;overflow:auto;min-height:0}
+.mu-loading{margin:0;padding:40px;text-align:center;color:var(--awm-slate)}
+/* The directory's row menu is fixed-position; lift it over the modal. */
+.mu .us-menu{z-index:160;background:#0a2a42}
+.mu .us-table th{background:rgba(255,255,255,.05)}
+.mu .us-table tbody tr:hover td{background:rgba(255,255,255,.04)}
+@media (prefers-reduced-motion:no-preference){
+  .mu-bg{animation:sh-fade .18s ease both}
+  .mu{animation:modal-in .22s cubic-bezier(.22,.68,.35,1) both}
+}
+
+@media print{
+  .session-bar,.sb-room,.emu-frame,.mu-bg{display:none !important}
+}
 
 /* ===== Passkeys (settings modal) =====
  * Rendered on the /u/<username> profile page, and reachable from every app, so these use
