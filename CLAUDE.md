@@ -729,14 +729,30 @@ offers pages do not, and without a provider the button does not render.
   stamp — the record's config stays the one source of truth); and
   `/api/offer-signature` re-checks against the record as the server reads it.
   Tier `'never'` under emulation, like email.
-- The PDF is the browser render (`letterToPdf`), which also returns `signAt`:
-  where the acceptance line (`p.ack + table`) landed, in points. A rasterised
-  PDF has no text, so DocuSign anchor tabs cannot work — the sign-here and
-  date tabs are placed by those coordinates (`src/lib/docusign/build.ts`,
+- ROUTING (HR's request, 2026-10-27): the letter's SIGNATORY signs first on
+  the "Warm regards" line, then the CANDIDATE on the acceptance line, then the
+  reporting manager (optional, typed per send) gets a CARBON COPY at routing
+  order 3 — i.e. of the completed documents. Signatory addresses live in
+  `src/lib/offers/signatory-email.ts`, BESIDE the ported `SIGNATORY` map; an
+  empty one means the panel asks. Never put a guessed address there.
+- The PDF is the browser render (`letterToPdf`), which also returns `signAt`
+  (acceptance line, `p.ack + table`) and `signatoryAt` (`.sig-block td`), in
+  points. A rasterised PDF has no text, so DocuSign anchor tabs cannot work —
+  the letter's tabs are placed by those coordinates (`src/lib/docusign/build.ts`,
   tested; `readPlacement` is the server's sanity gate on them).
-- One signer, the candidate; DocuSign emails them the link. A sent envelope
-  writes a `signature-sent` event (Letters filter). Envelope status is not
-  tracked back yet — there is no DocuSign Connect webhook.
+- EXTRA AGREEMENTS (PDF/Word, up to 5) ride in the same envelope as documents
+  2..n. The app cannot place their fields, so with any attached the envelope is
+  created as a DRAFT and DocuSign's sender view opens on its Tagging screen in a
+  new tab; HR places those fields and sends there. DocuSign then returns the
+  browser to `/api/offer-signature/return`, which reads the envelope's REAL
+  status back (never trusts the `event` query param), audits once per envelope,
+  and lands on `/hiring/<id>?signature=…` for a toast.
+- A sent envelope writes a `signature-sent` event (Letters filter) naming the
+  routing and the envelope id. Envelope status is not tracked back yet — there
+  is no DocuSign Connect webhook.
+- Envelopes live in the account of `DOCUSIGN_USER_ID`, the user JWT Grant
+  impersonates — on the DEMO host until Go-Live. HR seeing "their" envelopes
+  means pointing that at an HR (or shared) production user.
 - Auth is JWT Grant (`src/lib/docusign/auth.ts`); `/api/docusign/consent` is
   the one-time consent link and `/api/docusign/callback` proves a token works.
 

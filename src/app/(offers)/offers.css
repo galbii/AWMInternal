@@ -259,6 +259,11 @@ button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
    `.om-collapsed` is the RESTING state now, not an opt-out: the rail shows
    icons, and pointing at it (or tabbing into it) unfolds the labels.
 
+   Keyboard focus holds it open via `:has(:focus-visible)` — NOT
+   `:focus-within` (2026-10-27): clicking a tab leaves focus on that button,
+   and `:focus-within` then pinned the rail open after the pointer left, until
+   the next click elsewhere. Same trap, same fix, as the session bar.
+
    The COLUMN stays 68px whatever happens — only `.om-side-inner` widens, and
    it widens OVER the content. That is the whole point: sweeping the pointer
    past the rail must never reflow the table underneath it. The inner is
@@ -275,34 +280,34 @@ button:focus-visible{outline:none;box-shadow:var(--awm-focus)}
     transition:width .2s cubic-bezier(.22,.68,.35,1),box-shadow .2s ease;
   }
   .om-collapsed .om-side:hover .om-side-inner,
-  .om-collapsed .om-side:focus-within .om-side-inner{
+  .om-collapsed .om-side:has(:focus-visible) .om-side-inner{
     width:244px;border-right:1px solid var(--awm-line);
     /* Sideways, not down: the panel is lifting off the content to its RIGHT. */
     box-shadow:16px 0 36px -18px rgba(2,20,33,.45);
   }
 
   /* Folded contents. Everything below is undone by the hover state above. */
-  .om-collapsed .om-side:not(:hover):not(:focus-within) header.app{
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) header.app{
     grid-template-columns:1fr;justify-items:center;padding:14px 8px 8px;gap:6px}
   /* The labels leave the LAYOUT but stay in the accessibility tree.
      `display:none` would strip the page's only <h1>, and — worse — every
      tab's accessible name, because the count span would then be the only
      content left and each tab would announce as "3". */
-  .om-collapsed .om-side:not(:hover):not(:focus-within) header.app h1,
-  .om-collapsed .om-side:not(:hover):not(:focus-within) .om-tab-text{
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) header.app h1,
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) .om-tab-text{
     position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;
     overflow:hidden;clip-path:inset(50%);white-space:nowrap;
   }
-  .om-collapsed .om-side:not(:hover):not(:focus-within) .tabbar{padding:4px 8px 16px}
-  .om-collapsed .om-side:not(:hover):not(:focus-within) .tab{justify-content:center;padding:11px 0}
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) .tabbar{padding:4px 8px 16px}
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) .tab{justify-content:center;padding:11px 0}
   /* Ringed in the rail's own surface so the badge reads as a badge and not as
      ink spilled on the glyph. */
-  .om-collapsed .om-side:not(:hover):not(:focus-within) .tab-count{
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) .tab-count{
     position:absolute;top:2px;right:6px;margin:0;
     min-width:16px;height:16px;padding:0 4px;font-size:9.5px;line-height:16px;
     box-shadow:0 0 0 2px var(--awm-card);
   }
-  .om-collapsed .om-side:not(:hover):not(:focus-within) .om-nav-sep{margin:8px 10px}
+  .om-collapsed .om-side:not(:hover):not(:has(:focus-visible)) .om-nav-sep{margin:8px 10px}
 }
 
 /* --- the title row above each view's content --- */
@@ -1003,13 +1008,16 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
   .od-side-closed .od-side-inner{
     position:absolute;inset:0 0 0 auto;width:44px;z-index:26;
     transition:width .2s cubic-bezier(.22,.68,.35,1),box-shadow .2s ease}
+  /* :has(:focus-visible), not :focus-within — a clicked filter chip kept the
+     rail open after the pointer left (see the sidebar's note). The note
+     composer's textarea still matches, so typing a note keeps it open. */
   .od-side-closed:hover .od-side-inner,
-  .od-side-closed:focus-within .od-side-inner{
+  .od-side-closed:has(:focus-visible) .od-side-inner{
     width:324px;box-shadow:-16px 0 44px -22px rgba(2,20,33,.5)}
   .od-side-closed:hover .od-activity,
-  .od-side-closed:focus-within .od-activity{display:flex}
+  .od-side-closed:has(:focus-visible) .od-activity{display:flex}
   .od-side-closed:hover .od-rail-tab,
-  .od-side-closed:focus-within .od-rail-tab{display:none}
+  .od-side-closed:has(:focus-visible) .od-rail-tab{display:none}
   /* The panel's entry rise would replay on every sweep of the pointer; the
      width slide is the only motion a peek needs. (3 classes, so it beats the
      `.od-side .od-panel` animation in the MOTION block below.) */
@@ -1507,6 +1515,22 @@ a.mini.row-edit{display:inline-block;text-decoration:none}
 }
 .sle-form textarea:focus{outline:2px solid var(--accent-2);outline-offset:0;border-color:var(--accent)}
 .sle-note{margin:2px 0 0;font-size:11.5px;line-height:1.45}
+
+/* SEND FOR SIGNATURE (SendForSignatureModal) — the same form, grouped into
+   the envelope's routing steps. Taller than the email modal, so the body
+   scrolls inside the window rather than pushing the footer off it. */
+.sfs-form{max-height:min(68vh,640px);overflow-y:auto;padding-right:4px}
+.sfs-step{margin:0;padding:10px 12px 12px;border:1px solid var(--sh-line);border-radius:9px;
+  display:flex;flex-direction:column;gap:8px;min-width:0}
+.sfs-step legend{padding:0 4px;font-size:12.5px;font-weight:600;color:var(--sh-ink)}
+.sfs-n{display:inline-grid;place-items:center;width:18px;height:18px;margin-right:4px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:11px;font-weight:700;vertical-align:1px}
+.sfs-hint{margin:0;font-size:11.5px;line-height:1.45}
+.sfs-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.sfs-files li{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;
+  padding:5px 4px 5px 10px;border-radius:7px;background:var(--sh-soft)}
+.sfs-files li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sfs-add{align-self:flex-start;cursor:pointer}
 
 /* --- the assignments editor in the /offers/[id] rail --- */
 .assign-editor{min-width:300px}

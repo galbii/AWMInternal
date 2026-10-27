@@ -103,6 +103,11 @@ export type LetterPdf = {
    * has no acceptance line.
    */
   signAt: SignaturePlacement | null
+  /**
+   * The same for the signatory's "Warm regards" line — where the INTERNAL
+   * signer signs first (no date column). null when the letter has none.
+   */
+  signatoryAt: SignaturePlacement | null
 }
 
 // S3 688–715
@@ -124,19 +129,22 @@ export async function letterToPdf(
     const fit = await chooseFit(measure)
     apply(fit.step)
 
-    // The acceptance line is the table right after the `.ack` paragraph
-    // (letter.ts): name cell, a spacer, the Date cell. Its top border IS the
-    // rule. Measured in CSS px from the stage, before rasterising.
+    // Two signature lines, both a table cell whose top border IS the rule
+    // (letter.ts): the acceptance line right after the `.ack` paragraph — name
+    // cell, a spacer, the Date cell — and the signatory's line inside
+    // `.sig-block`. Measured in CSS px from the stage, before rasterising.
+    const top = el.getBoundingClientRect()
+    const lineOf = (cell: Element | null | undefined, dateCell?: Element | null) => {
+      if (!cell) return null
+      const r = cell.getBoundingClientRect()
+      const d = dateCell ? dateCell.getBoundingClientRect() : null
+      return { x: r.left - top.left, y: r.top - top.top, dateX: d ? d.left - top.left : undefined }
+    }
     const ackRow = el.querySelector<HTMLTableElement>('p.ack + table')?.rows[0]
-    const sigCss =
-      ackRow && ackRow.cells.length >= 3
-        ? (() => {
-            const top = el.getBoundingClientRect()
-            const name = ackRow.cells[0].getBoundingClientRect()
-            const date = ackRow.cells[2].getBoundingClientRect()
-            return { x: name.left - top.left, y: name.top - top.top, dateX: date.left - top.left }
-          })()
-        : null
+    const lines = {
+      candidate: ackRow && ackRow.cells.length >= 3 ? lineOf(ackRow.cells[0], ackRow.cells[2]) : null,
+      signatory: lineOf(el.querySelector('.sig-block td')),
+    }
 
     const html2canvas = (await import('html2canvas')).default
     const canvas = await html2canvas(el, {
@@ -198,8 +206,10 @@ export async function letterToPdf(
 
     // CSS px on the stage -> canvas px, so the line can be found in a slice.
     const cssToCanvas = cw / fit.step.widthPx
-    const sigY = sigCss ? sigCss.y * cssToCanvas : -1
-    let signAt: SignaturePlacement | null = null
+    const placed: { candidate: SignaturePlacement | null; signatory: SignaturePlacement | null } = {
+      candidate: null,
+      signatory: null,
+    }
 
     let y = 0,
       page = 0
@@ -226,12 +236,16 @@ export async function letterToPdf(
       doc.addImage(img, 'JPEG', mL, mT, contentW, sh / pxPerPt)
       if (wm && wm.on) drawWatermark(doc, pageW, pageH, wm.text, makeGState)
       drawLetterFooter(doc, pageW, pageH)
-      if (sigCss && sigY >= y && sigY < y + sh) {
-        signAt = {
-          page: page + 1,
-          x: mL + (sigCss.x * cssToCanvas) / pxPerPt,
-          y: mT + (sigY - y) / pxPerPt,
-          dateX: mL + (sigCss.dateX * cssToCanvas) / pxPerPt,
+      for (const key of ['candidate', 'signatory'] as const) {
+        const line = lines[key]
+        const lineY = line ? line.y * cssToCanvas : -1
+        if (line && lineY >= y && lineY < y + sh) {
+          placed[key] = {
+            page: page + 1,
+            x: mL + (line.x * cssToCanvas) / pxPerPt,
+            y: mT + (lineY - y) / pxPerPt,
+            ...(line.dateX === undefined ? {} : { dateX: mL + (line.dateX * cssToCanvas) / pxPerPt }),
+          }
         }
       }
       y += sh
@@ -243,7 +257,8 @@ export async function letterToPdf(
       pages: Math.max(1, page),
       typePt: fit.step.typePt,
       atFloor: fit.atFloor,
-      signAt,
+      signAt: placed.candidate,
+      signatoryAt: placed.signatory,
     }
   })
 }

@@ -62,7 +62,7 @@ export const APPS: AppDef[] = [
   // own people from the app's Users view, and neither is role-gated.
   {
     id: 'hiring',
-    name: 'New Hire Requests',
+    name: 'New Hires (HR Only)',
     short: 'Hiring',
     description:
       'Raise and track new-hire requests, preview the offer, and push it to HR when it is ready.',
