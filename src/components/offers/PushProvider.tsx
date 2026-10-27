@@ -42,6 +42,11 @@ export interface PushApi {
   canReturn: boolean
   /** This viewer may produce a final, un-watermarked letter AT ALL. */
   mayIssueFinal: boolean
+  /**
+   * The manual Watermark tick (letter action bar, bulk selection bar) is
+   * offered here: an issuer, on a door that composes `watermarkToggle`.
+   */
+  canToggleWatermark: boolean
   byOffer: Record<string, PushState>
   isPushed(id: string): boolean
   /**
@@ -63,6 +68,7 @@ const INERT: PushApi = {
   canPush: false,
   canReturn: false,
   mayIssueFinal: false,
+  canToggleWatermark: false,
   byOffer: {},
   isPushed: () => false,
   isOfficial: () => false,
@@ -88,13 +94,20 @@ interface Loaded {
  * to HR (it is the hiring manager's action). It can only take the button
  * away — the server's `canPush` still has to agree — and it is a UX choice,
  * not a permission: /api/offer-push is unchanged.
+ *
+ * `watermarkToggle` is the same kind of switch for the manual Watermark tick
+ * (2026-10-27): HR's /offers does NOT compose it, so nobody there can take a
+ * stamp off a letter by hand — the stamp is the record's config plus the
+ * SAMPLE rule, full stop. Only /hiring passes it.
  */
 export function PushProvider({
   children,
   allowPush = false,
+  watermarkToggle = false,
 }: {
   children: React.ReactNode
   allowPush?: boolean
+  watermarkToggle?: boolean
 }) {
   const viewer = useViewer()
   // Seeded from membership so the first paint already stamps correctly; the
@@ -170,13 +183,14 @@ export function PushProvider({
     return {
       ready,
       ...state,
+      canToggleWatermark: watermarkToggle && state.mayIssueFinal,
       isPushed,
       isOfficial: (id: string) => letterIsOfficial(isPushed(id), state.mayIssueFinal),
       whyStamped: (id: string) => stampReason(isPushed(id), state.mayIssueFinal),
       push,
       refresh,
     }
-  }, [ready, state, push, refresh])
+  }, [ready, state, watermarkToggle, push, refresh])
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

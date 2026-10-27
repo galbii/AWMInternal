@@ -13,7 +13,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 
-export const PATHNAME_HEADER = 'x-awm-pathname'
+import { PATHNAME_HEADER } from '@/lib/apps/pathname-header'
 
 export function middleware(request: NextRequest): NextResponse {
   const headers = new Headers(request.headers)

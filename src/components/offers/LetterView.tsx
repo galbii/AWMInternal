@@ -707,15 +707,19 @@ export default function LetterView({
             would be lying if it looked switchable: it is pinned on and says
             why instead (src/lib/offers/official.ts). A viewer who may never
             issue (a hiring manager) gets no control at all, only the notice;
-            every view and saved copy still carries the stamp. */}
-        {!push.mayIssueFinal ? (
-          <span
-            className="la-check la-stamp"
-            id="letterWmFixed"
-            title={STAMP_TEXT['may-not-issue']}
-          >
-            SAMPLE watermark
-          </span>
+            every view and saved copy still carries the stamp. On a door that
+            does not offer the tick (HR's /offers) the notice shows only while
+            the letter IS stamped, and nobody can take the stamp off by hand. */}
+        {!push.canToggleWatermark ? (
+          stamped || (L && L.watermark && L.watermark.on) ? (
+            <span
+              className="la-check la-stamp"
+              id="letterWmFixed"
+              title={stamped ? STAMP_TEXT[stamped] : 'This letter carries a SAMPLE watermark.'}
+            >
+              SAMPLE watermark
+            </span>
+          ) : null
         ) : (
           <label
             className={stamped ? 'la-check la-check-locked' : 'la-check'}

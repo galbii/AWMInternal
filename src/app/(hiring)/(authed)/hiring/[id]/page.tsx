@@ -38,7 +38,7 @@ export default async function HiringDetailPage({ params }: { params: Promise<{ i
 
   return (
     <OffersProvider standalone initialRecords={[record]} initialCurrentId={record.id}>
-      <PushProvider allowPush>
+      <PushProvider allowPush watermarkToggle>
         <SignatureProvider configured={Boolean(env.DOCUSIGN)}>
           <OfferDetail
             recordId={record.id}

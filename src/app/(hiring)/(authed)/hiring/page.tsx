@@ -11,7 +11,7 @@ export default function HiringPage() {
   return (
     <OffersProvider>
       <AssignmentsProvider>
-        <PushProvider allowPush>
+        <PushProvider allowPush watermarkToggle>
           <SignatureProvider configured={Boolean(env.DOCUSIGN)}>
             <OfferManager />
           </SignatureProvider>

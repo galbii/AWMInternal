@@ -16,7 +16,7 @@ import { redirect } from 'next/navigation'
 
 import { canUseApp, getApp } from '@/lib/apps/registry'
 import { getViewer, type Viewer } from '@/lib/auth/viewer'
-import { PATHNAME_HEADER } from '@/middleware'
+import { PATHNAME_HEADER } from '@/lib/apps/pathname-header'
 
 /**
  * The path the browser actually asked for, stamped by middleware.ts.
