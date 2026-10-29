@@ -119,7 +119,7 @@ describe('buildEnvelope', () => {
 })
 
 describe('buildSenderView', () => {
-  test('opens on the tagging screen and sends from there', () => {
+  test('opens on the prepare screen (the only startingScreen DocuSign accepts) and sends from there', () => {
     const v = buildSenderView('https://app.example.com/api/offer-signature/return?offer=r1') as {
       returnUrl: string
       viewAccess: string
@@ -127,7 +127,7 @@ describe('buildSenderView', () => {
     }
     expect(v.returnUrl).toBe('https://app.example.com/api/offer-signature/return?offer=r1')
     expect(v.viewAccess).toBe('envelope')
-    expect(v.settings.startingScreen).toBe('Tagging')
+    expect(v.settings.startingScreen).toBe('prepare')
     expect(v.settings.sendButtonAction).toBe('send')
   })
 })

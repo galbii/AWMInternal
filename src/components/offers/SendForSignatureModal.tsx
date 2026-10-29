@@ -22,7 +22,7 @@
 // stripping the stamp: the record's config is the one source of truth for the
 // watermark, and no path may override it. /api/offer-signature re-checks.
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import Modal from '@/components/shell/Modal'
 import { usePush } from '@/components/offers/PushProvider'
@@ -78,6 +78,15 @@ export default function SendForSignatureModal({
   const [extras, setExtras] = useState<File[]>([])
   const [busy, setBusy] = useState<null | 'pdf' | 'send'>(null)
   const [error, setError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  // The error sits at the top of a scrolled body while the button is at the
+  // foot, so a failed send looked like nothing happened. Bring it into view.
+  useEffect(() => {
+    if (!error) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    errorRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' })
+  }, [error])
 
   const push = usePush()
   const official = rec ? push.isOfficial(rec.id) : false
@@ -249,7 +258,11 @@ export default function SendForSignatureModal({
       }
     >
       <div className="usm-form sle-form sfs-form">
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div ref={errorRef} className="login-error" role="alert">
+            {error}
+          </div>
+        )}
         {blocker ? (
           <p className="sle-stamp" role="status">
             <strong>Not a final letter.</strong> {blocker}

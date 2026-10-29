@@ -742,7 +742,8 @@ offers pages do not, and without a provider the button does not render.
   tested; `readPlacement` is the server's sanity gate on them).
 - EXTRA AGREEMENTS (PDF/Word, up to 5) ride in the same envelope as documents
   2..n. The app cannot place their fields, so with any attached the envelope is
-  created as a DRAFT and DocuSign's sender view opens on its Tagging screen in a
+  created as a DRAFT and DocuSign's sender view opens on its Prepare screen (the
+  API refuses `startingScreen: 'Tagging'`; HR clicks Next to place fields) in a
   new tab; HR places those fields and sends there. DocuSign then returns the
   browser to `/api/offer-signature/return`, which reads the envelope's REAL
   status back (never trusts the `event` query param), audits once per envelope,

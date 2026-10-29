@@ -153,15 +153,17 @@ export function buildEnvelope(input: EnvelopeInput): Record<string, unknown> {
 }
 
 /**
- * The sender-view request: DocuSign's tagging screen, so HR lands where the
+ * The sender-view request: DocuSign's Prepare screen, one Next from where the
  * extra documents' fields are placed, and its Send button sends.
+ * 'prepare' is the only startingScreen the API accepts: 'Tagging' (any case)
+ * is refused with "Invalid startingScreen value." (verified 2026-10-29).
  */
 export function buildSenderView(returnUrl: string): Record<string, unknown> {
   return {
     returnUrl,
     viewAccess: 'envelope',
     settings: {
-      startingScreen: 'Tagging',
+      startingScreen: 'prepare',
       sendButtonAction: 'send',
       showBackButton: 'false',
       showHeaderActions: 'false',
